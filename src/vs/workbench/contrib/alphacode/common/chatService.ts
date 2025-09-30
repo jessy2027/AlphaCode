@@ -1,0 +1,98 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { Event } from '../../../../base/common/event.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+
+export const IAlphaCodeChatService = createDecorator<IAlphaCodeChatService>('alphaCodeChatService');
+
+export interface IChatMessage {
+	id: string;
+	role: 'user' | 'assistant' | 'system';
+	content: string;
+	timestamp: number;
+	tokens?: number;
+}
+
+export interface IChatSession {
+	id: string;
+	title: string;
+	messages: IChatMessage[];
+	created: number;
+	updated: number;
+}
+
+export interface IChatContext {
+	activeFile?: string;
+	selectedCode?: string;
+	openFiles?: string[];
+	workspaceFiles?: string[];
+	symbols?: string[];
+}
+
+export interface IStreamChunk {
+	content: string;
+	done: boolean;
+	messageId?: string;
+}
+
+export interface IAlphaCodeChatService {
+	readonly _serviceBrand: undefined;
+
+	/**
+	 * Event fired when a message is added to the current session
+	 */
+	readonly onDidAddMessage: Event<IChatMessage>;
+
+	/**
+	 * Event fired when a new session is created
+	 */
+	readonly onDidCreateSession: Event<IChatSession>;
+
+	/**
+	 * Event fired when streaming chunks arrive
+	 */
+	readonly onDidStreamChunk: Event<IStreamChunk>;
+
+	/**
+	 * Get the current chat session
+	 */
+	getCurrentSession(): IChatSession | undefined;
+
+	/**
+	 * Create a new chat session
+	 */
+	createSession(title?: string): IChatSession;
+
+	/**
+	 * Switch to a different session
+	 */
+	switchSession(sessionId: string): void;
+
+	/**
+	 * Send a message in the current session
+	 */
+	sendMessage(content: string, context?: IChatContext): Promise<void>;
+
+	/**
+	 * Get all chat sessions
+	 */
+	getSessions(): IChatSession[];
+
+	/**
+	 * Delete a session
+	 */
+	deleteSession(sessionId: string): void;
+
+	/**
+	 * Clear the current session
+	 */
+	clearCurrentSession(): void;
+
+	/**
+	 * Export session to JSON
+	 */
+	exportSession(sessionId: string): string;
+}

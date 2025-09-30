@@ -288,6 +288,38 @@ export const tocData: ITOCEntry<string> = {
 			]
 		},
 		{
+			id: 'alphacode',
+			label: localize('alphacode', "AlphaCode"),
+			settings: ['alphacode.*'],
+			children: [
+				{
+					id: 'alphacode/ai',
+					label: localize('ai', "AI Provider"),
+					settings: ['alphacode.ai.*']
+				},
+				{
+					id: 'alphacode/chat',
+					label: localize('alphacode.chat', "Chat"),
+					settings: ['alphacode.chat.*']
+				},
+				{
+					id: 'alphacode/context',
+					label: localize('context', "Context"),
+					settings: ['alphacode.context.*']
+				},
+				{
+					id: 'alphacode/security',
+					label: localize('security', "Security"),
+					settings: ['alphacode.security.*']
+				},
+				{
+					id: 'alphacode/pairProgramming',
+					label: localize('pairProgramming', "Pair Programming"),
+					settings: ['alphacode.pairProgramming.*']
+				}
+			]
+		},
+		{
 			id: 'security',
 			label: localize('security', "Security"),
 			settings: ['security.*'],
