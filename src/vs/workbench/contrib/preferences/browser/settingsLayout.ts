@@ -303,6 +303,11 @@ export const tocData: ITOCEntry<string> = {
 					settings: ['alphacode.chat.*']
 				},
 				{
+					id: 'alphacode/omegaCompletion',
+					label: localize('alphacode.omegaCompletion', "Omega Completion"),
+					settings: ['alphacode.omegaCompletion.*']
+				},
+				{
 					id: 'alphacode/context',
 					label: localize('context', "Context"),
 					settings: ['alphacode.context.*']

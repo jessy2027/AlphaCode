@@ -122,13 +122,61 @@ const alphaCodeConfiguration: IConfigurationNode = {
 		"alphacode.security.maskSecrets": {
 			type: "boolean",
 			default: true,
-			description: localize(
-				"alphacode.security.maskSecrets",
-				"Automatically mask secrets in prompts sent to AI",
-			),
-			scope: ConfigurationScope.APPLICATION,
+			description: localize('alphacode.security.maskSecrets', "Automatically mask secrets in prompts sent to AI"),
+			scope: ConfigurationScope.APPLICATION
 		},
-	},
+		'alphacode.omegaCompletion.apiKey': {
+			type: 'string',
+			default: '',
+			description: localize('alphacode.omegaCompletion.apiKey', "API key used to authenticate with the Omega completion service."),
+			scope: ConfigurationScope.APPLICATION,
+			restricted: true
+		},
+		'alphacode.omegaCompletion.endpoint': {
+			type: 'string',
+			default: '',
+			description: localize('alphacode.omegaCompletion.endpoint', "Endpoint URL used to request Omega inline completions."),
+			scope: ConfigurationScope.APPLICATION
+		},
+		'alphacode.omegaCompletion.model': {
+			type: 'string',
+			default: '',
+			description: localize('alphacode.omegaCompletion.model', "Identifier of the language model used for Omega completion."),
+			scope: ConfigurationScope.APPLICATION
+		},
+		'alphacode.omegaCompletion.maxOutputTokens': {
+			type: 'number',
+			default: 128,
+			minimum: 1,
+			maximum: 2048,
+			description: localize('alphacode.omegaCompletion.maxOutputTokens', "Maximum number of tokens returned per Omega completion."),
+			scope: ConfigurationScope.APPLICATION
+		},
+		'alphacode.omegaCompletion.temperature': {
+			type: 'number',
+			default: 0.2,
+			minimum: 0,
+			maximum: 2,
+			description: localize('alphacode.omegaCompletion.temperature', "Sampling temperature passed to the Omega completion service."),
+			scope: ConfigurationScope.APPLICATION
+		},
+		'alphacode.omegaCompletion.topP': {
+			type: 'number',
+			default: 1,
+			minimum: 0,
+			maximum: 1,
+			description: localize('alphacode.omegaCompletion.topP', "Nucleus sampling value passed to the Omega completion service."),
+			scope: ConfigurationScope.APPLICATION
+		},
+		'alphacode.omegaCompletion.requestTimeout': {
+			type: 'number',
+			default: 5000,
+			minimum: 100,
+			maximum: 60000,
+			description: localize('alphacode.omegaCompletion.requestTimeout', "Timeout in milliseconds for Omega completion requests."),
+			scope: ConfigurationScope.APPLICATION
+		}
+	}
 };
 
 configurationRegistry.registerConfiguration(alphaCodeConfiguration);
