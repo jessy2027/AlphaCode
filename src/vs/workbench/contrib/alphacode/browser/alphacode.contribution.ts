@@ -30,7 +30,7 @@ import './alphacodeActions.js';
 
 const alphaCodeIcon = registerIcon('alphacode-view-icon', Codicon.hubot, localize('alphaCodeIcon', 'AlphaCode icon'));
 
-// Register View Container
+// Register View Container - Place AlphaCode in AuxiliaryBar (where Copilot was)
 const viewContainerRegistry = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry);
 const viewContainer = viewContainerRegistry.registerViewContainer({
 	id: VIEWLET_ID,
@@ -38,7 +38,7 @@ const viewContainer = viewContainerRegistry.registerViewContainer({
 	ctorDescriptor: new SyncDescriptor(AlphaCodeViewlet),
 	icon: alphaCodeIcon,
 	order: 0,
-}, ViewContainerLocation.Sidebar);
+}, ViewContainerLocation.AuxiliaryBar, { isDefault: true });
 
 const viewsRegistry = Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry);
 const vibeCodingViewDescriptor: IViewDescriptor = {

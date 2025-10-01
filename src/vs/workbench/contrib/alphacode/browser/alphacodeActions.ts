@@ -12,6 +12,10 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { IAlphaCodeContextService } from '../common/contextService.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { VIBE_CODING_VIEW_ID } from '../common/alphacode.js';
+import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
+import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 
 // Generate Code Command
 class GenerateCodeAction extends Action2 {
@@ -268,7 +272,32 @@ class GenerateDocumentationAction extends Action2 {
 	}
 }
 
+// Open AlphaCode View Command (replaces Copilot's Ctrl+Alt+I)
+class OpenAlphaCodeAction extends Action2 {
+	constructor() {
+		super({
+			id: 'alphacode.openView',
+			title: localize2('alphacode.openView', "Open AlphaCode"),
+			category: Categories.View,
+			f1: true,
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyI,
+				mac: {
+					primary: KeyMod.CtrlCmd | KeyMod.WinCtrl | KeyCode.KeyI
+				}
+			}
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const viewsService = accessor.get(IViewsService);
+		await viewsService.openView(VIBE_CODING_VIEW_ID, true);
+	}
+}
+
 // Register all actions
+registerAction2(OpenAlphaCodeAction);
 registerAction2(GenerateCodeAction);
 registerAction2(RefactorCodeAction);
 registerAction2(ExplainCodeAction);
