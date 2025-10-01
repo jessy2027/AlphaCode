@@ -12,6 +12,9 @@ import { IAlphaCodeContextService, ICodeSymbol, IFileContext, IWorkspaceContext 
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 
+const MAX_CONTEXT_FILE_SIZE = 256 * 1024;
+const MAX_CONTEXT_CONTENT_LENGTH = 20000;
+
 export class AlphaCodeContextService extends Disposable implements IAlphaCodeContextService {
 	declare readonly _serviceBrand: undefined;
 
@@ -34,7 +37,10 @@ export class AlphaCodeContextService extends Disposable implements IAlphaCodeCon
 			return;
 		}
 
-		const maxFiles = this.configurationService.getValue<number>('alphacode.context.maxFiles') || 100;
+		let maxFiles = this.configurationService.getValue<number>('alphacode.context.maxFiles') || 100;
+		if (maxFiles < 0) {
+			maxFiles = 0;
+		}
 		const workspace = this.workspaceContextService.getWorkspace();
 
 		if (!workspace || workspace.folders.length === 0) {
@@ -56,7 +62,7 @@ export class AlphaCodeContextService extends Disposable implements IAlphaCodeCon
 	}
 
 	private async indexFolder(uri: URI, maxFiles: number): Promise<void> {
-		if (this.workspaceFiles.length >= maxFiles) {
+		if (maxFiles > 0 && this.workspaceFiles.length >= maxFiles) {
 			return;
 		}
 
@@ -65,7 +71,7 @@ export class AlphaCodeContextService extends Disposable implements IAlphaCodeCon
 
 			if (stat.children) {
 				for (const child of stat.children) {
-					if (this.workspaceFiles.length >= maxFiles) {
+					if (maxFiles > 0 && this.workspaceFiles.length >= maxFiles) {
 						break;
 					}
 
@@ -104,7 +110,7 @@ export class AlphaCodeContextService extends Disposable implements IAlphaCodeCon
 
 	private async createFileContext(uri: URI): Promise<IFileContext | undefined> {
 		try {
-			const stat = await this.fileService.resolve(uri);
+			const stat = await this.fileService.resolve(uri, { resolveMetadata: true });
 			const path = uri.path;
 			const ext = path.split('.').pop()?.toLowerCase();
 			const language = this.getLanguageFromExtension(ext);
@@ -116,11 +122,23 @@ export class AlphaCodeContextService extends Disposable implements IAlphaCodeCon
 				symbols = await this.extractSymbolsFromModel(model);
 			}
 
+			let content: string | undefined;
+			if (model) {
+				content = model.getValue();
+			} else if ((stat.size ?? 0) <= MAX_CONTEXT_FILE_SIZE) {
+				const fileContent = await this.fileService.readFile(uri);
+				content = fileContent.value.toString();
+			}
+			if (content && content.length > MAX_CONTEXT_CONTENT_LENGTH) {
+				content = `${content.slice(0, MAX_CONTEXT_CONTENT_LENGTH)}\n…`;
+			}
+
 			return {
 				uri,
 				path,
 				language,
 				size: stat.size ?? 0,
+				content,
 				symbols
 			};
 		} catch (error) {

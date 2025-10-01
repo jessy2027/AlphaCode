@@ -65,9 +65,9 @@ const alphaCodeConfiguration: IConfigurationNode = {
 		'alphacode.context.maxFiles': {
 			type: 'number',
 			default: 100,
-			minimum: 10,
+			minimum: 0,
 			maximum: 1000,
-			description: localize('alphacode.context.maxFiles', "Maximum number of files to index"),
+			description: localize('alphacode.context.maxFiles', "Maximum number of files to index (set to 0 for no limit)"),
 			scope: ConfigurationScope.RESOURCE
 		},
 		'alphacode.chat.streamResponses': {

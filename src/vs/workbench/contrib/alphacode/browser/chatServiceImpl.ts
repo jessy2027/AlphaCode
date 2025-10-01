@@ -10,10 +10,15 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IAlphaCodeAIService } from '../common/aiService.js';
 import { IAIMessage } from '../common/aiProvider.js';
 import { IAlphaCodeChatService, IChatContext, IChatMessage, IChatSession, IStreamChunk } from '../common/chatService.js';
+import { IAlphaCodeContextService, IFileContext } from '../common/contextService.js';
 import { IAlphaCodeSecurityService } from '../common/securityService.js';
 
 const STORAGE_KEY_SESSIONS = 'alphacode.chat.sessions';
 const STORAGE_KEY_CURRENT_SESSION = 'alphacode.chat.currentSession';
+const MAX_WORKSPACE_FILE_REFERENCES = 20;
+const MAX_WORKSPACE_SYMBOLS = 100;
+const MAX_WORKSPACE_SNIPPETS = 6;
+const MAX_SNIPPET_LENGTH = 2000;
 
 export class AlphaCodeChatService extends Disposable implements IAlphaCodeChatService {
 	declare readonly _serviceBrand: undefined;
@@ -34,6 +39,7 @@ export class AlphaCodeChatService extends Disposable implements IAlphaCodeChatSe
 		@IAlphaCodeAIService private readonly aiService: IAlphaCodeAIService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IAlphaCodeSecurityService private readonly securityService: IAlphaCodeSecurityService,
+		@IAlphaCodeContextService private readonly contextService: IAlphaCodeContextService,
 	) {
 		super();
 		this.loadSessions();
@@ -121,7 +127,26 @@ export class AlphaCodeChatService extends Disposable implements IAlphaCodeChatSe
 		this.saveSessions();
 
 		// Build context-aware messages
-		const aiMessages: IAIMessage[] = this.buildAIMessages(session, context);
+		let enrichedContext = context;
+		const workspaceContext = await this.contextService.getWorkspaceContext();
+		const relevantFiles = await this.getRelevantFiles(content, workspaceContext.files);
+		const workspaceFiles = relevantFiles.map(file => file.path);
+		const workspaceSnippets = relevantFiles.slice(0, MAX_WORKSPACE_SNIPPETS).map(file => this.createSnippetForFile(file));
+		const symbolEntries = workspaceContext.symbols.slice(0, MAX_WORKSPACE_SYMBOLS).map(symbol => `${symbol.kind}: ${symbol.name} (${symbol.location.uri.path})`);
+		if (!enrichedContext || enrichedContext.workspaceFiles === undefined || enrichedContext.symbols === undefined || enrichedContext.workspaceSnippets === undefined) {
+			enrichedContext = {
+				...context,
+				workspaceFiles,
+				symbols: symbolEntries,
+				workspaceSnippets: workspaceSnippets.filter(Boolean) as string[]
+			};
+		} else {
+			enrichedContext.workspaceFiles = enrichedContext.workspaceFiles ?? workspaceFiles;
+			enrichedContext.symbols = enrichedContext.symbols ?? symbolEntries;
+			enrichedContext.workspaceSnippets = enrichedContext.workspaceSnippets ?? workspaceSnippets.filter(Boolean) as string[];
+		}
+
+		const aiMessages: IAIMessage[] = this.buildAIMessages(session, enrichedContext);
 
 		try {
 			// Create a message ID for streaming
@@ -185,6 +210,15 @@ export class AlphaCodeChatService extends Disposable implements IAlphaCodeChatSe
 			if (context.openFiles && context.openFiles.length > 0) {
 				systemContent += `\nOpen files: ${context.openFiles.join(', ')}`;
 			}
+			if (context.workspaceFiles && context.workspaceFiles.length > 0) {
+				systemContent += `\nRelevant workspace files:\n${context.workspaceFiles.join('\n')}`;
+			}
+			if (context.symbols && context.symbols.length > 0) {
+				systemContent += `\nWorkspace symbols:\n${context.symbols.join('\n')}`;
+			}
+			if (context.workspaceSnippets && context.workspaceSnippets.length > 0) {
+				systemContent += `\nWorkspace snippets:\n${context.workspaceSnippets.join('\n\n')}`;
+			}
 		}
 
 		messages.push({
@@ -204,6 +238,27 @@ export class AlphaCodeChatService extends Disposable implements IAlphaCodeChatSe
 		}
 
 		return messages;
+	}
+
+	private async getRelevantFiles(query: string, files: IFileContext[]): Promise<IFileContext[]> {
+		if (!query.trim()) {
+			return files.slice(0, MAX_WORKSPACE_FILE_REFERENCES);
+		}
+		const relevant = await this.contextService.getRelevantContext(query, MAX_WORKSPACE_FILE_REFERENCES);
+		if (relevant.length > 0) {
+			return relevant;
+		}
+		return files.slice(0, MAX_WORKSPACE_FILE_REFERENCES);
+	}
+
+	private createSnippetForFile(file: IFileContext): string | undefined {
+		if (!file.content) {
+			return undefined;
+		}
+		const trimmed = file.content.length > MAX_SNIPPET_LENGTH
+			? `${file.content.slice(0, MAX_SNIPPET_LENGTH)}\n…`
+			: file.content;
+		return `File: ${file.path}\n${trimmed}`;
 	}
 
 	getSessions(): IChatSession[] {

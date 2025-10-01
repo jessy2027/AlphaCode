@@ -30,6 +30,7 @@ export interface IChatContext {
 	openFiles?: string[];
 	workspaceFiles?: string[];
 	symbols?: string[];
+	workspaceSnippets?: string[];
 }
 
 export interface IStreamChunk {
