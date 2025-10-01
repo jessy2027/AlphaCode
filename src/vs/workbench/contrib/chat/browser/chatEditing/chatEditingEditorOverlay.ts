@@ -113,7 +113,7 @@ class ChatEditorOverlayWidget extends Disposable {
 		}));
 
 		this._toolbarNode = document.createElement('div');
-		this._toolbarNode.classList.add('chat-editor-overlay-toolbar');
+		this._toolbarNode.classList.add('chat-editor-overlay-toolbar', 'chat-execute-toolbar');
 
 	}
 

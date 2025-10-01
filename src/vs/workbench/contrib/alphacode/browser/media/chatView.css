@@ -102,11 +102,13 @@
 }
 
 .alphacode-chat-input-container {
-	padding: 12px;
+	padding: 16px;
 	border-top: 1px solid var(--vscode-panel-border);
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 12px;
+	background: var(--vscode-editorWidget-background);
+	box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .alphacode-chat-context-info {
@@ -119,31 +121,66 @@
 
 .alphacode-chat-input-wrapper {
 	display: flex;
-	gap: 8px;
+	gap: 12px;
 	align-items: flex-end;
+	flex-wrap: wrap;
 }
 
 .alphacode-chat-input {
-	flex: 1;
+	flex: 1 1 0;
+	min-width: 0;
+	width: 100%;
 	min-height: 80px;
 	max-height: 200px;
-	padding: 8px;
+	padding: 10px 12px;
 	border: 1px solid var(--vscode-input-border);
 	background: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
-	border-radius: 4px;
+	border-radius: 8px;
 	resize: vertical;
-	font-family: var(--vscode-font-family); /* stylelint-disable-line vscode-known-variables */
+	font-family: var(--vscode-font-family);
 	font-size: 13px;
-	line-height: 1.5;
+	line-height: 1.6;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .alphacode-chat-input:focus {
-	outline: 1px solid var(--vscode-focusBorder);
+	outline: none;
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder), 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 .alphacode-chat-send-button {
-	min-width: 80px;
+	min-width: 96px;
+	padding: 10px 18px;
+	border-radius: 8px;
+	border: 1px solid transparent;
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	font-weight: 600;
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	gap: 6px;
+	transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.alphacode-chat-send-button:hover {
+	background: var(--vscode-button-hoverBackground);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+	transform: translateY(-1px);
+}
+
+.alphacode-chat-send-button:active {
+	transform: translateY(0);
+	box-shadow: none;
+}
+
+.alphacode-chat-send-button:disabled {
+	opacity: 0.6;
+	cursor: default;
+	box-shadow: none;
+	transform: none;
 }
 
 .alphacode-chat-toolbar {

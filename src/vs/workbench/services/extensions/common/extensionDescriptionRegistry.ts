@@ -106,6 +106,9 @@ export class ExtensionDescriptionRegistry extends Disposable implements IReadOnl
 		this._extensionDescriptions = removeExtensions(this._extensionDescriptions, toRemove);
 
 		// Then, handle the extensions to add
+		// First, remove any existing extensions with the same identifier to prevent duplicates
+		const toAddIdentifiers = toAdd.map(ext => ext.identifier);
+		this._extensionDescriptions = removeExtensions(this._extensionDescriptions, toAddIdentifiers);
 		this._extensionDescriptions = this._extensionDescriptions.concat(toAdd);
 
 		// Immediately remove looping extensions!
