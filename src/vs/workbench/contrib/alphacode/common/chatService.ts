@@ -3,17 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../../base/common/event.js';
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { Event } from "../../../../base/common/event.js";
+import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
 
-export const IAlphaCodeChatService = createDecorator<IAlphaCodeChatService>('alphaCodeChatService');
+export const IAlphaCodeChatService = createDecorator<IAlphaCodeChatService>(
+	"alphaCodeChatService",
+);
 
 export interface IChatMessage {
 	id: string;
-	role: 'user' | 'assistant' | 'system';
+	role: "user" | "assistant" | "system" | "tool";
 	content: string;
 	timestamp: number;
 	tokens?: number;
+	toolCalls?: IToolCall[];
+	toolCallId?: string;
 }
 
 export interface IChatSession {
@@ -37,6 +41,36 @@ export interface IStreamChunk {
 	content: string;
 	done: boolean;
 	messageId?: string;
+}
+
+export interface IToolCall {
+	id: string;
+	name: string;
+	parameters: any;
+}
+
+export interface IToolResult {
+	toolCallId: string;
+	result: string;
+	error?: string;
+}
+
+export interface IChatTool {
+	name: string;
+	description: string;
+	parameters: {
+		type: "object";
+		properties: Record<
+			string,
+			{
+				type: string;
+				description: string;
+				required?: boolean;
+			}
+		>;
+		required?: string[];
+	};
+	execute(parameters: any): Promise<string>;
 }
 
 export interface IAlphaCodeChatService {
@@ -96,4 +130,14 @@ export interface IAlphaCodeChatService {
 	 * Export session to JSON
 	 */
 	exportSession(sessionId: string): string;
+
+	/**
+	 * Get available tools
+	 */
+	getAvailableTools(): IChatTool[];
+
+	/**
+	 * Execute a tool call
+	 */
+	executeToolCall(toolCall: IToolCall): Promise<IToolResult>;
 }

@@ -24,7 +24,23 @@ AlphaCodeIDE est un IDE desktop basé sur VS Code avec des agents IA intégrés 
 - **Explain**: Explication de code en langage clair
 - **Commit Messages**: Génération de messages de commit conventionnels
 
-### 4. Indexation Workspace
+### 4. 🆕 Système d'Outils Agent (Tools)
+- **Actions autonomes**: L'IA peut maintenant effectuer des actions concrètes
+- **7 outils intégrés**: Lecture, écriture, édition, recherche de fichiers
+- **Exécution automatique**: Les outils sont appelés et exécutés automatiquement
+- **Format texte**: Le LLM appelle les outils via du texte structuré
+- **Similaire à Copilot**: Fonctionnalités d'agent comme GitHub Copilot
+
+**Outils disponibles:**
+- `read_file` - Lit le contenu d'un fichier
+- `list_directory` - Liste les fichiers d'un dossier
+- `search_files` - Cherche des fichiers par pattern
+- `write_file` - Crée ou écrase un fichier
+- `edit_file` - Édite un fichier existant
+- `get_file_info` - Obtient les métadonnées
+- `delete_file` - Supprime un fichier/dossier
+
+### 5. Indexation Workspace
 - **Indexation intelligente**: Parsing automatique des fichiers code
 - **Recherche de symboles**: Recherche rapide de fonctions, classes, types
 - **Contexte enrichi**: Fourniture de contexte pertinent aux agents IA
@@ -191,6 +207,25 @@ Ouvrir les settings (Ctrl+,) et chercher "alphacode":
 2. Appuyer sur "Send" ou Ctrl+Enter
 3. L'IA répond avec le contexte de votre workspace actif
 4. Les réponses incluent automatiquement le contexte du fichier actif
+
+### 3.1 🆕 Utiliser les Outils Agent
+
+L'IA peut maintenant effectuer des actions concrètes:
+
+**Exemples de commandes:**
+- "Lis le fichier src/main.ts" → L'IA lit et analyse le fichier
+- "Liste les fichiers dans src/" → L'IA explore le dossier
+- "Crée un fichier utils/helper.ts avec des fonctions utilitaires" → L'IA crée le fichier
+- "Trouve tous les fichiers .test.ts" → L'IA recherche les fichiers
+- "Édite config.ts et change DEBUG à true" → L'IA modifie le fichier
+
+**Comment ça marche:**
+1. Vous demandez une action à l'IA
+2. L'IA appelle automatiquement l'outil approprié
+3. Le résultat est affiché dans le chat
+4. L'IA continue la conversation avec le résultat
+
+📖 **Documentation complète:** Voir `CHAT_AGENT_QUICKSTART.md` pour le guide rapide
 
 ### 4. Commandes Disponibles
 
