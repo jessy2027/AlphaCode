@@ -3,28 +3,34 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize, localize2 } from '../../../../nls.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IAlphaCodeAgentService } from '../common/agents.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
-import { IAlphaCodeContextService } from '../common/contextService.js';
-import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { VIBE_CODING_VIEW_ID } from '../common/alphacode.js';
-import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
-import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { localize, localize2 } from "../../../../nls.js";
+import {
+	Action2,
+	registerAction2,
+} from "../../../../platform/actions/common/actions.js";
+import { ServicesAccessor } from "../../../../platform/instantiation/common/instantiation.js";
+import { IEditorService } from "../../../services/editor/common/editorService.js";
+import { IAlphaCodeAgentService } from "../common/agents.js";
+import {
+	INotificationService,
+	Severity,
+} from "../../../../platform/notification/common/notification.js";
+import { Categories } from "../../../../platform/action/common/actionCommonCategories.js";
+import { IAlphaCodeContextService } from "../common/contextService.js";
+import { isCodeEditor } from "../../../../editor/browser/editorBrowser.js";
+import { IViewsService } from "../../../services/views/common/viewsService.js";
+import { VIBE_CODING_VIEW_ID } from "../common/alphacode.js";
+import { KeyMod, KeyCode } from "../../../../base/common/keyCodes.js";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingsRegistry.js";
 
 // Generate Code Command
 class GenerateCodeAction extends Action2 {
 	constructor() {
 		super({
-			id: 'alphacode.generateCode',
-			title: localize2('alphacode.generateCode', "Generate Code"),
+			id: "alphacode.generateCode",
+			title: localize2("alphacode.generateCode", "Generate Code"),
 			category: Categories.View,
-			f1: true
+			f1: true,
 		});
 	}
 
@@ -36,7 +42,7 @@ class GenerateCodeAction extends Action2 {
 		if (!editor) {
 			notificationService.notify({
 				severity: Severity.Warning,
-				message: localize('alphacode.noEditor', "No active editor")
+				message: localize("alphacode.noEditor", "No active editor"),
 			});
 			return;
 		}
@@ -45,7 +51,10 @@ class GenerateCodeAction extends Action2 {
 		// For now, this is a placeholder
 		notificationService.notify({
 			severity: Severity.Info,
-			message: localize('alphacode.generateCode.prompt', "Code generation initiated. Use the Vibe Coding panel for interactive generation.")
+			message: localize(
+				"alphacode.generateCode.prompt",
+				"Code generation initiated. Use the Vibe Coding panel for interactive generation.",
+			),
 		});
 	}
 }
@@ -54,10 +63,10 @@ class GenerateCodeAction extends Action2 {
 class RefactorCodeAction extends Action2 {
 	constructor() {
 		super({
-			id: 'alphacode.refactorCode',
-			title: localize2('alphacode.refactorCode', "Refactor Selected Code"),
+			id: "alphacode.refactorCode",
+			title: localize2("alphacode.refactorCode", "Refactor Selected Code"),
 			category: Categories.View,
-			f1: true
+			f1: true,
 		});
 	}
 
@@ -70,7 +79,7 @@ class RefactorCodeAction extends Action2 {
 		if (!editor || !isCodeEditor(editor)) {
 			notificationService.notify({
 				severity: Severity.Warning,
-				message: localize('alphacode.noEditor', "No active editor")
+				message: localize("alphacode.noEditor", "No active editor"),
 			});
 			return;
 		}
@@ -81,7 +90,7 @@ class RefactorCodeAction extends Action2 {
 		if (!selection || selection.isEmpty() || !model) {
 			notificationService.notify({
 				severity: Severity.Warning,
-				message: localize('alphacode.noSelection', "No code selected")
+				message: localize("alphacode.noSelection", "No code selected"),
 			});
 			return;
 		}
@@ -90,23 +99,38 @@ class RefactorCodeAction extends Action2 {
 		const language = model.getLanguageId();
 
 		try {
-			const response = await agentService.refactorCode(selectedCode, 'Improve this code', language);
+			const response = await agentService.refactorCode(
+				selectedCode,
+				"Improve this code",
+				language,
+			);
 
 			if (response.success) {
 				notificationService.notify({
 					severity: Severity.Info,
-					message: localize('alphacode.refactorSuccess', "Code refactored successfully. Check Vibe Coding panel for results.")
+					message: localize(
+						"alphacode.refactorSuccess",
+						"Code refactored successfully. Check Vibe Coding panel for results.",
+					),
 				});
 			} else {
 				notificationService.notify({
 					severity: Severity.Error,
-					message: localize('alphacode.refactorError', "Refactoring failed: {0}", response.error || 'Unknown error')
+					message: localize(
+						"alphacode.refactorError",
+						"Refactoring failed: {0}",
+						response.error || "Unknown error",
+					),
 				});
 			}
 		} catch (error) {
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('alphacode.error', "Error: {0}", error instanceof Error ? error.message : 'Unknown error')
+				message: localize(
+					"alphacode.error",
+					"Error: {0}",
+					error instanceof Error ? error.message : "Unknown error",
+				),
 			});
 		}
 	}
@@ -116,10 +140,10 @@ class RefactorCodeAction extends Action2 {
 class ExplainCodeAction extends Action2 {
 	constructor() {
 		super({
-			id: 'alphacode.explainCode',
-			title: localize2('alphacode.explainCode', "Explain Selected Code"),
+			id: "alphacode.explainCode",
+			title: localize2("alphacode.explainCode", "Explain Selected Code"),
 			category: Categories.View,
-			f1: true
+			f1: true,
 		});
 	}
 
@@ -132,7 +156,7 @@ class ExplainCodeAction extends Action2 {
 		if (!editor || !isCodeEditor(editor)) {
 			notificationService.notify({
 				severity: Severity.Warning,
-				message: localize('alphacode.noEditor', "No active editor")
+				message: localize("alphacode.noEditor", "No active editor"),
 			});
 			return;
 		}
@@ -143,7 +167,7 @@ class ExplainCodeAction extends Action2 {
 		if (!selection || selection.isEmpty() || !model) {
 			notificationService.notify({
 				severity: Severity.Warning,
-				message: localize('alphacode.noSelection', "No code selected")
+				message: localize("alphacode.noSelection", "No code selected"),
 			});
 			return;
 		}
@@ -157,18 +181,29 @@ class ExplainCodeAction extends Action2 {
 			if (response.success) {
 				notificationService.notify({
 					severity: Severity.Info,
-					message: localize('alphacode.explainSuccess', "Code explained. Check Vibe Coding panel for explanation.")
+					message: localize(
+						"alphacode.explainSuccess",
+						"Code explained. Check Vibe Coding panel for explanation.",
+					),
 				});
 			} else {
 				notificationService.notify({
 					severity: Severity.Error,
-					message: localize('alphacode.explainError', "Explanation failed: {0}", response.error || 'Unknown error')
+					message: localize(
+						"alphacode.explainError",
+						"Explanation failed: {0}",
+						response.error || "Unknown error",
+					),
 				});
 			}
 		} catch (error) {
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('alphacode.error', "Error: {0}", error instanceof Error ? error.message : 'Unknown error')
+				message: localize(
+					"alphacode.error",
+					"Error: {0}",
+					error instanceof Error ? error.message : "Unknown error",
+				),
 			});
 		}
 	}
@@ -178,10 +213,10 @@ class ExplainCodeAction extends Action2 {
 class IndexWorkspaceAction extends Action2 {
 	constructor() {
 		super({
-			id: 'alphacode.indexWorkspace',
-			title: localize2('alphacode.indexWorkspace', "Index Workspace"),
+			id: "alphacode.indexWorkspace",
+			title: localize2("alphacode.indexWorkspace", "Index Workspace"),
 			category: Categories.View,
-			f1: true
+			f1: true,
 		});
 	}
 
@@ -192,19 +227,26 @@ class IndexWorkspaceAction extends Action2 {
 		try {
 			notificationService.notify({
 				severity: Severity.Info,
-				message: localize('alphacode.indexing', "Indexing workspace...")
+				message: localize("alphacode.indexing", "Indexing workspace..."),
 			});
 
 			await contextService.indexWorkspace();
 
 			notificationService.notify({
 				severity: Severity.Info,
-				message: localize('alphacode.indexSuccess', "Workspace indexed successfully")
+				message: localize(
+					"alphacode.indexSuccess",
+					"Workspace indexed successfully",
+				),
 			});
 		} catch (error) {
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('alphacode.indexError', "Indexing failed: {0}", error instanceof Error ? error.message : 'Unknown error')
+				message: localize(
+					"alphacode.indexError",
+					"Indexing failed: {0}",
+					error instanceof Error ? error.message : "Unknown error",
+				),
 			});
 		}
 	}
@@ -214,10 +256,13 @@ class IndexWorkspaceAction extends Action2 {
 class GenerateDocumentationAction extends Action2 {
 	constructor() {
 		super({
-			id: 'alphacode.generateDocumentation',
-			title: localize2('alphacode.generateDocumentation', "Generate Documentation"),
+			id: "alphacode.generateDocumentation",
+			title: localize2(
+				"alphacode.generateDocumentation",
+				"Generate Documentation",
+			),
 			category: Categories.View,
-			f1: true
+			f1: true,
 		});
 	}
 
@@ -230,7 +275,7 @@ class GenerateDocumentationAction extends Action2 {
 		if (!editor || !isCodeEditor(editor)) {
 			notificationService.notify({
 				severity: Severity.Warning,
-				message: localize('alphacode.noEditor', "No active editor")
+				message: localize("alphacode.noEditor", "No active editor"),
 			});
 			return;
 		}
@@ -241,7 +286,7 @@ class GenerateDocumentationAction extends Action2 {
 		if (!selection || selection.isEmpty() || !model) {
 			notificationService.notify({
 				severity: Severity.Warning,
-				message: localize('alphacode.noSelection', "No code selected")
+				message: localize("alphacode.noSelection", "No code selected"),
 			});
 			return;
 		}
@@ -250,23 +295,37 @@ class GenerateDocumentationAction extends Action2 {
 		const language = model.getLanguageId();
 
 		try {
-			const response = await agentService.generateDocumentation(selectedCode, language);
+			const response = await agentService.generateDocumentation(
+				selectedCode,
+				language,
+			);
 
 			if (response.success) {
 				notificationService.notify({
 					severity: Severity.Info,
-					message: localize('alphacode.docsSuccess', "Documentation generated. Check Vibe Coding panel for results.")
+					message: localize(
+						"alphacode.docsSuccess",
+						"Documentation generated. Check Vibe Coding panel for results.",
+					),
 				});
 			} else {
 				notificationService.notify({
 					severity: Severity.Error,
-					message: localize('alphacode.docsError', "Documentation generation failed: {0}", response.error || 'Unknown error')
+					message: localize(
+						"alphacode.docsError",
+						"Documentation generation failed: {0}",
+						response.error || "Unknown error",
+					),
 				});
 			}
 		} catch (error) {
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('alphacode.error', "Error: {0}", error instanceof Error ? error.message : 'Unknown error')
+				message: localize(
+					"alphacode.error",
+					"Error: {0}",
+					error instanceof Error ? error.message : "Unknown error",
+				),
 			});
 		}
 	}
@@ -276,17 +335,17 @@ class GenerateDocumentationAction extends Action2 {
 class OpenAlphaCodeAction extends Action2 {
 	constructor() {
 		super({
-			id: 'alphacode.openView',
-			title: localize2('alphacode.openView', "Open AlphaCode"),
+			id: "alphacode.openView",
+			title: localize2("alphacode.openView", "Open AlphaCode"),
 			category: Categories.View,
 			f1: true,
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyI,
 				mac: {
-					primary: KeyMod.CtrlCmd | KeyMod.WinCtrl | KeyCode.KeyI
-				}
-			}
+					primary: KeyMod.CtrlCmd | KeyMod.WinCtrl | KeyCode.KeyI,
+				},
+			},
 		});
 	}
 

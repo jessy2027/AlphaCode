@@ -3,9 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
 
-export const IAlphaCodeSecurityService = createDecorator<IAlphaCodeSecurityService>('alphaCodeSecurityService');
+export const IAlphaCodeSecurityService =
+	createDecorator<IAlphaCodeSecurityService>("alphaCodeSecurityService");
 
 export interface ISecretPattern {
 	name: string;

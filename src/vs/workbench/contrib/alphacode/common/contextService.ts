@@ -3,10 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { URI } from '../../../../base/common/uri.js';
+import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
+import { URI } from "../../../../base/common/uri.js";
 
-export const IAlphaCodeContextService = createDecorator<IAlphaCodeContextService>('alphaCodeContextService');
+export const IAlphaCodeContextService =
+	createDecorator<IAlphaCodeContextService>("alphaCodeContextService");
 
 export interface ICodeSymbol {
 	name: string;

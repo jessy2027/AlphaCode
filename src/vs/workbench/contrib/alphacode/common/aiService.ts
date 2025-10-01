@@ -3,11 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../../base/common/event.js';
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IAIMessage, IAIProviderConfig, IAIResponse, IAIStreamResponse } from './aiProvider.js';
+import { Event } from "../../../../base/common/event.js";
+import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
+import {
+	IAIMessage,
+	IAIProviderConfig,
+	IAIResponse,
+	IAIStreamResponse,
+} from "./aiProvider.js";
 
-export const IAlphaCodeAIService = createDecorator<IAlphaCodeAIService>('alphaCodeAIService');
+export const IAlphaCodeAIService =
+	createDecorator<IAlphaCodeAIService>("alphaCodeAIService");
 
 export interface IAlphaCodeAIService {
 	readonly _serviceBrand: undefined;
@@ -20,12 +26,19 @@ export interface IAlphaCodeAIService {
 	/**
 	 * Send a message to the configured AI provider
 	 */
-	sendMessage(messages: IAIMessage[], options?: Partial<IAIProviderConfig>): Promise<IAIResponse>;
+	sendMessage(
+		messages: IAIMessage[],
+		options?: Partial<IAIProviderConfig>,
+	): Promise<IAIResponse>;
 
 	/**
 	 * Send a message and receive streaming response
 	 */
-	sendMessageStream(messages: IAIMessage[], onChunk: (chunk: IAIStreamResponse) => void, options?: Partial<IAIProviderConfig>): Promise<void>;
+	sendMessageStream(
+		messages: IAIMessage[],
+		onChunk: (chunk: IAIStreamResponse) => void,
+		options?: Partial<IAIProviderConfig>,
+	): Promise<void>;
 
 	/**
 	 * Get current provider configuration

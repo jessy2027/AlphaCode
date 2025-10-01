@@ -3,16 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../../base/common/event.js';
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { URI } from '../../../../base/common/uri.js';
-import { Range } from '../../../../editor/common/core/range.js';
+import { Event } from "../../../../base/common/event.js";
+import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
+import { URI } from "../../../../base/common/uri.js";
+import { Range } from "../../../../editor/common/core/range.js";
 
-export const IAlphaCodePairProgrammingService = createDecorator<IAlphaCodePairProgrammingService>('alphaCodePairProgrammingService');
+export const IAlphaCodePairProgrammingService =
+	createDecorator<IAlphaCodePairProgrammingService>(
+		"alphaCodePairProgrammingService",
+	);
 
 export interface IPairProgrammingSuggestion {
 	id: string;
-	type: 'code' | 'refactor' | 'fix' | 'completion';
+	type: "code" | "refactor" | "fix" | "completion";
 	content: string;
 	description: string;
 	fileUri: URI;
@@ -29,10 +32,10 @@ export interface ICursorContext {
 }
 
 export enum PairProgrammingMode {
-	Off = 'off',
-	Suggestive = 'suggestive',    // Shows suggestions but doesn't auto-apply
-	Active = 'active',              // Auto-applies high-confidence suggestions
-	Live = 'live'                   // Real-time collaboration with AI
+	Off = "off",
+	Suggestive = "suggestive", // Shows suggestions but doesn't auto-apply
+	Active = "active", // Auto-applies high-confidence suggestions
+	Live = "live", // Real-time collaboration with AI
 }
 
 export interface IPairProgrammingConfig {
@@ -75,7 +78,9 @@ export interface IAlphaCodePairProgrammingService {
 	/**
 	 * Request suggestion for current cursor context
 	 */
-	requestSuggestion(context: ICursorContext): Promise<IPairProgrammingSuggestion | undefined>;
+	requestSuggestion(
+		context: ICursorContext,
+	): Promise<IPairProgrammingSuggestion | undefined>;
 
 	/**
 	 * Accept a suggestion

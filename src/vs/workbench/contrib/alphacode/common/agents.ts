@@ -3,17 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
 
-export const IAlphaCodeAgentService = createDecorator<IAlphaCodeAgentService>('alphaCodeAgentService');
+export const IAlphaCodeAgentService = createDecorator<IAlphaCodeAgentService>(
+	"alphaCodeAgentService",
+);
 
 export enum AgentType {
-	CodeGeneration = 'codeGeneration',
-	Refactor = 'refactor',
-	Debug = 'debug',
-	Documentation = 'documentation',
-	CommitMessage = 'commitMessage',
-	Explain = 'explain'
+	CodeGeneration = "codeGeneration",
+	Refactor = "refactor",
+	Debug = "debug",
+	Documentation = "documentation",
+	CommitMessage = "commitMessage",
+	Explain = "explain",
 }
 
 export interface IAgentRequest {
@@ -37,22 +39,37 @@ export interface IAlphaCodeAgentService {
 	/**
 	 * Generate code based on description
 	 */
-	generateCode(description: string, language?: string, context?: string): Promise<IAgentResponse>;
+	generateCode(
+		description: string,
+		language?: string,
+		context?: string,
+	): Promise<IAgentResponse>;
 
 	/**
 	 * Refactor existing code
 	 */
-	refactorCode(code: string, instruction: string, language?: string): Promise<IAgentResponse>;
+	refactorCode(
+		code: string,
+		instruction: string,
+		language?: string,
+	): Promise<IAgentResponse>;
 
 	/**
 	 * Debug code and suggest fixes
 	 */
-	debugCode(code: string, error?: string, language?: string): Promise<IAgentResponse>;
+	debugCode(
+		code: string,
+		error?: string,
+		language?: string,
+	): Promise<IAgentResponse>;
 
 	/**
 	 * Generate documentation for code
 	 */
-	generateDocumentation(code: string, language?: string): Promise<IAgentResponse>;
+	generateDocumentation(
+		code: string,
+		language?: string,
+	): Promise<IAgentResponse>;
 
 	/**
 	 * Generate commit message from changes

@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 export enum AIProviderType {
-	OpenAI = 'openai',
-	Anthropic = 'anthropic',
-	Azure = 'azure',
-	Local = 'local'
+	OpenAI = "openai",
+	Anthropic = "anthropic",
+	Azure = "azure",
+	Local = "local",
 }
 
 export interface IAIProviderConfig {
@@ -20,7 +20,7 @@ export interface IAIProviderConfig {
 }
 
 export interface IAIMessage {
-	role: 'system' | 'user' | 'assistant';
+	role: "system" | "user" | "assistant";
 	content: string;
 }
 
@@ -39,6 +39,13 @@ export interface IAIStreamResponse {
 }
 
 export interface IAIProvider {
-	sendMessage(messages: IAIMessage[], options?: Partial<IAIProviderConfig>): Promise<IAIResponse>;
-	sendMessageStream(messages: IAIMessage[], onChunk: (chunk: IAIStreamResponse) => void, options?: Partial<IAIProviderConfig>): Promise<void>;
+	sendMessage(
+		messages: IAIMessage[],
+		options?: Partial<IAIProviderConfig>,
+	): Promise<IAIResponse>;
+	sendMessageStream(
+		messages: IAIMessage[],
+		onChunk: (chunk: IAIStreamResponse) => void,
+		options?: Partial<IAIProviderConfig>,
+	): Promise<void>;
 }
