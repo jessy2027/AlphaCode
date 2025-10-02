@@ -424,5 +424,8 @@ import './contrib/dropOrPasteInto/browser/dropOrPasteInto.contribution.js';
 // Edit Telemetry
 import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
 
+// AlphaCode - Vibe Coding
+import './contrib/alphacode/browser/alphacode.contribution.js';
+
 
 //#endregion

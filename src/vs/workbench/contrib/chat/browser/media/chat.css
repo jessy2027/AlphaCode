@@ -750,10 +750,11 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	cursor: text;
 	background-color: var(--vscode-input-background);
 	border: 1px solid var(--vscode-input-border, transparent);
-	border-radius: 4px;
-	padding: 0 6px 6px 6px;
+	border-radius: 8px;
+	padding: 0 8px 8px 8px;
 	/* top padding is inside the editor widget */
 	max-width: 100%;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .interactive-session .chat-editing-session {
@@ -1081,7 +1082,12 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	display: flex;
 	justify-content: space-between;
 	padding-bottom: 0;
-	border-radius: 2px;
+	border-radius: 6px;
+}
+
+/* Improved compact mode toolbar alignment */
+.interactive-session .interactive-input-part.compact .chat-input-toolbars {
+	padding: 4px 0;
 }
 
 .interactive-session .interactive-input-and-side-toolbar {
@@ -1093,6 +1099,7 @@ have to be updated for changes to the rules above, or to support more deeply nes
 
 .interactive-session .chat-input-container.focused {
 	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
 }
 
 .chat-editor-container .monaco-editor .mtk1 {
@@ -1128,6 +1135,8 @@ have to be updated for changes to the rules above, or to support more deeply nes
 
 .interactive-session .chat-input-toolbars {
 	display: flex;
+	align-items: center;
+	gap: 6px;
 }
 
 .interactive-session .chat-input-toolbars :first-child {
@@ -1144,6 +1153,67 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	width: fit-content;
 	height: fit-content;
 	border-radius: 100%;
+}
+
+/* Enhanced Send Button Styles - Apply to all chat contexts */
+.chat-execute-toolbar {
+	display: flex;
+	align-items: center;
+}
+
+.chat-execute-toolbar .monaco-action-bar .action-item {
+	display: flex;
+	align-items: center;
+}
+
+/* Target the Send button specifically */
+.chat-execute-toolbar .action-label,
+.interactive-session .chat-input-toolbars .chat-execute-toolbar .action-label {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 32px !important;
+	min-height: 32px !important;
+	padding: 8px 12px !important;
+	border-radius: 8px !important;
+	background-color: var(--vscode-button-background) !important;
+	color: var(--vscode-button-foreground) !important;
+	border: 1px solid transparent !important;
+	transition: all 0.15s ease !important;
+	font-weight: 500 !important;
+}
+
+.chat-execute-toolbar .action-label:hover,
+.interactive-session .chat-input-toolbars .chat-execute-toolbar .action-label:hover {
+	background-color: var(--vscode-button-hoverBackground) !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.chat-execute-toolbar .action-label:active,
+.interactive-session .chat-input-toolbars .chat-execute-toolbar .action-label:active {
+	transform: translateY(0) !important;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.chat-execute-toolbar .action-label .codicon,
+.interactive-session .chat-input-toolbars .chat-execute-toolbar .action-label .codicon {
+	font-size: 16px !important;
+	color: var(--vscode-button-foreground) !important;
+}
+
+/* Disabled state */
+.chat-execute-toolbar .action-label.disabled,
+.interactive-session .chat-input-toolbars .chat-execute-toolbar .action-label.disabled {
+	opacity: 0.5 !important;
+	cursor: not-allowed !important;
+	background-color: var(--vscode-button-secondaryBackground) !important;
+}
+
+.chat-execute-toolbar .action-label.disabled:hover,
+.interactive-session .chat-input-toolbars .chat-execute-toolbar .action-label.disabled:hover {
+	transform: none !important;
+	box-shadow: none !important;
 }
 
 .interactive-session .chat-input-toolbars > .chat-input-toolbar {
@@ -1192,7 +1262,20 @@ have to be updated for changes to the rules above, or to support more deeply nes
 
 .interactive-session .chat-input-toolbars .monaco-action-bar .actions-container {
 	display: flex;
-	gap: 4px;
+	gap: 6px;
+	align-items: center;
+}
+
+.interactive-session .chat-input-toolbars .chat-input-toolbar .action-label {
+	display: flex;
+	align-items: center;
+	padding: 4px 8px;
+	border-radius: 4px;
+	transition: background-color 0.15s ease;
+}
+
+.interactive-session .chat-input-toolbars .chat-input-toolbar .action-label:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .interactive-session .chat-input-toolbars .codicon-debug-stop {

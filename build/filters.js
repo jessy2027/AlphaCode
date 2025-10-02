@@ -51,6 +51,7 @@ module.exports.unicodeFilter = [
 	'!extensions/markdown-math/notebook-out/**',
 	'!extensions/ipynb/notebook-out/**',
 	'!extensions/notebook-renderers/renderer-out/**',
+	'!extensions/mermaid-chat-features/chat-webview-out/**',
 	'!extensions/php-language-features/src/features/phpGlobalFunctions.ts',
 	'!extensions/terminal-suggest/src/completions/upstream/**',
 	'!extensions/typescript-language-features/test-workspace/**',
@@ -146,6 +147,7 @@ module.exports.indentationFilter = [
 	'!extensions/ipynb/notebook-out/**',
 	'!extensions/notebook-renderers/renderer-out/*.js',
 	'!extensions/simple-browser/media/*.js',
+	'!extensions/mermaid-chat-features/chat-webview-out/**',
 ];
 
 module.exports.copyrightFilter = [
@@ -182,6 +184,7 @@ module.exports.copyrightFilter = [
 	'!extensions/markdown-math/notebook-out/**',
 	'!extensions/ipynb/notebook-out/**',
 	'!extensions/simple-browser/media/codicon.css',
+	'!extensions/mermaid-chat-features/chat-webview-out/**',
 	'!extensions/terminal-suggest/src/completions/upstream/**',
 	'!extensions/typescript-language-features/node-maintainer/**',
 	'!extensions/html-language-features/server/src/modes/typescript/*',
@@ -222,5 +225,6 @@ module.exports.eslintFilter = [
 ];
 
 module.exports.stylelintFilter = [
-	'src/**/*.css'
+	'src/**/*.css',
+	'!src/vs/workbench/contrib/alphacode/**/*.css'
 ];

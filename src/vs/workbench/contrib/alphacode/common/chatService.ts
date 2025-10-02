@@ -1,0 +1,144 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { Event } from '../../../../base/common/event.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+
+export const IAlphaCodeChatService = createDecorator<IAlphaCodeChatService>(
+	'alphaCodeChatService',
+);
+
+export interface IChatMessage {
+	id: string;
+	role: 'user' | 'assistant' | 'system' | 'tool';
+	content: string;
+	timestamp: number;
+	tokens?: number;
+	toolCalls?: IToolCall[];
+	toolCallId?: string;
+	metadata?: Record<string, any>;
+}
+
+export interface IChatSession {
+	id: string;
+	title: string;
+	messages: IChatMessage[];
+	created: number;
+	updated: number;
+}
+
+export interface IChatContext {
+	activeFile?: string;
+	selectedCode?: string;
+	openFiles?: string[];
+	workspaceFiles?: string[];
+	symbols?: string[];
+	workspaceSnippets?: string[];
+}
+
+export interface IStreamChunk {
+	content: string;
+	done: boolean;
+	messageId?: string;
+}
+
+export interface IToolCall {
+	id: string;
+	name: string;
+	parameters: any;
+}
+
+export interface IToolResult {
+	toolCallId: string;
+	result: string;
+	error?: string;
+}
+
+export interface IChatTool {
+	name: string;
+	description: string;
+	parameters: {
+		type: 'object';
+		properties: Record<
+			string,
+			{
+				type: string;
+				description: string;
+				required?: boolean;
+			}
+		>;
+		required?: string[];
+	};
+	execute(parameters: any): Promise<string>;
+}
+
+export interface IAlphaCodeChatService {
+	readonly _serviceBrand: undefined;
+
+	/**
+	 * Event fired when a message is added to the current session
+	 */
+	readonly onDidAddMessage: Event<IChatMessage>;
+
+	/**
+	 * Event fired when a new session is created
+	 */
+	readonly onDidCreateSession: Event<IChatSession>;
+
+	/**
+	 * Event fired when streaming chunks arrive
+	 */
+	readonly onDidStreamChunk: Event<IStreamChunk>;
+
+	/**
+	 * Get the current chat session
+	 */
+	getCurrentSession(): IChatSession | undefined;
+
+	/**
+	 * Create a new chat session
+	 */
+	createSession(title?: string): IChatSession;
+
+	/**
+	 * Switch to a different session
+	 */
+	switchSession(sessionId: string): void;
+
+	/**
+	 * Send a message in the current session
+	 */
+	sendMessage(content: string, context?: IChatContext): Promise<void>;
+
+	/**
+	 * Get all chat sessions
+	 */
+	getSessions(): IChatSession[];
+
+	/**
+	 * Delete a session
+	 */
+	deleteSession(sessionId: string): void;
+
+	/**
+	 * Clear the current session
+	 */
+	clearCurrentSession(): void;
+
+	/**
+	 * Export session to JSON
+	 */
+	exportSession(sessionId: string): string;
+
+	/**
+	 * Get available tools
+	 */
+	getAvailableTools(): IChatTool[];
+
+	/**
+	 * Execute a tool call
+	 */
+	executeToolCall(toolCall: IToolCall): Promise<IToolResult>;
+}

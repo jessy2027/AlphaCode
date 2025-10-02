@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ITerminalAddon, Terminal } from '@xterm/xterm';
+import type { IDecoration, IMarker, ITerminalAddon, Terminal } from '@xterm/xterm';
 import * as dom from '../../../../../base/browser/dom.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { combinedDisposable, Disposable, MutableDisposable } from '../../../../../base/common/lifecycle.js';
@@ -67,6 +67,8 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 	private _mostRecentPromptInputState?: IPromptInputModelState;
 	private _currentPromptInputState?: IPromptInputModelState;
 	private _model?: TerminalCompletionModel;
+	private _ghostTextDecoration?: IDecoration;
+	private _ghostTextMarker?: IMarker;
 
 	private _container?: HTMLElement;
 	private _screen?: HTMLElement;
@@ -251,6 +253,8 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 				this._model?.forceRefilterAll();
 			}
 		}));
+
+		this._register({ dispose: () => this._disposeGhostTextOverlay() });
 	}
 
 	activate(xterm: Terminal): void {
@@ -640,45 +644,106 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 
 	private _refreshInlineCompletion(completions: ITerminalCompletion[]): void {
 		if (!isInlineCompletionSupported(this.shellType)) {
-			// If the shell type is not supported, the inline completion item is invalid
+			this._disposeGhostTextOverlay();
 			return;
 		}
+
+		const currentState = this._currentPromptInputState;
 		const oldIsInvalid = this._inlineCompletionItem.isInvalid;
-		if (!this._currentPromptInputState || this._currentPromptInputState.ghostTextIndex === -1) {
+
+		if (!currentState || currentState.ghostTextIndex === -1) {
 			this._inlineCompletionItem.isInvalid = true;
-		} else {
-			this._inlineCompletionItem.isInvalid = false;
-			// Update properties
-			const spaceIndex = this._currentPromptInputState.value.lastIndexOf(' ', this._currentPromptInputState.ghostTextIndex - 1);
-			const replacementIndex = spaceIndex === -1 ? 0 : spaceIndex + 1;
-			const suggestion = this._currentPromptInputState.value.substring(replacementIndex);
-			this._inlineCompletion.label = suggestion;
-			this._inlineCompletion.replacementIndex = replacementIndex;
-			// Note that the cursor index delta must be taken into account here, otherwise filtering
-			// wont work correctly.
-			this._inlineCompletion.replacementLength = this._currentPromptInputState.cursorIndex - replacementIndex - this._cursorIndexDelta;
-			// Reset the completion item as the object reference must remain the same but its
-			// contents will differ across syncs. This is done so we don't need to reassign the
-			// model and the slowdown/flickering that could potentially cause.
-			this._addPropertiesToInlineCompletionItem(completions);
-
-			const x = new TerminalCompletionItem(this._inlineCompletion);
-			this._inlineCompletionItem.idx = x.idx;
-			this._inlineCompletionItem.score = x.score;
-			this._inlineCompletionItem.labelLow = x.labelLow;
-			this._inlineCompletionItem.textLabel = x.textLabel;
-			this._inlineCompletionItem.fileExtLow = x.fileExtLow;
-			this._inlineCompletionItem.labelLowExcludeFileExt = x.labelLowExcludeFileExt;
-			this._inlineCompletionItem.labelLowNormalizedPath = x.labelLowNormalizedPath;
-			this._inlineCompletionItem.punctuationPenalty = x.punctuationPenalty;
-			this._inlineCompletionItem.word = x.word;
-			this._model?.forceRefilterAll();
+			this._disposeGhostTextOverlay();
+			if (!oldIsInvalid) {
+				this._model?.forceRefilterAll();
+			}
+			return;
 		}
 
-		// Force a filter all in order to re-evaluate the inline completion
-		if (this._inlineCompletionItem.isInvalid !== oldIsInvalid) {
+		this._inlineCompletionItem.isInvalid = false;
+		const spaceIndex = currentState.value.lastIndexOf(' ', currentState.ghostTextIndex - 1);
+		const replacementIndex = spaceIndex === -1 ? 0 : spaceIndex + 1;
+		const suggestion = currentState.value.substring(replacementIndex);
+
+		this._inlineCompletion.label = suggestion;
+		this._inlineCompletion.replacementIndex = replacementIndex;
+		this._inlineCompletion.replacementLength = currentState.cursorIndex - replacementIndex - this._cursorIndexDelta;
+		this._addPropertiesToInlineCompletionItem(completions);
+
+		const updatedItem = new TerminalCompletionItem(this._inlineCompletion);
+		this._inlineCompletionItem.idx = updatedItem.idx;
+		this._inlineCompletionItem.score = updatedItem.score;
+		this._inlineCompletionItem.labelLow = updatedItem.labelLow;
+		this._inlineCompletionItem.textLabel = updatedItem.textLabel;
+		this._inlineCompletionItem.fileExtLow = updatedItem.fileExtLow;
+		this._inlineCompletionItem.labelLowExcludeFileExt = updatedItem.labelLowExcludeFileExt;
+		this._inlineCompletionItem.labelLowNormalizedPath = updatedItem.labelLowNormalizedPath;
+		this._inlineCompletionItem.punctuationPenalty = updatedItem.punctuationPenalty;
+		this._inlineCompletionItem.word = updatedItem.word;
+
+		this._updateGhostTextOverlay();
+
+		if (oldIsInvalid || this._inlineCompletionItem.textLabel !== updatedItem.textLabel) {
 			this._model?.forceRefilterAll();
 		}
+	}
+
+	private _updateGhostTextOverlay(): void {
+		if (!this._terminal || !this._currentPromptInputState) {
+			this._disposeGhostTextOverlay();
+			return;
+		}
+
+		const { ghostTextIndex, cursorIndex, value } = this._currentPromptInputState;
+		if (ghostTextIndex === -1) {
+			this._disposeGhostTextOverlay();
+			return;
+		}
+
+		const ghostText = value.substring(ghostTextIndex);
+		if (!ghostText?.length) {
+			this._disposeGhostTextOverlay();
+			return;
+		}
+
+		this._disposeGhostTextOverlay();
+
+		const marker = this._terminal.registerMarker();
+		if (!marker) {
+			return;
+		}
+		this._ghostTextMarker = marker;
+
+		const cursorX = this._terminal.buffer.active.cursorX ?? 0;
+		const relativeOffset = Math.max(0, ghostTextIndex - cursorIndex);
+		this._ghostTextDecoration = this._terminal.registerDecoration({
+			marker,
+			layer: 'top',
+			x: cursorX + relativeOffset
+		});
+
+		if (!this._ghostTextDecoration) {
+			this._disposeGhostTextOverlay();
+			return;
+		}
+
+		const [firstLine] = ghostText.split(/\r?\n/);
+		this._ghostTextDecoration.onRender(element => {
+			element.classList.add('terminal-ghost-text-overlay');
+			element.textContent = firstLine ?? ghostText;
+			element.style.pointerEvents = 'none';
+			element.style.whiteSpace = 'pre';
+			element.style.opacity = '0.45';
+			element.style.fontStyle = 'italic';
+			element.style.color = 'var(--vscode-editorGhostText-foreground, inherit)';
+		});
+	}
+
+	private _disposeGhostTextOverlay(): void {
+		this._ghostTextDecoration?.dispose();
+		this._ghostTextDecoration = undefined;
+		this._ghostTextMarker?.dispose();
+		this._ghostTextMarker = undefined;
 	}
 
 	private _getTerminalDimensions(): { width: number; height: number } {
@@ -1016,6 +1081,7 @@ export class SuggestAddon extends Disposable implements ITerminalAddon, ISuggest
 		this._currentPromptInputState = undefined;
 		this._leadingLineContent = undefined;
 		this._focusedItem = undefined;
+		this._disposeGhostTextOverlay();
 		this._suggestWidget?.hide();
 	}
 }

@@ -7,12 +7,12 @@
 	padding: 0px;
 	color: var(--vscode-button-foreground);
 	background-color: var(--vscode-button-background);
-	border-radius: 2px;
+	border-radius: 8px !important;
 	border: 1px solid var(--vscode-contrastBorder);
 	display: flex;
 	align-items: center;
 	z-index: 10;
-	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
 	overflow: hidden;
 }
 
@@ -54,17 +54,24 @@
 }
 
 .chat-editor-overlay-widget .action-item > .action-label {
-	padding: 5px;
-	font-size: 12px;
+	padding: 8px 12px !important;
+	font-size: 13px !important;
+	border-radius: 6px !important;
+	transition: all 0.15s ease !important;
+}
+
+.chat-editor-overlay-widget .action-item > .action-label:hover {
+	transform: translateY(-1px) !important;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }
 
 
 .chat-editor-overlay-widget .action-item:first-child > .action-label {
-	padding-left: 7px;
+	padding-left: 12px !important;
 }
 
 .chat-editor-overlay-widget .action-item:last-child > .action-label {
-	padding-right: 7px;
+	padding-right: 12px !important;
 }
 
 .chat-editor-overlay-widget.busy .chat-editor-overlay-progress .codicon,

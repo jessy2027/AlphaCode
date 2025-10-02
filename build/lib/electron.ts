@@ -213,7 +213,7 @@ function getElectron(arch: string): () => NodeJS.ReadWriteStream {
 			platform: process.platform,
 			arch: arch === 'armhf' ? 'arm' : arch,
 			ffmpegChromium: false,
-			keepDefaultApp: true
+			keepDefaultApp: false
 		};
 
 		return vfs.src('package.json')

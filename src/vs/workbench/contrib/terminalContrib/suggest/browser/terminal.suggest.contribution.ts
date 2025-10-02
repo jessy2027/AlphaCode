@@ -38,6 +38,7 @@ import { ITextModelService } from '../../../../../editor/common/services/resolve
 import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { getTerminalLspSupportedLanguageObj } from './lspTerminalUtil.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { ProjectContextTerminalCompletionProvider } from './providers/projectContextTerminalCompletionProvider.js';
 
 registerSingleton(ITerminalCompletionService, TerminalCompletionService, InstantiationType.Delayed);
 
@@ -90,6 +91,9 @@ class TerminalSuggestContribution extends DisposableStore implements ITerminalCo
 
 		// Initialize the dynamic providers configuration manager
 		TerminalSuggestProvidersConfigurationManager.initialize(this._instantiationService);
+
+		const projectContextProvider = this._instantiationService.createInstance(ProjectContextTerminalCompletionProvider);
+		this.add(this._terminalCompletionService.registerTerminalCompletionProvider(ProjectContextTerminalCompletionProvider.EXTENSION_ID, projectContextProvider.id, projectContextProvider));
 
 		// Listen for terminal location changes to update the suggest widget container
 		this.add(this._ctx.instance.onDidChangeTarget((target) => {
