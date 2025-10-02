@@ -466,28 +466,56 @@ export class VibeCodingView extends ViewPane {
 			),
 		).classList.add(status);
 
+		const description =
+			typeof metadata.description === 'string' && metadata.description.trim().length
+				? metadata.description.trim()
+				: undefined;
+		if (description) {
+			append(card, $('p.alphacode-tool-card-description', undefined, description));
+		}
+
+		const timestamp =
+			typeof metadata.timestamp === 'number'
+				? new Date(metadata.timestamp)
+				: undefined;
+		if (timestamp) {
+			const metaRow = append(card, $('.alphacode-tool-card-meta'));
+			append(
+				metaRow,
+				$(
+					'span.alphacode-tool-card-meta-item',
+					undefined,
+					localize(
+						'alphacode.chat.tool.completedAt',
+						'Completed {0}',
+						timestamp.toLocaleTimeString(),
+					),
+				),
+			);
+		}
+
+		const body = append(card, $('.alphacode-tool-card-body'));
 		const summaryText =
 			typeof metadata.summary === 'string' && metadata.summary.trim().length
 				? metadata.summary
 				: message.content;
-		append(
-			card,
-			$('p.alphacode-tool-card-summary', undefined, summaryText),
-		);
+		append(body, $('p.alphacode-tool-card-summary', undefined, summaryText));
 
 		if (metadata.parameters) {
+			const parametersSection = append(body, $('.alphacode-tool-card-section'));
 			append(
-				card,
+				parametersSection,
 				$(
-					'p.alphacode-tool-card-parameters',
+					'span.alphacode-tool-card-section-title',
 					undefined,
-					localize(
-						'alphacode.chat.tool.parameters',
-						'Parameters: {0}',
-						metadata.parameters,
-					),
+					localize('alphacode.chat.tool.parameters.label', 'Parameters'),
 				),
 			);
+			const parametersBlock = append(
+				parametersSection,
+				$('pre.alphacode-tool-card-parameters'),
+			);
+			parametersBlock.textContent = metadata.parameters;
 		}
 
 		const detailsText =
@@ -496,7 +524,7 @@ export class VibeCodingView extends ViewPane {
 				: message.content;
 		if (detailsText && detailsText !== summaryText) {
 			const toggle = append(
-				card,
+				body,
 				$(
 					'button.alphacode-tool-card-toggle',
 					undefined,
@@ -505,7 +533,7 @@ export class VibeCodingView extends ViewPane {
 			) as HTMLButtonElement;
 			toggle.type = 'button';
 			const details = append(
-				card,
+				body,
 				$('pre.alphacode-tool-card-details'),
 			);
 			details.textContent = detailsText;
@@ -517,6 +545,51 @@ export class VibeCodingView extends ViewPane {
 					toggle.textContent = hidden
 						? localize('alphacode.chat.tool.hideDetails', 'Hide details')
 						: localize('alphacode.chat.tool.showDetails', 'Show details');
+				}),
+			);
+		}
+
+		const actions = append(card, $('.alphacode-tool-card-actions'));
+		const copyOutputLabel = localize('alphacode.chat.tool.copyOutput', 'Copy output');
+		const copiedLabel = localize('alphacode.chat.tool.copied', 'Copied!');
+		const copyOutputButton = append(
+			actions,
+			$('button.alphacode-tool-card-action', undefined, copyOutputLabel),
+		) as HTMLButtonElement;
+		copyOutputButton.type = 'button';
+		this._register(
+			addDisposableListener(copyOutputButton, 'click', () => {
+				if (navigator.clipboard) {
+					navigator.clipboard.writeText(message.content).catch(() => undefined);
+				}
+				copyOutputButton.textContent = copiedLabel;
+				setTimeout(() => {
+					copyOutputButton.textContent = copyOutputLabel;
+				}, 2000);
+			}),
+		);
+
+		if (metadata.parameters) {
+			const copyParametersLabel = localize(
+				'alphacode.chat.tool.copyParameters',
+				'Copy parameters',
+			);
+			const copyParametersButton = append(
+				actions,
+				$('button.alphacode-tool-card-action.secondary', undefined, copyParametersLabel),
+			) as HTMLButtonElement;
+			copyParametersButton.type = 'button';
+			this._register(
+				addDisposableListener(copyParametersButton, 'click', () => {
+					if (navigator.clipboard) {
+						navigator.clipboard
+							.writeText(String(metadata.parameters))
+							.catch(() => undefined);
+					}
+					copyParametersButton.textContent = copiedLabel;
+					setTimeout(() => {
+						copyParametersButton.textContent = copyParametersLabel;
+					}, 2000);
 				}),
 			);
 		}

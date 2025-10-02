@@ -457,11 +457,14 @@
 .alphacode-tool-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    border-radius: 8px;
+    gap: 12px;
+    border-radius: 10px;
     border: 1px solid var(--vscode-panel-border);
-    padding: 12px;
-    background: var(--vscode-editorWidget-background);
+    padding: 16px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 90%, transparent);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    position: relative;
+    overflow: hidden;
 }
 
 .alphacode-tool-card.success {
@@ -506,6 +509,34 @@
     /* stylelint-disable-line vscode-known-variables */
 }
 
+.alphacode-tool-card-description {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    opacity: 0.85;
+}
+
+.alphacode-tool-card-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    opacity: 0.75;
+}
+
+.alphacode-tool-card-meta-item {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
+}
+
+.alphacode-tool-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
 .alphacode-tool-card-summary {
     margin: 0;
     font-size: 12px;
@@ -544,6 +575,37 @@
     font-family: var(--monaco-monospace-font);
     font-size: 12px;
     line-height: 1.5;
+}
+
+.alphacode-tool-card-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.alphacode-tool-card-action {
+    padding: 6px 14px;
+    font-size: 11px;
+    border-radius: 6px;
+    border: 1px solid var(--vscode-button-border);
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.alphacode-tool-card-action.secondary {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.alphacode-tool-card-action:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 /* Quick suggestions */

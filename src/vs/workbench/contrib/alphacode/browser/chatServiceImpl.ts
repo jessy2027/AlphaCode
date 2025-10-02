@@ -6,6 +6,7 @@
 import { Emitter, Event } from "../../../../base/common/event.js";
 import { Disposable } from "../../../../base/common/lifecycle.js";
 import { generateUuid } from "../../../../base/common/uuid.js";
+import { localize } from "../../../../nls.js";
 import {
 	IStorageService,
 	StorageScope,
@@ -263,14 +264,21 @@ export class AlphaCodeChatService
 				// Execute tool calls
 				for (const toolCall of toolCalls) {
 					const toolResult = await this.executeToolCall(toolCall);
+					const toolTimestamp = Date.now();
+					const formattedTool = this.createToolMessage(
+						toolCall,
+						toolResult,
+						toolTimestamp,
+					);
 
 					// Add tool result message
 					const toolMessage: IChatMessage = {
 						id: generateUuid(),
 						role: "tool",
-						content: toolResult.error || toolResult.result,
-						timestamp: Date.now(),
+						content: formattedTool.content,
+						timestamp: toolTimestamp,
 						toolCallId: toolCall.id,
+						metadata: formattedTool.metadata,
 					};
 
 					session.messages.push(toolMessage);
@@ -471,7 +479,7 @@ export class AlphaCodeChatService
 				toolCallId: toolCall.id,
 				result,
 			};
-		} catch (error) {
+		} catch (error: unknown) {
 			return {
 				toolCallId: toolCall.id,
 				result: "",
@@ -480,12 +488,138 @@ export class AlphaCodeChatService
 		}
 	}
 
+	private createToolMessage(
+		toolCall: IToolCall,
+		toolResult: IToolResult,
+		timestamp: number,
+	): { content: string; metadata: Record<string, any> } {
+		const toolDefinition = this.toolsRegistry.getTool(toolCall.name);
+		const normalizedContent = this.normalizeToolContent(
+			toolResult.error ?? toolResult.result,
+		);
+		const content =
+			normalizedContent.length > 0
+				? normalizedContent
+				: localize(
+						"alphacode.chat.tool.noOutput",
+						"The tool did not return any output.",
+				  );
+		const summaryInfo = this.buildToolSummary(content);
+		const metadata: Record<string, any> = {
+			name: toolDefinition?.name ?? toolCall.name,
+			status: toolResult.error ? "error" : "success",
+			summary: summaryInfo.summary,
+			timestamp,
+		};
+
+		if (toolDefinition?.description) {
+			metadata.description = toolDefinition.description;
+		}
+
+		const parametersString = this.stringifyToolParameters(toolCall.parameters);
+		if (parametersString) {
+			metadata.parameters = parametersString;
+		}
+
+		if (summaryInfo.details) {
+			metadata.details = summaryInfo.details;
+		}
+
+		if (toolResult.error) {
+			metadata.error = toolResult.error;
+		}
+
+		return {
+			content,
+			metadata,
+		};
+	}
+
+	private buildToolSummary(content: string): {
+		summary: string;
+		details?: string;
+	} {
+		const normalized = content.replace(/\r\n/g, "\n").trim();
+		if (!normalized) {
+			return {
+				summary: localize(
+					"alphacode.chat.tool.noOutputSummary",
+					"No output returned.",
+				),
+			};
+		}
+
+		const previewLimit = 280;
+		const paragraphs = normalized
+			.split(/\n\s*\n/)
+			.map((part) => part.trim())
+			.filter((part) => part.length > 0);
+		const firstParagraph =
+			paragraphs.length > 0 ? paragraphs[0] : normalized;
+
+		if (normalized.length <= previewLimit && paragraphs.length <= 1) {
+			return { summary: normalized };
+		}
+
+		if (firstParagraph.length <= previewLimit) {
+			return {
+				summary: firstParagraph,
+				details: normalized !== firstParagraph ? normalized : undefined,
+			};
+		}
+
+		return {
+			summary: firstParagraph.slice(0, previewLimit).trimEnd() + "…",
+			details: normalized,
+		};
+	}
+
+	private stringifyToolParameters(parameters: any): string | undefined {
+		if (parameters === undefined || parameters === null) {
+			return undefined;
+		}
+
+		if (typeof parameters === "string") {
+			return parameters;
+		}
+
+		try {
+			const json = JSON.stringify(parameters, null, 2);
+			if (!json) {
+				return undefined;
+			}
+			return json.length > 2000 ? `${json.slice(0, 2000)}…` : json;
+		} catch (error: unknown) {
+			return String(parameters);
+		}
+	}
+
+	private normalizeToolContent(content: unknown): string {
+		if (typeof content === "string") {
+			return content.trim();
+		}
+
+		if (content === undefined || content === null) {
+			return "";
+		}
+
+		if (typeof content === "object") {
+			try {
+				return JSON.stringify(content, null, 2).trim();
+			} catch (error: unknown) {
+				return String(content).trim();
+			}
+		}
+
+		return String(content).trim();
+	}
+
 	private extractToolCalls(content: string): IToolCall[] {
 		const toolCalls: IToolCall[] = [];
 
 		// Match tool calls in the format: ```tool\n{...}\n```
 		const toolCallRegex = /```tool\s*\n([\s\S]*?)\n```/g;
-		let match;
+		let match: RegExpExecArray | null;
 
 		while ((match = toolCallRegex.exec(content)) !== null) {
 			try {
@@ -497,7 +631,7 @@ export class AlphaCodeChatService
 						parameters: toolCallData.parameters,
 					});
 				}
-			} catch (error) {
+			} catch (error: unknown) {
 				// Invalid JSON, skip this tool call
 				console.error("Failed to parse tool call:", error);
 			}
