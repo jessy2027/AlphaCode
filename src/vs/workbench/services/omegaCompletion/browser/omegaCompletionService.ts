@@ -116,10 +116,11 @@ export class OmegaCompletionService extends Disposable implements IOmegaCompleti
 		stream?: boolean;
 	} {
 		const prompt = this.composePrompt(request);
+		const systemPrompt = this.composeSystemPrompt(request);
 		const messages = [
 			{
 				role: 'system',
-				content: 'You are an assistant that generates focused code continuations. Respond with only the completion text without explanatory prose.'
+				content: systemPrompt
 			},
 			{
 				role: 'user',
@@ -154,17 +155,34 @@ export class OmegaCompletionService extends Disposable implements IOmegaCompleti
 	}
 
 	private composePrompt(request: OmegaCompletionRequest): string {
+		return request.type === 'terminal'
+			? this.composeTerminalPrompt(request)
+			: this.composeInlinePrompt(request);
+	}
+
+	private composeSystemPrompt(request: OmegaCompletionRequest): string {
+		if (request.type === 'terminal') {
+			return 'Tu es Omega, moteur de completions terminal pour AlphaCode. Fournis uniquement le texte a inserer dans le shell en respectant la syntaxe de la commande. N\'ajoute aucun commentaire ni sortie simulee.';
+		}
+
+		return 'Tu es Omega, moteur de completions code pour AlphaCode. Continue le code fourni en preservant le style existant et reponds uniquement avec les instructions a inserer, sans explications.';
+	}
+
+	private composeInlinePrompt(request: OmegaCompletionRequest): string {
 		const lines: string[] = [];
-		lines.push('Continue the following code.');
+		lines.push('Continue le bloc suivant en restant coherent.');
+		lines.push('');
+		lines.push('Type: inline');
 		if (request.languageId) {
-			lines.push(`Language: ${request.languageId}`);
+			lines.push(`Langage: ${request.languageId}`);
 		}
 		if (request.uri) {
-			lines.push(`File: ${request.uri.toString()}`);
+			lines.push(`Fichier: ${request.uri.toString()}`);
 		}
 		if (request.metadata && Object.keys(request.metadata).length) {
-			lines.push(`Metadata: ${JSON.stringify(request.metadata)}`);
+			lines.push(`Contexte additionnel: ${JSON.stringify(request.metadata)}`);
 		}
+		lines.push('');
 		lines.push('---');
 		lines.push('BEFORE CURSOR:');
 		lines.push(request.prefix);
@@ -172,7 +190,39 @@ export class OmegaCompletionService extends Disposable implements IOmegaCompleti
 		lines.push('AFTER CURSOR:');
 		lines.push(request.suffix ?? '');
 		lines.push('---');
-		lines.push('Return only the code that should appear between the sections.');
+		lines.push('Livraison:');
+		lines.push('- Reponds uniquement par le code a ajouter.');
+		lines.push('- Aucun commentaire explicatif ni texte libre.');
+
+		return lines.join('\n');
+	}
+
+	private composeTerminalPrompt(request: OmegaCompletionRequest): string {
+		const shell = typeof request.metadata?.shell === 'string' && request.metadata.shell.length
+			? request.metadata.shell
+			: 'shell inconnu';
+		const history = request.metadata?.history;
+
+		const lines: string[] = [];
+		lines.push('Complete la commande ou le script terminal en cours.');
+		lines.push('');
+		lines.push('Type: terminal');
+		lines.push(`Environnement: ${shell}`);
+		if (history) {
+			lines.push(`Historique pertinent: ${JSON.stringify(history)}`);
+		}
+		lines.push('');
+		lines.push('---');
+		lines.push('BEFORE CURSOR:');
+		lines.push(request.prefix);
+		lines.push('---');
+		lines.push('AFTER CURSOR:');
+		lines.push(request.suffix ?? '');
+		lines.push('---');
+		lines.push('Contraintes:');
+		lines.push('- Retourne uniquement les caracteres a injecter dans le terminal.');
+		lines.push('- Respecte la syntaxe du shell concerne.');
+		lines.push('- N\'ajoute pas de commentaires ni de sorties fictives.');
 
 		return lines.join('\n');
 	}
