@@ -9,24 +9,24 @@ import {
 	IAIProviderConfig,
 	IAIResponse,
 	IAIStreamResponse,
-} from "../../common/aiProvider.js";
+} from '../../common/aiProvider.js';
 
 /**
  * LocalProvider supports local LLM servers like Ollama, LM Studio, LocalAI, etc.
  * Supports both native Ollama API and OpenAI-compatible APIs.
  */
 export class LocalProvider implements IAIProvider {
-	private readonly DEFAULT_MODEL = "codellama";
-	private readonly DEFAULT_ENDPOINT = "http://localhost:11434/api/generate"; // Ollama generate API
+	private readonly DEFAULT_MODEL = 'codellama';
+	private readonly DEFAULT_ENDPOINT = 'http://localhost:11434/api/generate'; // Ollama generate API
 
-	constructor(private config: IAIProviderConfig) {}
+	constructor(private config: IAIProviderConfig) { }
 
 	/**
 	 * Detects if the endpoint is OpenAI-compatible based on the URL
 	 */
 	private isOpenAICompatible(endpoint: string): boolean {
 		return (
-			endpoint.includes("/v1/chat/completions") || endpoint.includes("/openai/")
+			endpoint.includes('/v1/chat/completions') || endpoint.includes('/openai/')
 		);
 	}
 
@@ -34,7 +34,7 @@ export class LocalProvider implements IAIProvider {
 	 * Detects if the endpoint is Ollama's generate API
 	 */
 	private isOllamaGenerate(endpoint: string): boolean {
-		return endpoint.includes("/api/generate");
+		return endpoint.includes('/api/generate');
 	}
 
 	/**
@@ -43,16 +43,16 @@ export class LocalProvider implements IAIProvider {
 	private messagesToPrompt(messages: IAIMessage[]): string {
 		return messages
 			.map((msg) => {
-				if (msg.role === "system") {
+				if (msg.role === 'system') {
 					return `System: ${msg.content}`;
-				} else if (msg.role === "user") {
+				} else if (msg.role === 'user') {
 					return `User: ${msg.content}`;
-				} else if (msg.role === "assistant") {
+				} else if (msg.role === 'assistant') {
 					return `Assistant: ${msg.content}`;
 				}
 				return msg.content;
 			})
-			.join("\n\n");
+			.join('\n\n');
 	}
 
 	async sendMessage(
@@ -103,15 +103,15 @@ export class LocalProvider implements IAIProvider {
 
 		// API key is optional for local providers
 		const headers: Record<string, string> = {
-			"Content-Type": "application/json",
+			'Content-Type': 'application/json',
 		};
 
 		if (this.config.apiKey) {
-			headers["Authorization"] = `Bearer ${this.config.apiKey}`;
+			headers['Authorization'] = `Bearer ${this.config.apiKey}`;
 		}
 
 		const response = await fetch(endpoint, {
-			method: "POST",
+			method: 'POST',
 			headers,
 			body: JSON.stringify(requestBody),
 		});
@@ -126,10 +126,10 @@ export class LocalProvider implements IAIProvider {
 		const data = await response.json();
 
 		// Handle different response formats
-		let content = "";
+		let content = '';
 		if (data.choices && data.choices[0]) {
 			// OpenAI-compatible format
-			content = data.choices[0].message?.content || data.choices[0].text || "";
+			content = data.choices[0].message?.content || data.choices[0].text || '';
 		} else if (data.message && data.message.content) {
 			// Ollama native format (chat API)
 			content = data.message.content;
@@ -142,10 +142,10 @@ export class LocalProvider implements IAIProvider {
 			content,
 			usage: data.usage
 				? {
-						promptTokens: data.usage.prompt_tokens || 0,
-						completionTokens: data.usage.completion_tokens || 0,
-						totalTokens: data.usage.total_tokens || 0,
-					}
+					promptTokens: data.usage.prompt_tokens || 0,
+					completionTokens: data.usage.completion_tokens || 0,
+					totalTokens: data.usage.total_tokens || 0,
+				}
 				: undefined,
 		};
 	}
@@ -199,15 +199,15 @@ export class LocalProvider implements IAIProvider {
 		}
 
 		const headers: Record<string, string> = {
-			"Content-Type": "application/json",
+			'Content-Type': 'application/json',
 		};
 
 		if (this.config.apiKey) {
-			headers["Authorization"] = `Bearer ${this.config.apiKey}`;
+			headers['Authorization'] = `Bearer ${this.config.apiKey}`;
 		}
 
 		const response = await fetch(endpoint, {
-			method: "POST",
+			method: 'POST',
 			headers,
 			body: JSON.stringify(requestBody),
 		});
@@ -221,11 +221,11 @@ export class LocalProvider implements IAIProvider {
 
 		const reader = response.body?.getReader();
 		if (!reader) {
-			throw new Error("Response body is not readable");
+			throw new Error('Response body is not readable');
 		}
 
 		const decoder = new TextDecoder();
-		let buffer = "";
+		let buffer = '';
 
 		try {
 			while (true) {
@@ -235,8 +235,8 @@ export class LocalProvider implements IAIProvider {
 				}
 
 				buffer += decoder.decode(value, { stream: true });
-				const lines = buffer.split("\n");
-				buffer = lines.pop() || "";
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || '';
 
 				for (const line of lines) {
 					const trimmed = line.trim();
@@ -244,10 +244,10 @@ export class LocalProvider implements IAIProvider {
 						continue;
 					}
 
-					if (trimmed.startsWith("data: ")) {
+					if (trimmed.startsWith('data: ')) {
 						const data = trimmed.slice(6);
-						if (data === "[DONE]") {
-							onChunk({ content: "", done: true });
+						if (data === '[DONE]') {
+							onChunk({ content: '', done: true });
 							return;
 						}
 
@@ -272,11 +272,11 @@ export class LocalProvider implements IAIProvider {
 
 							// Check for done flag (Ollama native)
 							if (parsed.done === true) {
-								onChunk({ content: "", done: true });
+								onChunk({ content: '', done: true });
 								return;
 							}
 						} catch (e) {
-							console.error("Failed to parse streaming chunk", e);
+							console.error('Failed to parse streaming chunk', e);
 						}
 					} else {
 						// Ollama sends raw JSON without 'data:' prefix
@@ -294,7 +294,7 @@ export class LocalProvider implements IAIProvider {
 
 							// Check for done flag
 							if (parsed.done === true) {
-								onChunk({ content: "", done: true });
+								onChunk({ content: '', done: true });
 								return;
 							}
 						} catch (e) {
@@ -304,7 +304,7 @@ export class LocalProvider implements IAIProvider {
 				}
 			}
 
-			onChunk({ content: "", done: true });
+			onChunk({ content: '', done: true });
 		} finally {
 			reader.releaseLock();
 		}

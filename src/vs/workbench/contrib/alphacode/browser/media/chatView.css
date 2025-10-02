@@ -4,393 +4,577 @@
  *--------------------------------------------------------------------------------------------*/
 
 .alphacode-chat-container {
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-	width: 100%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(180deg,
+            rgba(255, 255, 255, 0.02) 0%,
+            rgba(255, 255, 255, 0) 18%,
+            rgba(0, 0, 0, 0.08) 100%);
+    backdrop-filter: blur(14px);
 }
 
 .alphacode-chat-messages {
-	flex: 1;
-	overflow-y: auto;
-	padding: 12px;
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
 }
 
 .alphacode-chat-message {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	animation: fadeIn 0.2s ease-in;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: fadeIn 0.2s ease-in;
+    max-width: 88%;
+}
+
+.alphacode-chat-message.user {
+    align-self: flex-end;
+    text-align: right;
+}
+
+.alphacode-chat-message.assistant,
+.alphacode-chat-message.tool {
+    align-self: flex-start;
 }
 
 @keyframes fadeIn {
-	from {
-		opacity: 0;
-		transform: translateY(8px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .alphacode-chat-message-header {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-size: 12px;
-	opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.alphacode-chat-message.user .alphacode-chat-message-header {
+    flex-direction: row-reverse;
 }
 
 .alphacode-chat-message-avatar {
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 12px;
-	font-weight: 600;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
 .alphacode-chat-message.user .alphacode-chat-message-avatar {
-	background: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
 }
 
 .alphacode-chat-message.assistant .alphacode-chat-message-avatar {
-	background: var(--vscode-editor-infoForeground); /* stylelint-disable-line vscode-known-variables */
-	color: white;
+    background: var(--vscode-editor-infoForeground);
+    /* stylelint-disable-line vscode-known-variables */
+    color: white;
 }
 
 .alphacode-chat-message-content {
-	padding: 12px;
-	border-radius: 6px;
-	line-height: 1.6;
-	white-space: pre-wrap;
-	word-wrap: break-word;
+    padding: 14px 16px;
+    border-radius: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+    border: 1px solid transparent;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.alphacode-chat-message-content:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
 }
 
 .alphacode-chat-message.user .alphacode-chat-message-content {
-	background: var(--vscode-input-background);
-	border: 1px solid var(--vscode-input-border);
-	margin-left: 32px;
+    background: linear-gradient(135deg,
+            color-mix(in srgb, var(--vscode-button-background) 90%, transparent),
+            color-mix(in srgb, var(--vscode-button-background) 60%, transparent));
+    color: var(--vscode-button-foreground);
+    border-color: color-mix(in srgb, var(--vscode-button-background) 30%, transparent);
+    margin-left: 0;
+    margin-right: 48px;
 }
 
 .alphacode-chat-message.assistant .alphacode-chat-message-content {
-	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-panel-border);
-	margin-left: 32px;
+    background: color-mix(in srgb, var(--vscode-editor-background) 80%, transparent);
+    border-color: color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
+    margin-left: 48px;
+}
+
+.alphacode-chat-message.tool .alphacode-chat-message-content {
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 85%, transparent);
+    border-color: color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
+    margin-left: 48px;
 }
 
 .alphacode-chat-message-content code {
-	background: var(--vscode-textCodeBlock-background);
-	padding: 2px 6px;
-	border-radius: 3px;
-	font-family: var(--monaco-monospace-font);
+    background: var(--vscode-textCodeBlock-background);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--monaco-monospace-font);
+    font-size: 0.9em;
 }
 
 .alphacode-chat-message-content pre {
-	background: var(--vscode-textCodeBlock-background);
-	padding: 8px;
-	border-radius: 4px;
-	overflow-x: auto;
-	margin: 8px 0;
+    background: var(--vscode-textCodeBlock-background);
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 8px 0;
 }
 
 .alphacode-chat-input-container {
-	padding: 16px;
-	border-top: 1px solid var(--vscode-panel-border);
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-	background: var(--vscode-editorWidget-background);
-	box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
+    padding: 18px 16px 20px;
+    border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: linear-gradient(180deg,
+            color-mix(in srgb, var(--vscode-editorWidget-background) 90%, transparent) 0%,
+            color-mix(in srgb, var(--vscode-editorWidget-background) 70%, transparent) 100%);
+    box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.3);
 }
 
 .alphacode-chat-context-info {
-	font-size: 11px;
-	opacity: 0.7;
-	display: flex;
-	align-items: center;
-	gap: 6px;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vscode-input-background) 70%, transparent);
+    color: color-mix(in srgb, var(--vscode-input-foreground) 85%, transparent);
+}
+
+.alphacode-chat-context-icon {
+    font-size: 13px;
+}
+
+.alphacode-chat-context-label {
+    opacity: 0.85;
 }
 
 .alphacode-chat-input-wrapper {
-	display: flex;
-	gap: 12px;
-	align-items: flex-end;
-	flex-wrap: wrap;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    background: color-mix(in srgb, var(--vscode-editor-background) 75%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-input-border) 60%, transparent);
+    border-radius: 12px;
+    padding: 12px;
 }
 
 .alphacode-chat-input {
-	flex: 1 1 0;
-	min-width: 0;
-	width: 100%;
-	min-height: 80px;
-	max-height: 200px;
-	padding: 10px 12px;
-	border: 1px solid var(--vscode-input-border);
-	background: var(--vscode-input-background);
-	color: var(--vscode-input-foreground);
-	border-radius: 8px;
-	resize: vertical;
-	font-family: var(--vscode-font-family);
-	font-size: 13px;
-	line-height: 1.6;
-	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    flex: 1 1 0;
+    min-width: 0;
+    width: 100%;
+    min-height: 96px;
+    max-height: 240px;
+    padding: 12px 14px;
+    border: 1px solid var(--vscode-input-border);
+    background: color-mix(in srgb, var(--vscode-input-background) 85%, transparent);
+    color: var(--vscode-input-foreground);
+    border-radius: 10px;
+    resize: vertical;
+    font-family: var(--vscode-font-family);
+    font-size: 13px;
+    line-height: 1.6;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .alphacode-chat-input:focus {
-	outline: none;
-	border-color: var(--vscode-focusBorder);
-	box-shadow: 0 0 0 1px var(--vscode-focusBorder), 0 8px 18px rgba(0, 0, 0, 0.18);
+    outline: none;
+    border-color: var(--vscode-focusBorder);
+    box-shadow: 0 0 0 1px var(--vscode-focusBorder), 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 .alphacode-chat-send-button {
-	min-width: 96px;
-	padding: 10px 18px;
-	border-radius: 8px;
-	border: 1px solid transparent;
-	background: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-	font-weight: 600;
-	display: inline-flex;
-	justify-content: center;
-	align-items: center;
-	gap: 6px;
-	transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    min-width: 118px;
+    padding: 12px 20px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: linear-gradient(135deg,
+            color-mix(in srgb, var(--vscode-button-background) 90%, transparent),
+            color-mix(in srgb, var(--vscode-button-background) 60%, transparent));
+    color: var(--vscode-button-foreground);
+    font-weight: 600;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.alphacode-chat-send-icon {
+    font-size: 12px;
+    transform: translateY(-1px);
+}
+
+.alphacode-chat-send-label {
+    font-size: 13px;
+    letter-spacing: 0.02em;
 }
 
 .alphacode-chat-send-button:hover {
-	background: var(--vscode-button-hoverBackground);
-	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
-	transform: translateY(-1px);
+    background: var(--vscode-button-hoverBackground);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    transform: translateY(-1px);
 }
 
 .alphacode-chat-send-button:active {
-	transform: translateY(0);
-	box-shadow: none;
+    transform: translateY(0);
+    box-shadow: none;
 }
 
 .alphacode-chat-send-button:disabled {
-	opacity: 0.6;
-	cursor: default;
-	box-shadow: none;
-	transform: none;
+    opacity: 0.6;
+    cursor: default;
+    box-shadow: none;
+    transform: none;
 }
 
 .alphacode-chat-toolbar {
-	padding: 8px 12px;
-	border-bottom: 1px solid var(--vscode-panel-border);
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(180deg,
+            color-mix(in srgb, var(--vscode-editorWidget-background) 82%, transparent) 0%,
+            color-mix(in srgb, var(--vscode-editorWidget-background) 64%, transparent) 100%);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.alphacode-chat-toolbar-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--vscode-editor-foreground) 90%, transparent);
 }
 
 .alphacode-chat-toolbar-actions {
-	display: flex;
-	gap: 8px;
-	align-items: center;
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }
 
 .alphacode-chat-toolbar-button {
-	padding: 4px 8px;
-	font-size: 12px;
+    padding: 4px 8px;
+    font-size: 12px;
 }
 
 .alphacode-chat-empty {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	height: 100%;
-	padding: 24px;
-	text-align: center;
-	opacity: 0.7;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 24px;
+    text-align: center;
+    opacity: 0.7;
 }
 
 .alphacode-chat-empty-icon {
-	font-size: 48px;
-	margin-bottom: 16px;
-	opacity: 0.5;
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
 }
 
 .alphacode-chat-empty-title {
-	font-size: 16px;
-	font-weight: 600;
-	margin-bottom: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
 }
 
 .alphacode-chat-empty-description {
-	font-size: 13px;
-	line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .alphacode-chat-loading {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 12px;
-	opacity: 0.7;
-	font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    opacity: 0.7;
+    font-size: 12px;
 }
 
 .alphacode-chat-loading-spinner {
-	width: 16px;
-	height: 16px;
-	border: 2px solid var(--vscode-foreground);
-	border-top-color: transparent;
-	border-radius: 50%;
-	animation: spin 0.8s linear infinite;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--vscode-foreground);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-	to {
-		transform: rotate(360deg);
-	}
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Markdown styles */
 .alphacode-markdown-paragraph {
-	margin: 8px 0;
-	line-height: 1.6;
+    margin: 8px 0;
+    line-height: 1.6;
 }
 
 .alphacode-markdown-list {
-	margin: 8px 0;
-	padding-left: 24px;
-	line-height: 1.6;
+    margin: 8px 0;
+    padding-left: 24px;
+    line-height: 1.6;
 }
 
 .alphacode-inline-code {
-	background: var(--vscode-textCodeBlock-background);
-	padding: 2px 6px;
-	border-radius: 3px;
-	font-family: var(--monaco-monospace-font);
-	font-size: 0.9em;
+    background: var(--vscode-textCodeBlock-background);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--monaco-monospace-font);
+    font-size: 0.9em;
 }
 
 .alphacode-link {
-	color: var(--vscode-textLink-foreground);
-	text-decoration: none;
+    color: var(--vscode-textLink-foreground);
+    text-decoration: none;
 }
 
 .alphacode-link:hover {
-	text-decoration: underline;
+    text-decoration: underline;
 }
 
 /* Code block styles */
 .alphacode-code-block-container {
-	margin: 12px 0;
-	border-radius: 6px;
-	overflow: hidden;
-	border: 1px solid var(--vscode-panel-border);
+    margin: 12px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--vscode-panel-border);
 }
 
 .alphacode-code-block-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 8px 12px;
-	background: var(--vscode-editorGroupHeader-tabsBackground);
-	border-bottom: 1px solid var(--vscode-panel-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--vscode-editorGroupHeader-tabsBackground);
+    border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .alphacode-code-block-language {
-	font-size: 11px;
-	opacity: 0.7;
-	text-transform: uppercase;
-	font-weight: 600;
+    font-size: 11px;
+    opacity: 0.7;
+    text-transform: uppercase;
+    font-weight: 600;
 }
 
 .alphacode-code-block-copy {
-	padding: 2px 8px;
-	font-size: 11px;
-	background: var(--vscode-button-secondaryBackground);
-	color: var(--vscode-button-secondaryForeground);
-	border: 1px solid var(--vscode-button-border);
-	border-radius: 3px;
-	cursor: pointer;
-	transition: opacity 0.2s;
+    padding: 2px 8px;
+    font-size: 11px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--vscode-button-border);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: opacity 0.2s;
 }
 
 .alphacode-code-block-copy:hover {
-	opacity: 0.8;
+    opacity: 0.8;
 }
 
 .alphacode-code-block {
-	margin: 0;
-	padding: 12px;
-	background: var(--vscode-textCodeBlock-background);
-	overflow-x: auto;
-	font-family: var(--monaco-monospace-font);
-	font-size: 13px;
-	line-height: 1.6;
+    margin: 0;
+    padding: 12px;
+    background: var(--vscode-textCodeBlock-background);
+    overflow-x: auto;
+    font-family: var(--monaco-monospace-font);
+    font-size: 13px;
+    line-height: 1.6;
 }
 
 .alphacode-code-block code {
-	background: none;
-	padding: 0;
-	white-space: pre;
+    background: none;
+    padding: 0;
+    white-space: pre;
 }
 
 /* Message actions */
 .alphacode-message-actions {
-	display: flex;
-	gap: 6px;
-	margin-top: 8px;
-	flex-wrap: wrap;
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
 }
 
 .alphacode-message-action {
-	padding: 4px 12px;
-	font-size: 11px;
-	background: var(--vscode-button-secondaryBackground);
-	color: var(--vscode-button-secondaryForeground);
-	border: 1px solid var(--vscode-button-border);
-	border-radius: 4px;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	transition: opacity 0.2s;
+    padding: 4px 12px;
+    font-size: 11px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--vscode-button-border);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: opacity 0.2s;
 }
 
 .alphacode-message-action:hover {
-	opacity: 0.8;
+    opacity: 0.8;
 }
 
 .alphacode-message-action.primary {
-	background: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+}
+
+.alphacode-tool-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--vscode-panel-border);
+    padding: 12px;
+    background: var(--vscode-editorWidget-background);
+}
+
+.alphacode-tool-card.success {
+    border-color: var(--vscode-testing-iconPassed);
+    /* stylelint-disable-line vscode-known-variables */
+}
+
+.alphacode-tool-card.error {
+    border-color: var(--vscode-testing-iconFailed);
+    /* stylelint-disable-line vscode-known-variables */
+}
+
+.alphacode-tool-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.alphacode-tool-card-icon {
+    font-size: 14px;
+}
+
+.alphacode-tool-card-title {
+    flex: 1;
+    font-size: 13px;
+}
+
+.alphacode-tool-card-status {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.alphacode-tool-card-status.success {
+    color: var(--vscode-testing-iconPassed);
+    /* stylelint-disable-line vscode-known-variables */
+}
+
+.alphacode-tool-card-status.error {
+    color: var(--vscode-testing-iconFailed);
+    /* stylelint-disable-line vscode-known-variables */
+}
+
+.alphacode-tool-card-summary {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.alphacode-tool-card-parameters {
+    margin: 0;
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.alphacode-tool-card-toggle {
+    align-self: flex-start;
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 6px;
+    border: 1px solid var(--vscode-button-border);
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    cursor: pointer;
+}
+
+.alphacode-tool-card-toggle:hover {
+    opacity: 0.85;
+}
+
+.alphacode-tool-card-details {
+    margin: 0;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    max-height: 200px;
+    overflow: auto;
+    font-family: var(--monaco-monospace-font);
+    font-size: 12px;
+    line-height: 1.5;
 }
 
 /* Quick suggestions */
 .alphacode-quick-suggestions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	padding: 8px 12px;
-	background: var(--vscode-editorWidget-background);
-	border-top: 1px solid var(--vscode-panel-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 80%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
 }
 
 .alphacode-quick-suggestion {
-	padding: 6px 12px;
-	font-size: 12px;
-	background: var(--vscode-button-secondaryBackground);
-	color: var(--vscode-button-secondaryForeground);
-	border: 1px solid var(--vscode-button-border);
-	border-radius: 12px;
-	cursor: pointer;
-	transition: all 0.2s;
+    padding: 7px 16px;
+    font-size: 12px;
+    background: color-mix(in srgb, var(--vscode-button-secondaryBackground) 85%, transparent);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid color-mix(in srgb, var(--vscode-button-border) 70%, transparent);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
 .alphacode-quick-suggestion:hover {
-	background: var(--vscode-button-hoverBackground);
-	transform: translateY(-1px);
+    background: var(--vscode-button-hoverBackground);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.alphacode-quick-suggestion:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--vscode-focusBorder), 0 12px 28px rgba(0, 0, 0, 0.26);
 }

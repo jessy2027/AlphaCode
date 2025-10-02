@@ -3,42 +3,42 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import "./media/vibeCodingView.css";
-import "./media/chatView.css";
+import './media/vibeCodingView.css';
+import './media/chatView.css';
 
 import {
 	$,
 	addDisposableListener,
 	append,
 	clearNode,
-} from "../../../../base/browser/dom.js";
-import { localize } from "../../../../nls.js";
-import { generateUuid } from "../../../../base/common/uuid.js";
-import { ICommandService } from "../../../../platform/commands/common/commands.js";
-import { MarkdownRenderer } from "./markdownRenderer.js";
-import { IConfigurationService } from "../../../../platform/configuration/common/configuration.js";
-import { IContextKeyService } from "../../../../platform/contextkey/common/contextkey.js";
-import { IContextMenuService } from "../../../../platform/contextview/browser/contextView.js";
-import { IHoverService } from "../../../../platform/hover/browser/hover.js";
-import { IInstantiationService } from "../../../../platform/instantiation/common/instantiation.js";
-import { IKeybindingService } from "../../../../platform/keybinding/common/keybinding.js";
-import { IOpenerService } from "../../../../platform/opener/common/opener.js";
-import { IThemeService } from "../../../../platform/theme/common/themeService.js";
+} from '../../../../base/browser/dom.js';
+import { localize } from '../../../../nls.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { MarkdownRenderer } from './markdownRenderer.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import {
 	IViewDescriptorService,
 	ViewContainerLocation,
-} from "../../../common/views.js";
+} from '../../../common/views.js';
 import {
 	IViewPaneOptions,
 	ViewPane,
-} from "../../../browser/parts/views/viewPane.js";
+} from '../../../browser/parts/views/viewPane.js';
 import {
 	SIDE_BAR_BACKGROUND,
 	SIDE_BAR_FOREGROUND,
-} from "../../../common/theme.js";
-import { IAlphaCodeChatService, IChatMessage } from "../common/chatService.js";
-import { IAlphaCodeAIService } from "../common/aiService.js";
-import { IEditorService } from "../../../services/editor/common/editorService.js";
+} from '../../../common/theme.js';
+import { IAlphaCodeChatService, IChatMessage } from '../common/chatService.js';
+import { IAlphaCodeAIService } from '../common/aiService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 export class VibeCodingView extends ViewPane {
 	private containerElement: HTMLElement | undefined;
@@ -47,6 +47,8 @@ export class VibeCodingView extends ViewPane {
 	private inputTextArea: HTMLTextAreaElement | undefined;
 	private isConfigured: boolean = false;
 	private currentStreamingMessage: HTMLElement | undefined;
+	private currentStreamingBuffer: string = '';
+	private currentStreamingMessageId: string | undefined;
 	private isStreaming: boolean = false;
 	private markdownRenderer: MarkdownRenderer;
 	private quickSuggestionsContainer: HTMLElement | undefined;
@@ -95,14 +97,14 @@ export class VibeCodingView extends ViewPane {
 				const wasConfigured = this.isConfigured;
 				this.isConfigured = !!this.aiService.getProviderConfig();
 				console.log(
-					"[VibeCoding] AI config changed:",
+					'[VibeCoding] AI config changed:',
 					JSON.stringify({ wasConfigured, isConfigured: this.isConfigured }),
 				);
 				if (!wasConfigured && this.isConfigured && this.containerElement) {
 					// Switch from welcome to chat
 					clearNode(this.containerElement);
 					this.renderChat(this.containerElement);
-					console.log("[VibeCoding] Switched from welcome to chat");
+					console.log('[VibeCoding] Switched from welcome to chat');
 				} else if (
 					wasConfigured &&
 					!this.isConfigured &&
@@ -111,7 +113,7 @@ export class VibeCodingView extends ViewPane {
 					// Switch from chat to welcome
 					clearNode(this.containerElement);
 					this.renderWelcome(this.containerElement);
-					console.log("[VibeCoding] Switched from chat to welcome");
+					console.log('[VibeCoding] Switched from chat to welcome');
 				}
 			}),
 		);
@@ -120,7 +122,7 @@ export class VibeCodingView extends ViewPane {
 	protected override renderBody(container: HTMLElement): void {
 		super.renderBody(container);
 		this.containerElement = container;
-		container.classList.add("alphacode-vibe-root");
+		container.classList.add('alphacode-vibe-root');
 
 		if (!this.isConfigured) {
 			this.renderWelcome(container);
@@ -141,48 +143,48 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private renderWelcome(container: HTMLElement): void {
-		this.welcomeContainer = append(container, $(".alphacode-vibe-welcome"));
+		this.welcomeContainer = append(container, $('.alphacode-vibe-welcome'));
 
 		append(
 			this.welcomeContainer,
 			$(
-				"h2",
+				'h2',
 				undefined,
-				localize("alphacode.vibe.welcome.title", "Welcome to Vibe Coding"),
+				localize('alphacode.vibe.welcome.title', 'Welcome to Vibe Coding'),
 			),
 		);
 
 		append(
 			this.welcomeContainer,
 			$(
-				"p",
+				'p',
 				undefined,
 				localize(
-					"alphacode.vibe.welcome.description",
-					"Connect your favorite AI providers and co-create code directly inside AlphaCodeIDE. Configure your API keys to begin.",
+					'alphacode.vibe.welcome.description',
+					'Connect your favorite AI providers and co-create code directly inside AlphaCodeIDE. Configure your API keys to begin.',
 				),
 			),
 		);
 
 		const actionsRow = append(
 			this.welcomeContainer,
-			$(".alphacode-vibe-actions"),
+			$('.alphacode-vibe-actions'),
 		);
 		const configureButton = append(
 			actionsRow,
 			$(
-				"button.monaco-text-button",
+				'button.monaco-text-button',
 				undefined,
-				localize("alphacode.vibe.configure", "Open AI Settings"),
+				localize('alphacode.vibe.configure', 'Open AI Settings'),
 			),
 		) as HTMLButtonElement;
-		configureButton.type = "button";
+		configureButton.type = 'button';
 
 		this._register(
-			addDisposableListener(configureButton, "click", async () => {
+			addDisposableListener(configureButton, 'click', async () => {
 				await this.commandService.executeCommand(
-					"workbench.action.openSettings",
-					"@alphacode ai",
+					'workbench.action.openSettings',
+					'@alphacode ai',
 				);
 			}),
 		);
@@ -190,75 +192,75 @@ export class VibeCodingView extends ViewPane {
 		append(
 			this.welcomeContainer,
 			$(
-				"p",
+				'p',
 				undefined,
-				localize("alphacode.vibe.welcome.instructions", "Next steps:"),
+				localize('alphacode.vibe.welcome.instructions', 'Next steps:'),
 			),
 		);
-		const checklist = append(this.welcomeContainer, $("ul", undefined));
+		const checklist = append(this.welcomeContainer, $('ul', undefined));
 		append(
 			checklist,
 			$(
-				"li",
+				'li',
 				undefined,
 				localize(
-					"alphacode.vibe.welcome.step.context",
-					"Enable workspace indexing for deeper context awareness.",
+					'alphacode.vibe.welcome.step.context',
+					'Enable workspace indexing for deeper context awareness.',
 				),
 			),
 		);
 		append(
 			checklist,
 			$(
-				"li",
+				'li',
 				undefined,
 				localize(
-					"alphacode.vibe.welcome.step.agents",
-					"Choose agents for generation, refactors, debugging, and documentation.",
+					'alphacode.vibe.welcome.step.agents',
+					'Choose agents for generation, refactors, debugging, and documentation.',
 				),
 			),
 		);
 		append(
 			checklist,
 			$(
-				"li",
+				'li',
 				undefined,
 				localize(
-					"alphacode.vibe.welcome.step.live",
-					"Invite collaborators to start live pair programming sessions.",
+					'alphacode.vibe.welcome.step.live',
+					'Invite collaborators to start live pair programming sessions.',
 				),
 			),
 		);
 	}
 
 	private renderChat(container: HTMLElement): void {
-		this.chatContainer = append(container, $(".alphacode-chat-container"));
+		this.chatContainer = append(container, $('.alphacode-chat-container'));
 
 		// Toolbar
-		const toolbar = append(this.chatContainer, $(".alphacode-chat-toolbar"));
+		const toolbar = append(this.chatContainer, $('.alphacode-chat-toolbar'));
 		append(
 			toolbar,
 			$(
-				"span",
+				'span',
 				undefined,
-				localize("alphacode.chat.title", "Vibe Coding Chat"),
+				localize('alphacode.chat.title', 'Vibe Coding Chat'),
 			),
 		);
 		const toolbarActions = append(
 			toolbar,
-			$(".alphacode-chat-toolbar-actions"),
+			$('.alphacode-chat-toolbar-actions'),
 		);
 
 		const clearButton = append(
 			toolbarActions,
 			$(
-				"button.monaco-text-button.alphacode-chat-toolbar-button",
+				'button.monaco-text-button.alphacode-chat-toolbar-button',
 				undefined,
-				localize("alphacode.chat.clear", "Clear"),
+				localize('alphacode.chat.clear', 'Clear'),
 			),
 		) as HTMLButtonElement;
 		this._register(
-			addDisposableListener(clearButton, "click", () => {
+			addDisposableListener(clearButton, 'click', () => {
 				this.chatService.clearCurrentSession();
 				this.renderMessages();
 			}),
@@ -267,67 +269,67 @@ export class VibeCodingView extends ViewPane {
 		// Messages container
 		this.messagesContainer = append(
 			this.chatContainer,
-			$(".alphacode-chat-messages"),
+			$('.alphacode-chat-messages'),
 		);
 		this.renderMessages();
 
 		// Quick suggestions
 		this.quickSuggestionsContainer = append(
 			this.chatContainer,
-			$(".alphacode-quick-suggestions"),
+			$('.alphacode-quick-suggestions'),
 		);
 		this.renderQuickSuggestions();
 
 		// Input container
 		const inputContainer = append(
 			this.chatContainer,
-			$(".alphacode-chat-input-container"),
+			$('.alphacode-chat-input-container'),
 		);
 
 		const contextInfo = append(
 			inputContainer,
-			$(".alphacode-chat-context-info"),
+			$('.alphacode-chat-context-info'),
 		);
 		append(
 			contextInfo,
 			$(
-				"span",
+				'span',
 				undefined,
-				localize("alphacode.chat.context", "Context: Workspace + Active File"),
+				localize('alphacode.chat.context', 'Context: Workspace + Active File'),
 			),
 		);
 
 		const inputWrapper = append(
 			inputContainer,
-			$(".alphacode-chat-input-wrapper"),
+			$('.alphacode-chat-input-wrapper'),
 		);
 		this.inputTextArea = append(
 			inputWrapper,
-			$("textarea.alphacode-chat-input"),
+			$('textarea.alphacode-chat-input'),
 		) as HTMLTextAreaElement;
 		this.inputTextArea.placeholder = localize(
-			"alphacode.chat.placeholder",
-			"Ask me anything about your code...",
+			'alphacode.chat.placeholder',
+			'Ask me anything about your code...'
 		);
 
 		const sendButton = append(
 			inputWrapper,
 			$(
-				"button.monaco-text-button.alphacode-chat-send-button",
+				'button.monaco-text-button.alphacode-chat-send-button',
 				undefined,
-				localize("alphacode.chat.send", "Send"),
+				localize('alphacode.chat.send', 'Send'),
 			),
 		) as HTMLButtonElement;
 
 		this._register(
-			addDisposableListener(sendButton, "click", () => this.sendMessage()),
+			addDisposableListener(sendButton, 'click', () => this.sendMessage()),
 		);
 		this._register(
 			addDisposableListener(
 				this.inputTextArea,
-				"keydown",
+				'keydown',
 				(e: KeyboardEvent) => {
-					if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+					if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 						e.preventDefault();
 						this.sendMessage();
 					}
@@ -351,25 +353,25 @@ export class VibeCodingView extends ViewPane {
 		}
 
 		if (session.messages.length === 0) {
-			const empty = append(this.messagesContainer, $(".alphacode-chat-empty"));
+			const empty = append(this.messagesContainer, $('.alphacode-chat-empty'));
 			// allow-any-unicode-next-line
-			append(empty, $(".alphacode-chat-empty-icon", undefined, "💬"));
+			append(empty, $('.alphacode-chat-empty-icon', undefined, '💬'));
 			append(
 				empty,
 				$(
-					".alphacode-chat-empty-title",
+					'.alphacode-chat-empty-title',
 					undefined,
-					localize("alphacode.chat.empty.title", "Start a Conversation"),
+					localize('alphacode.chat.empty.title', 'Start a Conversation'),
 				),
 			);
 			append(
 				empty,
 				$(
-					".alphacode-chat-empty-description",
+					'.alphacode-chat-empty-description',
 					undefined,
 					localize(
-						"alphacode.chat.empty.description",
-						"Ask questions, generate code, refactor, debug, or get documentation help.",
+						'alphacode.chat.empty.description',
+						'Ask questions, generate code, refactor, debug, or get documentation help.',
 					),
 				),
 			);
@@ -394,38 +396,40 @@ export class VibeCodingView extends ViewPane {
 			$(`.alphacode-chat-message.${message.role}`),
 		);
 
-		const header = append(messageElement, $(".alphacode-chat-message-header"));
-		// allow-any-unicode-next-line
-		append(
-			header,
-			$(
-				".alphacode-chat-message-avatar",
-				undefined,
-				message.role === "user" ? "👤" : "🤖",
-			),
-		);
-		append(
-			header,
-			$(
-				"span",
-				undefined,
-				message.role === "user"
-					? localize("alphacode.chat.you", "You")
-					: localize("alphacode.chat.assistant", "AlphaCode AI"),
-			),
-		);
+		const header = append(messageElement, $('.alphacode-chat-message-header'));
+		let avatarSymbol: string;
+		let labelText: string;
+		switch (message.role) {
+			case 'user':
+				avatarSymbol = '👤';
+				labelText = localize('alphacode.chat.you', 'You');
+				break;
+			case 'assistant':
+				avatarSymbol = '🤖';
+				labelText = localize('alphacode.chat.assistant', 'AlphaCode AI');
+				break;
+			case 'tool':
+				avatarSymbol = '🛠️';
+				labelText = localize('alphacode.chat.tool', 'Tool');
+				break;
+			default:
+				avatarSymbol = '💬';
+				labelText = '';
+		}
+
+		append(header, $('.alphacode-chat-message-avatar', undefined, avatarSymbol));
+		append(header, $('span', undefined, labelText));
 
 		const content = append(
 			messageElement,
-			$(".alphacode-chat-message-content"),
+			$('.alphacode-chat-message-content'),
 		);
 
-		// Render markdown for assistant messages
-		if (message.role === "assistant") {
+		if (message.role === 'assistant') {
 			this.markdownRenderer.render(message.content, content);
-
-			// Add action buttons for assistant messages
 			this.renderMessageActions(messageElement, message);
+		} else if (message.role === 'tool') {
+			this.renderToolMessage(content, message);
 		} else {
 			content.textContent = message.content;
 		}
@@ -434,26 +438,110 @@ export class VibeCodingView extends ViewPane {
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 	}
 
+	private renderToolMessage(contentElement: HTMLElement, message: IChatMessage): void {
+		const metadata = message.metadata ?? {};
+		const card = append(contentElement, $('.alphacode-tool-card'));
+		const status = metadata.status === 'error' ? 'error' : 'success';
+		card.classList.add(status);
+
+		const header = append(card, $('.alphacode-tool-card-header'));
+		const icon = status === 'error' ? '⚠️' : '🛠️';
+		append(header, $('span.alphacode-tool-card-icon', undefined, icon));
+		const title =
+			typeof metadata.name === 'string' && metadata.name.trim().length
+				? metadata.name
+				: localize('alphacode.chat.tool.unknown', 'Tool action');
+		append(header, $('span.alphacode-tool-card-title', undefined, title));
+
+		const statusLabel =
+			status === 'error'
+				? localize('alphacode.chat.tool.status.error', 'Error')
+				: localize('alphacode.chat.tool.status.success', 'Success');
+		append(
+			header,
+			$(
+				'span.alphacode-tool-card-status',
+				undefined,
+				statusLabel,
+			),
+		).classList.add(status);
+
+		const summaryText =
+			typeof metadata.summary === 'string' && metadata.summary.trim().length
+				? metadata.summary
+				: message.content;
+		append(
+			card,
+			$('p.alphacode-tool-card-summary', undefined, summaryText),
+		);
+
+		if (metadata.parameters) {
+			append(
+				card,
+				$(
+					'p.alphacode-tool-card-parameters',
+					undefined,
+					localize(
+						'alphacode.chat.tool.parameters',
+						'Parameters: {0}',
+						metadata.parameters,
+					),
+				),
+			);
+		}
+
+		const detailsText =
+			typeof metadata.details === 'string' && metadata.details.trim().length
+				? metadata.details
+				: message.content;
+		if (detailsText && detailsText !== summaryText) {
+			const toggle = append(
+				card,
+				$(
+					'button.alphacode-tool-card-toggle',
+					undefined,
+					localize('alphacode.chat.tool.showDetails', 'Show details'),
+				),
+			) as HTMLButtonElement;
+			toggle.type = 'button';
+			const details = append(
+				card,
+				$('pre.alphacode-tool-card-details'),
+			);
+			details.textContent = detailsText;
+			details.hidden = true;
+			this._register(
+				addDisposableListener(toggle, 'click', () => {
+					const hidden = details.hidden;
+					details.hidden = !hidden;
+					toggle.textContent = hidden
+						? localize('alphacode.chat.tool.hideDetails', 'Hide details')
+						: localize('alphacode.chat.tool.showDetails', 'Show details');
+				}),
+			);
+		}
+	}
+
 	private renderMessageActions(
 		messageElement: HTMLElement,
 		message: IChatMessage,
 	): void {
-		const actions = append(messageElement, $(".alphacode-message-actions"));
+		const actions = append(messageElement, $('.alphacode-message-actions'));
 
 		// Copy button
 		// allow-any-unicode-next-line
 		const copyButton = append(
 			actions,
-			$("button.alphacode-message-action", undefined, "📋 Copy"),
+			$('button.alphacode-message-action', undefined, '📋 Copy'),
 		) as HTMLButtonElement;
 		this._register(
-			addDisposableListener(copyButton, "click", () => {
+			addDisposableListener(copyButton, 'click', () => {
 				navigator.clipboard.writeText(message.content);
 				// allow-any-unicode-next-line
-				copyButton.textContent = "✓ Copied!";
+				copyButton.textContent = '✓ Copied!';
 				setTimeout(() => {
 					// allow-any-unicode-next-line
-					copyButton.textContent = "📋 Copy";
+					copyButton.textContent = '📋 Copy';
 				}, 2000);
 			}),
 		);
@@ -464,27 +552,27 @@ export class VibeCodingView extends ViewPane {
 			const applyButton = append(
 				actions,
 				$(
-					"button.alphacode-message-action.primary",
+					'button.alphacode-message-action.primary',
 					undefined,
-					"✨ Apply Code",
+					'✨ Apply Code',
 				),
 			) as HTMLButtonElement;
 			this._register(
-				addDisposableListener(applyButton, "click", () => {
-					this.applyCode(codeBlocks[0].code);
-				}),
+				addDisposableListener(applyButton, 'click', () =>
+					this.applyCode(codeBlocks[0].code),
+				),
 			);
 		}
 
 		// Regenerate button
 		const regenerateButton = append(
 			actions,
-			$("button.alphacode-message-action", undefined, "Regenerate"),
+			$('button.alphacode-message-action', undefined, 'Regenerate'),
 		) as HTMLButtonElement;
 		this._register(
-			addDisposableListener(regenerateButton, "click", () => {
-				this.regenerateLastResponse();
-			}),
+			addDisposableListener(regenerateButton, 'click', () =>
+				this.regenerateLastResponse(),
+			),
 		);
 	}
 
@@ -496,21 +584,21 @@ export class VibeCodingView extends ViewPane {
 		clearNode(this.quickSuggestionsContainer);
 
 		const suggestions = [
-			"Explain this code",
-			"Refactor selection",
-			"Add documentation",
-			"Find bugs",
-			"Optimize performance",
-			"Generate tests",
+			'Explain this code',
+			'Refactor selection',
+			'Add documentation',
+			'Find bugs',
+			'Optimize performance',
+			'Generate tests',
 		];
 
 		for (const suggestion of suggestions) {
 			const button = append(
 				this.quickSuggestionsContainer,
-				$("button.alphacode-quick-suggestion", undefined, suggestion),
+				$('button.alphacode-quick-suggestion', undefined, suggestion),
 			) as HTMLButtonElement;
 			this._register(
-				addDisposableListener(button, "click", () => {
+				addDisposableListener(button, 'click', () => {
 					if (this.inputTextArea) {
 						this.inputTextArea.value = suggestion.substring(2); // Remove emoji
 						this.inputTextArea.focus();
@@ -529,8 +617,8 @@ export class VibeCodingView extends ViewPane {
 
 		// Check if it's a code editor
 		if (
-			"executeEdits" in activeEditor &&
-			typeof activeEditor.executeEdits === "function"
+			'executeEdits' in activeEditor &&
+			typeof activeEditor.executeEdits === 'function'
 		) {
 			// Insert code at cursor position or replace selection
 			const selection = activeEditor.getSelection?.();
@@ -539,7 +627,7 @@ export class VibeCodingView extends ViewPane {
 					range: selection,
 					text: code,
 				};
-				activeEditor.executeEdits("alphacode", [edit]);
+				activeEditor.executeEdits('alphacode', [edit]);
 			}
 		}
 	}
@@ -552,7 +640,7 @@ export class VibeCodingView extends ViewPane {
 
 		// Get the last user message
 		const messages = session.messages;
-		const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+		const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
 
 		if (lastUserMessage && this.inputTextArea) {
 			this.inputTextArea.value = lastUserMessage.content;
@@ -569,22 +657,54 @@ export class VibeCodingView extends ViewPane {
 			return;
 		}
 
+		if (chunk.messageId && !this.currentStreamingMessageId) {
+			this.currentStreamingMessageId = chunk.messageId;
+		}
+
+		if (
+			this.currentStreamingMessageId &&
+			chunk.messageId &&
+			chunk.messageId !== this.currentStreamingMessageId
+		) {
+			return;
+		}
+
 		if (!chunk.done) {
-			// Remove loading spinner if present
-			const spinner = this.currentStreamingMessage.querySelector(
-				".alphacode-chat-loading-spinner",
-			);
-			if (spinner) {
-				spinner.remove();
+			if (chunk.content) {
+				this.currentStreamingBuffer += chunk.content;
 			}
-
-			// Append chunk content
-			this.currentStreamingMessage.textContent += chunk.content;
-
-			// Scroll to bottom
+			const hasContent = this.currentStreamingBuffer.trim().length > 0;
+			if (hasContent) {
+				clearNode(this.currentStreamingMessage);
+				this.markdownRenderer.render(
+					this.currentStreamingBuffer,
+					this.currentStreamingMessage,
+				);
+			} else {
+				const spinner = this.currentStreamingMessage.querySelector(
+					'.alphacode-chat-loading-spinner',
+				);
+				if (!spinner) {
+					append(
+						this.currentStreamingMessage,
+						$('.alphacode-chat-loading-spinner'),
+					);
+				}
+			}
+			if (hasContent) {
+				const spinner = this.currentStreamingMessage.querySelector(
+					'.alphacode-chat-loading-spinner',
+				);
+				if (spinner) {
+					spinner.remove();
+				}
+			}
 			if (this.messagesContainer) {
 				this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 			}
+		} else {
+			this.currentStreamingBuffer = '';
+			this.currentStreamingMessageId = undefined;
 		}
 	}
 
@@ -599,13 +719,15 @@ export class VibeCodingView extends ViewPane {
 		}
 
 		// Clear input
-		this.inputTextArea.value = "";
+		this.inputTextArea.value = '';
 		this.isStreaming = true;
+		this.currentStreamingBuffer = '';
+		this.currentStreamingMessageId = undefined;
 
 		// Add user message immediately
 		const userMessage: IChatMessage = {
 			id: generateUuid(),
-			role: "user",
+			role: 'user',
 			content,
 			timestamp: Date.now(),
 		};
@@ -628,28 +750,28 @@ export class VibeCodingView extends ViewPane {
 			);
 			const header = append(
 				messageElement,
-				$(".alphacode-chat-message-header"),
+				$('.alphacode-chat-message-header'),
 			);
-			append(header, $(".alphacode-chat-message-avatar", undefined, "AI"));
+			append(header, $('.alphacode-chat-message-avatar', undefined, 'AI'));
 			append(
 				header,
 				$(
-					"span",
+					'span',
 					undefined,
-					localize("alphacode.chat.assistant", "AlphaCode AI"),
+					localize('alphacode.chat.assistant', 'AlphaCode AI'),
 				),
 			);
 
 			this.currentStreamingMessage = append(
 				messageElement,
-				$(".alphacode-chat-message-content"),
+				$('.alphacode-chat-message-content'),
 			);
-			this.currentStreamingMessage.textContent = "";
+			this.currentStreamingMessage.textContent = '';
 
 			// Add typing indicator
 			append(
 				this.currentStreamingMessage,
-				$(".alphacode-chat-loading-spinner"),
+				$('.alphacode-chat-loading-spinner'),
 			);
 
 			// Scroll to bottom
@@ -659,9 +781,9 @@ export class VibeCodingView extends ViewPane {
 			try {
 				await this.chatService.sendMessage(content, context);
 			} catch (error) {
-				console.error("Failed to send message", error);
+				console.error('Failed to send message', error);
 				if (this.currentStreamingMessage) {
-					this.currentStreamingMessage.textContent = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+					this.currentStreamingMessage.textContent = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 				}
 			} finally {
 				this.isStreaming = false;
@@ -704,7 +826,7 @@ export class VibeCodingView extends ViewPane {
 			viewLocation === ViewContainerLocation.Sidebar ||
 			viewLocation === ViewContainerLocation.AuxiliaryBar;
 		const isNarrow = isSidebar && this.containerElement.clientWidth < 320;
-		this.containerElement.classList.toggle("alphacode-vibe-narrow", isNarrow);
+		this.containerElement.classList.toggle('alphacode-vibe-narrow', isNarrow);
 	}
 
 	private updateBackground(container: HTMLElement): void {
@@ -713,13 +835,13 @@ export class VibeCodingView extends ViewPane {
 		const foreground = theme.getColor(SIDE_BAR_FOREGROUND);
 		if (background) {
 			container.style.setProperty(
-				"--alphacode-vibe-background",
+				'--alphacode-vibe-background',
 				background.toString(),
 			);
 		}
 		if (foreground) {
 			container.style.setProperty(
-				"--alphacode-vibe-foreground",
+				'--alphacode-vibe-foreground',
 				foreground.toString(),
 			);
 		}

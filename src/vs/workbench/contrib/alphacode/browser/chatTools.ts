@@ -3,11 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from "../../../../base/common/uri.js";
-import { IFileService } from "../../../../platform/files/common/files.js";
-import { IWorkspaceContextService } from "../../../../platform/workspace/common/workspace.js";
-import { IChatTool } from "../common/chatService.js";
-import { VSBuffer } from "../../../../base/common/buffer.js";
+import { URI } from '../../../../base/common/uri.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IChatTool } from '../common/chatService.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 
 export class ChatToolsRegistry {
 	private tools: Map<string, IChatTool> = new Map();
@@ -22,18 +22,18 @@ export class ChatToolsRegistry {
 	private registerDefaultTools(): void {
 		// Tool: Read File
 		this.registerTool({
-			name: "read_file",
+			name: 'read_file',
 			description:
-				"Read the contents of a file. Returns the file content as text.",
+				'Read the contents of a file. Returns the file content as text.',
 			parameters: {
-				type: "object",
+				type: 'object',
 				properties: {
 					path: {
-						type: "string",
-						description: "The absolute or relative path to the file to read",
+						type: 'string',
+						description: 'The absolute or relative path to the file to read',
 					},
 				},
-				required: ["path"],
+				required: ['path'],
 			},
 			execute: async (params: { path: string }) => {
 				try {
@@ -42,7 +42,7 @@ export class ChatToolsRegistry {
 					return `File: ${params.path}\n\n${content.value.toString()}`;
 				} catch (error) {
 					throw new Error(
-						`Failed to read file: ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Failed to read file: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					);
 				}
 			},
@@ -50,18 +50,18 @@ export class ChatToolsRegistry {
 
 		// Tool: List Directory
 		this.registerTool({
-			name: "list_directory",
-			description: "List all files and directories in a given directory path.",
+			name: 'list_directory',
+			description: 'List all files and directories in a given directory path.',
 			parameters: {
-				type: "object",
+				type: 'object',
 				properties: {
 					path: {
-						type: "string",
+						type: 'string',
 						description:
-							"The absolute or relative path to the directory to list",
+							'The absolute or relative path to the directory to list',
 					},
 				},
-				required: ["path"],
+				required: ['path'],
 			},
 			execute: async (params: { path: string }) => {
 				try {
@@ -73,15 +73,15 @@ export class ChatToolsRegistry {
 					}
 
 					const items = stat.children.map((child) => {
-						const type = child.isDirectory ? "[DIR]" : "[FILE]";
-						const size = child.size ? ` (${this.formatSize(child.size)})` : "";
+						const type = child.isDirectory ? '[DIR]' : '[FILE]';
+						const size = child.size ? ` (${this.formatSize(child.size)})` : '';
 						return `${type} ${child.name}${size}`;
 					});
 
-					return `Directory: ${params.path}\n\n${items.join("\n")}`;
+					return `Directory: ${params.path}\n\n${items.join('\n')}`;
 				} catch (error) {
 					throw new Error(
-						`Failed to list directory: ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Failed to list directory: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					);
 				}
 			},
@@ -89,33 +89,33 @@ export class ChatToolsRegistry {
 
 		// Tool: Search Files
 		this.registerTool({
-			name: "search_files",
+			name: 'search_files',
 			description:
-				"Search for files in the workspace by name pattern (glob pattern supported).",
+				'Search for files in the workspace by name pattern (glob pattern supported).',
 			parameters: {
-				type: "object",
+				type: 'object',
 				properties: {
 					pattern: {
-						type: "string",
+						type: 'string',
 						description:
-							'The file name pattern to search for (e.g., "*.ts", "test*.js")',
+							'The file name pattern to search for (e.g., '*.ts', 'test*.js')',
 					},
 					maxResults: {
-						type: "number",
-						description: "Maximum number of results to return (default: 50)",
+						type: 'number',
+						description: 'Maximum number of results to return (default: 50)',
 					},
 				},
-				required: ["pattern"],
+				required: ['pattern'],
 			},
 			execute: async (params: { pattern: string; maxResults?: number }) => {
 				try {
 					const workspace = this.workspaceContextService.getWorkspace();
 					if (!workspace.folders.length) {
-						return "No workspace folder open";
+						return 'No workspace folder open';
 					}
 
 					const results: string[] = [];
-					const maxResults = params.maxResults || 50;
+					const maxResults = params.maxResults ?? 50;
 
 					for (const folder of workspace.folders) {
 						const files = await this.searchInDirectory(
@@ -133,10 +133,10 @@ export class ChatToolsRegistry {
 						return `No files found matching pattern: ${params.pattern}`;
 					}
 
-					return `Found ${results.length} file(s) matching "${params.pattern}":\n\n${results.join("\n")}`;
+					return `Found ${results.length} file(s) matching '${params.pattern}':\n\n${results.join('\n')}`;
 				} catch (error) {
 					throw new Error(
-						`Failed to search files: ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Failed to search files: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					);
 				}
 			},
@@ -144,22 +144,22 @@ export class ChatToolsRegistry {
 
 		// Tool: Write File
 		this.registerTool({
-			name: "write_file",
+			name: 'write_file',
 			description:
-				"Create a new file or overwrite an existing file with the provided content.",
+				'Create a new file or overwrite an existing file with the provided content.',
 			parameters: {
-				type: "object",
+				type: 'object',
 				properties: {
 					path: {
-						type: "string",
-						description: "The absolute or relative path to the file to write",
+						type: 'string',
+						description: 'The absolute or relative path to the file to write',
 					},
 					content: {
-						type: "string",
-						description: "The content to write to the file",
+						type: 'string',
+						description: 'The content to write to the file',
 					},
 				},
-				required: ["path", "content"],
+				required: ['path', 'content'],
 			},
 			execute: async (params: { path: string; content: string }) => {
 				try {
@@ -171,7 +171,7 @@ export class ChatToolsRegistry {
 					return `Successfully wrote to file: ${params.path}`;
 				} catch (error) {
 					throw new Error(
-						`Failed to write file: ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Failed to write file: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					);
 				}
 			},
@@ -179,27 +179,27 @@ export class ChatToolsRegistry {
 
 		// Tool: Edit File
 		this.registerTool({
-			name: "edit_file",
+			name: 'edit_file',
 			description:
-				"Edit a file by replacing specific text. Provide the old text to find and the new text to replace it with.",
+				'Edit a file by replacing specific text. Provide the old text to find and the new text to replace it with.',
 			parameters: {
-				type: "object",
+				type: 'object',
 				properties: {
 					path: {
-						type: "string",
-						description: "The absolute or relative path to the file to edit",
+						type: 'string',
+						description: 'The absolute or relative path to the file to edit',
 					},
 					oldText: {
-						type: "string",
+						type: 'string',
 						description:
-							"The exact text to find and replace (must match exactly)",
+							'The exact text to find and replace (must match exactly)',
 					},
 					newText: {
-						type: "string",
-						description: "The new text to replace the old text with",
+						type: 'string',
+						description: 'The new text to replace the old text with',
 					},
 				},
-				required: ["path", "oldText", "newText"],
+				required: ['path', 'oldText', 'newText'],
 			},
 			execute: async (params: {
 				path: string;
@@ -229,7 +229,7 @@ export class ChatToolsRegistry {
 					return `Successfully edited file: ${params.path}\nReplaced text with new content.`;
 				} catch (error) {
 					throw new Error(
-						`Failed to edit file: ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Failed to edit file: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					);
 				}
 			},
@@ -237,35 +237,35 @@ export class ChatToolsRegistry {
 
 		// Tool: Get File Info
 		this.registerTool({
-			name: "get_file_info",
+			name: 'get_file_info',
 			description:
-				"Get metadata information about a file or directory (size, type, modification time).",
+				'Get metadata information about a file or directory (size, type, modification time).',
 			parameters: {
-				type: "object",
+				type: 'object',
 				properties: {
 					path: {
-						type: "string",
+						type: 'string',
 						description:
-							"The absolute or relative path to the file or directory",
+							'The absolute or relative path to the file or directory',
 					},
 				},
-				required: ["path"],
+				required: ['path'],
 			},
 			execute: async (params: { path: string }) => {
 				try {
 					const uri = this.resolveUri(params.path);
 					const stat = await this.fileService.resolve(uri);
 
-					const type = stat.isDirectory ? "Directory" : "File";
-					const size = stat.size ? this.formatSize(stat.size) : "N/A";
+					const type = stat.isDirectory ? 'Directory' : 'File';
+					const size = stat.size ? this.formatSize(stat.size) : 'N/A';
 					const modified = stat.mtime
 						? new Date(stat.mtime).toLocaleString()
-						: "N/A";
+						: 'N/A';
 
 					return `Path: ${params.path}\nType: ${type}\nSize: ${size}\nLast Modified: ${modified}`;
 				} catch (error) {
 					throw new Error(
-						`Failed to get file info: ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Failed to get file info: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					);
 				}
 			},
@@ -273,23 +273,23 @@ export class ChatToolsRegistry {
 
 		// Tool: Delete File
 		this.registerTool({
-			name: "delete_file",
-			description: "Delete a file or directory. Use with caution!",
+			name: 'delete_file',
+			description: 'Delete a file or directory. Use with caution!',
 			parameters: {
-				type: "object",
+				type: 'object',
 				properties: {
 					path: {
-						type: "string",
+						type: 'string',
 						description:
-							"The absolute or relative path to the file or directory to delete",
+							'The absolute or relative path to the file or directory to delete',
 					},
 					recursive: {
-						type: "boolean",
+						type: 'boolean',
 						description:
-							"If true, delete directories recursively (default: false)",
+							'If true, delete directories recursively (default: false)',
 					},
 				},
-				required: ["path"],
+				required: ['path'],
 			},
 			execute: async (params: { path: string; recursive?: boolean }) => {
 				try {
@@ -300,7 +300,7 @@ export class ChatToolsRegistry {
 					return `Successfully deleted: ${params.path}`;
 				} catch (error) {
 					throw new Error(
-						`Failed to delete: ${error instanceof Error ? error.message : "Unknown error"}`,
+						`Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`,
 					);
 				}
 			},
@@ -309,19 +309,19 @@ export class ChatToolsRegistry {
 
 	private resolveUri(path: string): URI {
 		// If path is already absolute URI
-		if (path.startsWith("file://")) {
+		if (path.startsWith('file://')) {
 			return URI.parse(path);
 		}
 
 		// If path is absolute
-		if (path.startsWith("/") || /^[a-zA-Z]:/.test(path)) {
+		if (path.startsWith('/') || /^[a-zA-Z]:/.test(path)) {
 			return URI.file(path);
 		}
 
 		// Relative path - resolve against workspace
 		const workspace = this.workspaceContextService.getWorkspace();
 		if (workspace.folders.length === 0) {
-			throw new Error("No workspace folder open");
+			throw new Error('No workspace folder open');
 		}
 
 		return URI.joinPath(workspace.folders[0].uri, path);
@@ -369,16 +369,16 @@ export class ChatToolsRegistry {
 	private matchesPattern(filename: string, pattern: string): boolean {
 		// Simple glob pattern matching
 		const regexPattern = pattern
-			.replace(/\./g, "\\.")
-			.replace(/\*/g, ".*")
-			.replace(/\?/g, ".");
+			.replace(/\./g, '\\.')
+			.replace(/\*/g, '.*')
+			.replace(/\?/g, '.');
 
-		const regex = new RegExp(`^${regexPattern}$`, "i");
+		const regex = new RegExp(`^${regexPattern}$`, 'i');
 		return regex.test(filename);
 	}
 
 	private formatSize(bytes: number): string {
-		const units = ["B", "KB", "MB", "GB"];
+		const units = ['B', 'KB', 'MB', 'GB'];
 		let size = bytes;
 		let unitIndex = 0;
 

@@ -3,21 +3,22 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from "../../../../base/common/event.js";
-import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
+import { Event } from '../../../../base/common/event.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 export const IAlphaCodeChatService = createDecorator<IAlphaCodeChatService>(
-	"alphaCodeChatService",
+	'alphaCodeChatService',
 );
 
 export interface IChatMessage {
 	id: string;
-	role: "user" | "assistant" | "system" | "tool";
+	role: 'user' | 'assistant' | 'system' | 'tool';
 	content: string;
 	timestamp: number;
 	tokens?: number;
 	toolCalls?: IToolCall[];
 	toolCallId?: string;
+	metadata?: Record<string, any>;
 }
 
 export interface IChatSession {
@@ -59,7 +60,7 @@ export interface IChatTool {
 	name: string;
 	description: string;
 	parameters: {
-		type: "object";
+		type: 'object';
 		properties: Record<
 			string,
 			{
