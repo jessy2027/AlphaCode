@@ -98,11 +98,11 @@ export class ChatToolsRegistry {
 					pattern: {
 						type: 'string',
 						description:
-							'The file name pattern to search for (e.g., '*.ts', 'test*.js')',
+							'The file name pattern to search for (e.g., "*.ts", "test*.js").',
 					},
 					maxResults: {
 						type: 'number',
-						description: 'Maximum number of results to return (default: 50)',
+						description: 'Maximum number of results to return (default: 50).',
 					},
 				},
 				required: ['pattern'],
