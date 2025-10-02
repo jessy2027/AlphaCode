@@ -166,10 +166,6 @@
     color: color-mix(in srgb, var(--vscode-input-foreground) 85%, transparent);
 }
 
-.alphacode-chat-context-icon {
-    font-size: 13px;
-}
-
 .alphacode-chat-context-label {
     opacity: 0.85;
 }
@@ -226,32 +222,10 @@
     transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.alphacode-chat-send-icon {
-    font-size: 12px;
-    transform: translateY(-1px);
-}
-
-.alphacode-chat-send-label {
-    font-size: 13px;
-    letter-spacing: 0.02em;
-}
-
 .alphacode-chat-send-button:hover {
     background: var(--vscode-button-hoverBackground);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
     transform: translateY(-1px);
-}
-
-.alphacode-chat-send-button:active {
-    transform: translateY(0);
-    box-shadow: none;
-}
-
-.alphacode-chat-send-button:disabled {
-    opacity: 0.6;
-    cursor: default;
-    box-shadow: none;
-    transform: none;
 }
 
 .alphacode-chat-toolbar {
@@ -268,60 +242,15 @@
     z-index: 1;
 }
 
-.alphacode-chat-toolbar-title {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--vscode-editor-foreground) 90%, transparent);
-}
-
 .alphacode-chat-toolbar-actions {
     display: flex;
     gap: 8px;
     align-items: center;
 }
 
-.alphacode-chat-toolbar-button {
-    padding: 4px 8px;
-    font-size: 12px;
-}
-
-.alphacode-chat-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 24px;
-    text-align: center;
-    opacity: 0.7;
-}
-
-.alphacode-chat-empty-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-    opacity: 0.5;
-}
-
-.alphacode-chat-empty-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-
 .alphacode-chat-empty-description {
     font-size: 13px;
     line-height: 1.5;
-}
-
-.alphacode-chat-loading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px;
-    opacity: 0.7;
-    font-size: 12px;
 }
 
 .alphacode-chat-loading-spinner {

@@ -96,15 +96,10 @@ export class VibeCodingView extends ViewPane {
 			this.aiService.onDidChangeConfiguration(() => {
 				const wasConfigured = this.isConfigured;
 				this.isConfigured = !!this.aiService.getProviderConfig();
-				console.log(
-					'[VibeCoding] AI config changed:',
-					JSON.stringify({ wasConfigured, isConfigured: this.isConfigured }),
-				);
 				if (!wasConfigured && this.isConfigured && this.containerElement) {
 					// Switch from welcome to chat
 					clearNode(this.containerElement);
 					this.renderChat(this.containerElement);
-					console.log('[VibeCoding] Switched from welcome to chat');
 				} else if (
 					wasConfigured &&
 					!this.isConfigured &&
@@ -113,7 +108,6 @@ export class VibeCodingView extends ViewPane {
 					// Switch from chat to welcome
 					clearNode(this.containerElement);
 					this.renderWelcome(this.containerElement);
-					console.log('[VibeCoding] Switched from chat to welcome');
 				}
 			}),
 		);

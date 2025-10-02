@@ -191,7 +191,6 @@ export class AlphaCodeChatService
 			this.currentSessionId = currentId;
 		}
 
-		// Create default session if none exist
 		if (this.sessions.size === 0) {
 			this.createSession();
 		}
@@ -266,7 +265,6 @@ export class AlphaCodeChatService
 		this._onDidAddMessage.fire(userMessage);
 		this.saveSessions();
 
-		// Build context-aware messages
 		let enrichedContext = context;
 		const workspaceContext = await this.contextService.getWorkspaceContext();
 		const relevantFiles = await this.getRelevantFiles(
@@ -397,7 +395,6 @@ export class AlphaCodeChatService
 				);
 			}
 		} catch (error) {
-			// Add error message
 			const errorMessage: IChatMessage = {
 				id: generateUuid(),
 				role: "assistant",
@@ -418,11 +415,9 @@ export class AlphaCodeChatService
 	): IAIMessage[] {
 		const messages: IAIMessage[] = [];
 
-		// Add system message with context and tools
 		let systemContent =
 			"You are AlphaCode AI, an intelligent coding assistant integrated into AlphaCodeIDE. Help users with code generation, refactoring, debugging, and documentation.";
 
-		// Add tools information
 		systemContent +=
 			'\n\n## Available Tools\n\nYou have access to the following tools to help users. To use a tool, respond with a tool call in this format:\n\n```tool\n{\n  "name": "tool_name",\n  "parameters": {\n    "param1": "value1"\n  }\n}\n```\n\nAvailable tools:\n';
 
@@ -462,7 +457,6 @@ export class AlphaCodeChatService
 			content: systemContent,
 		});
 
-		// Add conversation history (limit to last 10 messages to avoid token limits)
 		const recentMessages = session.messages.slice(-10);
 		for (const msg of recentMessages) {
 			// Mask secrets in user messages
@@ -471,7 +465,6 @@ export class AlphaCodeChatService
 					? this.securityService.maskSecrets(msg.content)
 					: msg.content;
 
-			// Handle tool messages
 			if (msg.role === "tool") {
 				messages.push({
 					role: "assistant",
@@ -492,9 +485,6 @@ export class AlphaCodeChatService
 		query: string,
 		files: IFileContext[],
 	): Promise<IFileContext[]> {
-		if (!query.trim()) {
-			return files.slice(0, MAX_WORKSPACE_FILE_REFERENCES);
-		}
 		const relevant = await this.contextService.getRelevantContext(
 			query,
 			MAX_WORKSPACE_FILE_REFERENCES,
@@ -526,7 +516,6 @@ export class AlphaCodeChatService
 		this.sessions.delete(sessionId);
 
 		if (this.currentSessionId === sessionId) {
-			// Switch to another session or create a new one
 			const remainingSessions = Array.from(this.sessions.keys());
 			if (remainingSessions.length > 0) {
 				this.currentSessionId = remainingSessions[0];
@@ -633,39 +622,28 @@ export class AlphaCodeChatService
 	private async openDiffForProposal(proposal: IToolEditProposal & { id: string }): Promise<void> {
 		try {
 			const label = `${proposal.kind === "write" ? "Create" : "Edit"}: ${proposal.path}`;
+			const fileName = proposal.path.split(/[\\/]/).pop() ?? "file";
 			const originalResource = URI.from({
 				scheme: "untitled",
-				path: `/alphacode/proposals/${proposal.id}/original/${proposal.path.split(/[\\/]/).pop() ?? "file"}`,
+				path: `/alphacode/proposals/${proposal.id}/original/${fileName}`,
 			});
-			let modifiedInput: IResourceDiffEditorInput["modified"];
-			let modifiedResourceExists = false;
-			try {
-				modifiedResourceExists = await this.fileService.exists(proposal.uri);
-			} catch {
-				modifiedResourceExists = false;
-			}
-			if (modifiedResourceExists) {
-				modifiedInput = {
-					resource: proposal.uri,
-				};
-			} else {
-				modifiedInput = {
-					resource: URI.from({
-						scheme: "untitled",
-						path: `/alphacode/proposals/${proposal.id}/modified/${proposal.path.split(/[\\/]/).pop() ?? "file"}`,
-					}),
-					forceUntitled: true,
-					contents: proposal.proposedContent,
-				};
-			}
+			const modifiedResource = URI.from({
+				scheme: "untitled",
+				path: `/alphacode/proposals/${proposal.id}/modified/${fileName}`,
+			});
 			const diffInput: IResourceDiffEditorInput = {
 				label,
+				description: proposal.path,
 				original: {
 					resource: originalResource,
 					forceUntitled: true,
 					contents: proposal.originalContent,
 				},
-				modified: modifiedInput,
+				modified: {
+					resource: modifiedResource,
+					forceUntitled: true,
+					contents: proposal.proposedContent,
+				},
 				options: {
 					pinned: true,
 				},

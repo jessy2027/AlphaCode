@@ -66,9 +66,6 @@ class AMDModuleImporter {
 				callback = dependencies;
 				dependencies = null;
 			}
-			// if (!dependencies) {
-			// 	dependencies = ['require', 'exports', 'module'];
-			// }
 			this._defineCalls.push(new DefineCall(id, dependencies, callback));
 		};
 

@@ -50,7 +50,6 @@ export class AlphaCodeAIService
 		super();
 		this.loadConfiguration();
 
-		// Listen for configuration changes
 		this._register(
 			this.configurationService.onDidChangeConfiguration((e) => {
 				if (e.affectsConfiguration("alphacode.ai")) {
@@ -62,7 +61,6 @@ export class AlphaCodeAIService
 	}
 
 	private loadConfiguration(): void {
-		// First try to load from configuration settings
 		const provider = this.configurationService.getValue<string>(
 			"alphacode.ai.provider",
 		);
@@ -81,7 +79,6 @@ export class AlphaCodeAIService
 			"alphacode.ai.temperature",
 		);
 
-		// If we have at least a provider and API key, create config
 		if (provider && apiKey) {
 			let providerType: AIProviderType;
 			switch (provider) {
@@ -111,18 +108,7 @@ export class AlphaCodeAIService
 			};
 
 			this.initializeProvider();
-			console.log(
-				"[AlphaCode] AI configuration loaded from settings:",
-				JSON.stringify({
-					provider: provider,
-					hasApiKey: !!apiKey,
-					model: model || "default",
-					maxTokens,
-					temperature,
-				}),
-			);
 		} else {
-			// Fallback to storage if configuration is not set
 			const stored = this.storageService.get(
 				STORAGE_KEY_AI_CONFIG,
 				StorageScope.APPLICATION,
@@ -135,12 +121,8 @@ export class AlphaCodeAIService
 					console.error("Failed to parse AI configuration", error);
 				}
 			} else {
-				// Clear config if nothing is set
 				this.currentConfig = undefined;
 				this.currentProvider = undefined;
-				console.log(
-					"[AlphaCode] No AI configuration found. Please set alphacode.ai.provider and alphacode.ai.apiKey",
-				);
 			}
 		}
 	}

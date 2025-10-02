@@ -121,7 +121,6 @@ export class AlphaCodeAgentService
 	private buildMessages(request: IAgentRequest): IAIMessage[] {
 		const messages: IAIMessage[] = [];
 
-		// System message based on agent type
 		const systemPrompts: { [key in AgentType]: string } = {
 			[AgentType.CodeGeneration]:
 				"You are an expert code generator. Create clean, efficient, and well-documented code based on user descriptions. Always include necessary imports and error handling.",

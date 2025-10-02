@@ -26,7 +26,6 @@ export class MarkdownRenderer {
 		while (i < lines.length) {
 			const line = lines[i];
 
-			// Code block
 			if (line.trim().startsWith('```')) {
 				const result = this.renderCodeBlock(lines, i);
 				append(container, result.element);
@@ -34,14 +33,12 @@ export class MarkdownRenderer {
 				continue;
 			}
 
-			// Heading
 			if (line.startsWith('#')) {
 				append(container, this.renderHeading(line));
 				i++;
 				continue;
 			}
 
-			// List item
 			if (line.trim().match(/^[-*+]\s/)) {
 				const result = this.renderList(lines, i);
 				append(container, result.element);
@@ -49,7 +46,6 @@ export class MarkdownRenderer {
 				continue;
 			}
 
-			// Paragraph
 			if (line.trim()) {
 				append(container, this.renderParagraph(line));
 			}
@@ -75,9 +71,7 @@ export class MarkdownRenderer {
 
 	private renderParagraph(text: string): HTMLElement {
 		const p = $('p.alphacode-markdown-paragraph');
-		// Use textContent for security, then apply inline formatting
 		const html = this.renderInline(text);
-		// Create a temporary container to safely parse HTML
 		const temp = document.createElement('div');
 		if (this.trustedTypesPolicy) {
 			temp.innerHTML = this.trustedTypesPolicy.createHTML(
@@ -86,7 +80,6 @@ export class MarkdownRenderer {
 		} else {
 			temp.innerHTML = html;
 		}
-		// Copy the content to the paragraph
 		while (temp.firstChild) {
 			p.appendChild(temp.firstChild);
 		}
@@ -110,7 +103,6 @@ export class MarkdownRenderer {
 
 		const container = $('.alphacode-code-block-container');
 
-		// Header with language and copy button
 		const header = append(container, $('.alphacode-code-block-header'));
 		append(
 			header,
@@ -129,12 +121,9 @@ export class MarkdownRenderer {
 			}, 2000);
 		};
 
-		// Code content
 		const pre = append(container, $('pre.alphacode-code-block'));
 		const code = append(pre, $('code'));
 		code.textContent = codeLines.join('\n');
-
-		// Apply language class for potential syntax highlighting
 		code.className = `language-${language}`;
 
 		return {
@@ -158,7 +147,6 @@ export class MarkdownRenderer {
 
 			const text = line.substring(2);
 			const li = append(ul, $('li'));
-			// Use safe HTML rendering
 			const html = this.renderInline(text);
 			const temp = document.createElement('div');
 			if (this.trustedTypesPolicy) {
@@ -181,25 +169,18 @@ export class MarkdownRenderer {
 	}
 
 	private renderInline(text: string): string {
-		// Escape HTML
 		let result = text
 			.replace(/&/g, '&amp;')
 			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;');
 
-		// Code (backticks)
 		result = result.replace(
 			/`([^`]+)`/g,
 			`<code class='alphacode-inline-code'>$1</code>`,
 		);
 
-		// Bold
 		result = result.replace(/\*\*([^*]+)\*\*/g, `<strong>$1</strong>`);
-
-		// Italic
 		result = result.replace(/\*([^*]+)\*/g, `<em>$1</em>`);
-
-		// Links
 		result = result.replace(
 			/\[([^\]]+)\]\(([^)]+)\)/g,
 			`<a href='$2' class='alphacode-link'>$1</a>`,
