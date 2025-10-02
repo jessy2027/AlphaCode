@@ -72,6 +72,9 @@
 ## Phase 4 – Déploiement et suivi (Semaines 8-9)
 - **Objectif** Mettre en production progressive les nouveautés et surveiller leur impact.
 - **Livrables** Release notes complètes, tableaux de bord de suivi et backlog post-lancement.
+
+
+ajoute un btn stop pour les chat
 - **TODO**
   - [ ] Déployer en canary puis en généralisation, avec métriques d'usage et de stabilité.
   - [ ] Mettre en place des alertes pour détection de régressions (ghost text, chat, outils IA).

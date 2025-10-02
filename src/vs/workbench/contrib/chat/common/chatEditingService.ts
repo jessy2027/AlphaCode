@@ -111,6 +111,9 @@ export interface IChatEditingSession extends IDisposable {
 	show(previousChanges?: boolean): Promise<void>;
 	accept(...uris: URI[]): Promise<void>;
 	reject(...uris: URI[]): Promise<void>;
+	applyPendingEdits(...uris: URI[]): Promise<void>;
+	discardPendingEdits(...uris: URI[]): Promise<void>;
+	setAutoApplyPendingEdits(value: boolean): void;
 	getEntry(uri: URI): IModifiedFileEntry | undefined;
 	readEntry(uri: URI, reader?: IReader): IModifiedFileEntry | undefined;
 

@@ -98,22 +98,6 @@
 						font-weight: 600;
 						opacity: 0.75;
 						margin: 0px 10px;
-						line-height: 22px;
-
-						/*
-							TODO@hediet: move colors from git extension to core!
-						&.renamed {
-							color: v ar(--vscode-gitDecoration-renamedResourceForeground);
-						}
-
-						&.deleted {
-							color: v ar(--vscode-gitDecoration-deletedResourceForeground);
-						}
-
-						&.added {
-							color: v ar(--vscode-gitDecoration-addedResourceForeground);
-						}
-						*/
 					}
 				}
 

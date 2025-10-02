@@ -46,6 +46,20 @@ const enum NotExistBehavior {
 	Abort,
 }
 
+interface IPendingEditsSegment {
+	readonly target: URI;
+	readonly edits: (TextEdit | ICellEditOperation)[];
+	readonly isLast: boolean;
+	readonly undoStop: string | undefined;
+	readonly responseModel: IChatResponseModel;
+	readonly completesStream: boolean;
+	applied: boolean;
+}
+
+interface IPendingEditsBuffer {
+	readonly segments: IPendingEditsSegment[];
+}
+
 class ThrottledSequencer extends Sequencer {
 
 	private _size = 0;
@@ -108,6 +122,8 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	 * Contains the contents of a file when the AI first began doing edits to it.
 	 */
 	private readonly _initialFileContents = new ResourceMap<string>();
+	private readonly _pendingEdits = new ResourceMap<IPendingEditsBuffer>();
+	private _autoApplyPendingEdits = true;
 
 	private readonly _entriesObs = observableValue<readonly AbstractChatEditingModifiedFileEntry[]>(this, []);
 	public get entries(): IObservable<readonly IModifiedFileEntry[]> {
@@ -403,6 +419,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return this._state.get() === ChatEditingSessionState.Disposed;
 	}
 
+	public setAutoApplyPendingEdits(value: boolean): void {
+		this._autoApplyPendingEdits = value;
+	}
+
 	startStreamingEdits(resource: URI, responseModel: IChatResponseModel, inUndoStop: string | undefined): IStreamingEdits {
 		const completePromise = new DeferredPromise<void>();
 		const startPromise = new DeferredPromise<void>();
@@ -429,21 +449,30 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			pushText: (edits, isLastEdits) => {
 				sequencer.queue(async () => {
 					if (!this.isDisposed) {
-						await this._acceptEdits(resource, edits, isLastEdits, responseModel);
+						this._enqueuePendingEdits(resource, edits, isLastEdits, responseModel, inUndoStop, resource);
+						if (this._autoApplyPendingEdits) {
+							await this._applyPendingSegments(resource);
+						}
 					}
 				});
 			},
 			pushNotebookCellText: (cell, edits, isLastEdits) => {
 				sequencer.queue(async () => {
 					if (!this.isDisposed) {
-						await this._acceptEdits(cell, edits, isLastEdits, responseModel);
+						this._enqueuePendingEdits(resource, edits, isLastEdits, responseModel, inUndoStop, cell);
+						if (this._autoApplyPendingEdits) {
+							await this._applyPendingSegments(resource);
+						}
 					}
 				});
 			},
 			pushNotebook: (edits, isLastEdits) => {
 				sequencer.queue(async () => {
 					if (!this.isDisposed) {
-						await this._acceptEdits(resource, edits, isLastEdits, responseModel);
+						this._enqueuePendingEdits(resource, edits, isLastEdits, responseModel, inUndoStop, resource);
+						if (this._autoApplyPendingEdits) {
+							await this._applyPendingSegments(resource);
+						}
 					}
 				});
 			},
@@ -455,8 +484,10 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 				didComplete = true;
 				sequencer.queue(async () => {
 					if (!this.isDisposed) {
-						await this._acceptEdits(resource, [], true, responseModel);
-						await this._resolve(responseModel.requestId, inUndoStop, resource);
+						this._enqueuePendingEdits(resource, [], true, responseModel, inUndoStop, resource, true);
+						if (this._autoApplyPendingEdits) {
+							await this._applyPendingSegments(resource);
+						}
 						completePromise.complete();
 					}
 				});
@@ -539,6 +570,79 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		this._timeline.ensureEditInUndoStopMatches(requestId, undoStop, entry, /* next= */ true, undefined);
 		return entry.acceptStreamingEditsEnd();
 
+	}
+
+	private _normalizeResource(resource: URI): URI {
+		return CellUri.parse(resource)?.notebook ?? resource;
+	}
+
+	private _getOrCreatePendingBuffer(resource: URI): IPendingEditsBuffer {
+		const key = this._normalizeResource(resource);
+		let buffer = this._pendingEdits.get(key);
+		if (!buffer) {
+			buffer = { segments: [] };
+			this._pendingEdits.set(key, buffer);
+		}
+		return buffer;
+	}
+
+	private _enqueuePendingEdits(resource: URI, edits: (TextEdit | ICellEditOperation)[], isLastEdits: boolean, responseModel: IChatResponseModel, undoStop: string | undefined, target: URI, completesStream: boolean = false): void {
+		const buffer = this._getOrCreatePendingBuffer(resource);
+		buffer.segments.push({
+			target,
+			edits,
+			isLast: isLastEdits,
+			undoStop,
+			responseModel,
+			completesStream,
+			applied: false
+		});
+	}
+
+	private async _applyPendingSegments(resource: URI): Promise<void> {
+		const key = this._normalizeResource(resource);
+		const buffer = this._pendingEdits.get(key);
+		if (!buffer) {
+			return;
+		}
+
+		for (const segment of buffer.segments) {
+			if (segment.applied) {
+				continue;
+			}
+			await this._acceptEdits(segment.target, segment.edits, segment.isLast, segment.responseModel);
+			segment.applied = true;
+			if (segment.completesStream) {
+				await this._resolve(segment.responseModel.requestId, segment.undoStop, key);
+			}
+		}
+
+		if (buffer.segments.every(segment => segment.applied)) {
+			this._pendingEdits.delete(key);
+		}
+	}
+
+	public async applyPendingEdits(...uris: URI[]): Promise<void> {
+		const targets = uris.length ? uris : Array.from(this._pendingEdits.keys());
+		for (const target of targets) {
+			await this._applyPendingSegments(target);
+		}
+	}
+
+	public async discardPendingEdits(...uris: URI[]): Promise<void> {
+		const targets = uris.length ? uris.map(uri => this._normalizeResource(uri)) : Array.from(this._pendingEdits.keys());
+		for (const target of targets) {
+			const buffer = this._pendingEdits.get(target);
+			if (!buffer) {
+				continue;
+			}
+			for (const segment of buffer.segments) {
+				if (segment.completesStream) {
+					await this._resolve(segment.responseModel.requestId, segment.undoStop, target);
+				}
+			}
+			this._pendingEdits.delete(target);
+		}
 	}
 
 	/**

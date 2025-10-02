@@ -6,16 +6,17 @@
 import * as assert from "assert";
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../../base/test/common/utils.js";
 import { AlphaCodeChatService } from "../../browser/chatServiceImpl.js";
-import { IAlphaCodeAIService } from "../../common/aiService.js";
-import { IStorageService } from "../../../../../platform/storage/common/storage.js";
-import { IAlphaCodeSecurityService } from "../../common/securityService.js";
-import { IAlphaCodeContextService } from "../../common/contextService.js";
-import { IFileService } from "../../../../../platform/files/common/files.js";
-import { IWorkspaceContextService } from "../../../../../platform/workspace/common/workspace.js";
+import type { IAlphaCodeAIService } from "../../common/aiService.js";
+import type { IStorageService } from "../../../../../platform/storage/common/storage.js";
+import type { IAlphaCodeSecurityService } from "../../common/securityService.js";
+import type { IAlphaCodeContextService } from "../../common/contextService.js";
+import type { IFileService } from "../../../../../platform/files/common/files.js";
+import type { IWorkspaceContextService } from "../../../../../platform/workspace/common/workspace.js";
 import { URI } from "../../../../../base/common/uri.js";
+import type { IEditorService } from "../../../../../workbench/services/editor/common/editorService.js";
+const disposableStore = ensureNoDisposablesAreLeakedInTestSuite();
 
 suite("AlphaCodeChatService - Tool Calls", () => {
-	ensureNoDisposablesAreLeakedInTestSuite();
 	let chatService: AlphaCodeChatService;
 	let mockAIService: IAlphaCodeAIService;
 	let mockStorageService: IStorageService;
@@ -23,6 +24,8 @@ suite("AlphaCodeChatService - Tool Calls", () => {
 	let mockContextService: IAlphaCodeContextService;
 	let mockFileService: IFileService;
 	let mockWorkspaceContextService: IWorkspaceContextService;
+	let mockChatEditingService: any;
+let mockEditorService: IEditorService;
 
 	setup(() => {
 		// Mock AI service
@@ -69,13 +72,49 @@ suite("AlphaCodeChatService - Tool Calls", () => {
 			}),
 		} as any;
 
-		chatService = new AlphaCodeChatService(
+		mockChatEditingService = {
+			getEditingSession: () => undefined,
+		};
+		mockEditorService = {
+			openEditor: async () => undefined,
+		} as any;
+
+		chatService = disposableStore.add(new AlphaCodeChatService(
 			mockAIService,
 			mockStorageService,
 			mockSecurityService,
 			mockContextService,
 			mockFileService,
 			mockWorkspaceContextService,
+			mockEditorService,
+			mockChatEditingService,
+		));
+	});
+
+	teardown(() => {
+		chatService = undefined!;
+	});
+
+	test("should ignore backticks inside JSON strings", () => {
+		const content = `\`\`\`tool
+{
+  "name": "analyze",
+  "parameters": {
+    "code": "function example() { return \`\`\`nested\`\`\`; }"
+  }
+}
+\`\`\``;
+
+		const extractToolCalls = (chatService as any).extractToolCalls.bind(
+			chatService,
+		);
+		const toolCalls = extractToolCalls(content);
+
+		assert.strictEqual(toolCalls.length, 1, "Should extract despite embedded backticks");
+		assert.strictEqual(toolCalls[0].name, "analyze");
+		assert.strictEqual(
+			toolCalls[0].parameters.code,
+			"function example() { return `" + "``nested``" + "`; }",
 		);
 	});
 
@@ -200,6 +239,23 @@ And then:
 			0,
 			"Should not extract tool call without parameters",
 		);
+	});
+
+	test("should ignore partial tool block until completion", () => {
+		const partialContent = `Before\n\`\`\`tool\n{\n  "name": "read_file",\n  "parameters": {`;
+		const completedContent = `${partialContent}\n    "path": "test.ts"\n  }\n}\n\`\`\``;
+
+		const extractToolCalls = (chatService as any).extractToolCalls.bind(
+			chatService,
+		);
+		const state = { lastIndex: 0 };
+
+		const firstPass = extractToolCalls(partialContent, state);
+		assert.strictEqual(firstPass.length, 0, "Should not extract from partial block");
+
+		const secondPass = extractToolCalls(completedContent, state);
+		assert.strictEqual(secondPass.length, 1, "Should extract once block is complete");
+		assert.strictEqual(secondPass[0].parameters.path, "test.ts");
 	});
 
 	test("should execute tool call successfully", async () => {

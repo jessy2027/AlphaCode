@@ -70,13 +70,6 @@
 	width: 100%;
 }
 
-/*
-.monaco-editor .auto-closed-character {
-	opacity: 0.3;
-}
-*/
-
-
 .monaco-editor .squiggly-error {
 	border-bottom: 4px double var(--vscode-editorError-border);
 }

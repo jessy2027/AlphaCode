@@ -128,7 +128,6 @@ export class AlphaCodeSecurityService
 		if (stored) {
 			try {
 				const loaded = JSON.parse(stored);
-				// Reconstruct RegExp objects from stored patterns
 				if (loaded.customPatterns) {
 					loaded.customPatterns = loaded.customPatterns.map((p: any) => ({
 						...p,
@@ -144,7 +143,6 @@ export class AlphaCodeSecurityService
 	}
 
 	private saveConfig(): void {
-		// Convert RegExp to serializable format
 		const serializable = {
 			...this.config,
 			customPatterns: this.config.customPatterns.map((p) => ({
