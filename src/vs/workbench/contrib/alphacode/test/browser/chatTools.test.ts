@@ -8,14 +8,15 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../../base/tes
 import { URI } from "../../../../../base/common/uri.js";
 import { VSBuffer } from "../../../../../base/common/buffer.js";
 import { ChatToolsRegistry } from "../../browser/chatTools.js";
-import { IFileService } from "../../../../../platform/files/common/files.js";
-import { IWorkspaceContextService } from "../../../../../platform/workspace/common/workspace.js";
+import type { IFileService } from "../../../../../platform/files/common/files.js";
+import type { IWorkspaceContextService } from "../../../../../platform/workspace/common/workspace.js";
 
 suite("ChatToolsRegistry", () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 	let toolsRegistry: ChatToolsRegistry;
 	let mockFileService: IFileService;
 	let mockWorkspaceContextService: IWorkspaceContextService;
+	let proposeEditStub: (proposal: any) => Promise<string>;
 
 	setup(() => {
 		// Mock file service
@@ -66,9 +67,12 @@ suite("ChatToolsRegistry", () => {
 			}),
 		} as any;
 
+		proposeEditStub = async () => "proposal";
+
 		toolsRegistry = new ChatToolsRegistry(
 			mockFileService,
 			mockWorkspaceContextService,
+			proposeEditStub,
 		);
 	});
 

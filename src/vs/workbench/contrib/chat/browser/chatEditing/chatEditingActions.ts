@@ -158,7 +158,35 @@ registerAction2(class AcceptAction extends WorkingSetAction {
 	}
 
 	async runWorkingSetAction(accessor: ServicesAccessor, currentEditingSession: IChatEditingSession, chatWidget: IChatWidget, ...uris: URI[]): Promise<void> {
+		await currentEditingSession.applyPendingEdits(...uris);
 		await currentEditingSession.accept(...uris);
+	}
+});
+
+registerAction2(class ApplyPendingAction extends WorkingSetAction {
+	constructor() {
+		super({
+			id: 'chatEditing.applyPendingFile',
+			title: localize2('applyPending.file', 'Apply Changes'),
+			icon: Codicon.checkAll,
+			menu: [{
+				id: MenuId.ChatMultiDiffContext,
+				order: 0,
+				group: 'pending'
+			}, {
+				id: MenuId.MultiDiffEditorFileToolbar,
+				order: 1,
+				group: 'pending'
+			}, {
+				id: MenuId.ChatEditingWidgetModifiedFilesToolbar,
+				order: 2,
+				group: 'pending'
+			}]
+		});
+	}
+
+	async runWorkingSetAction(accessor: ServicesAccessor, currentEditingSession: IChatEditingSession, chatWidget: IChatWidget, ...uris: URI[]): Promise<void> {
+		await currentEditingSession.applyPendingEdits(...uris);
 	}
 });
 
@@ -183,7 +211,35 @@ registerAction2(class DiscardAction extends WorkingSetAction {
 	}
 
 	async runWorkingSetAction(accessor: ServicesAccessor, currentEditingSession: IChatEditingSession, chatWidget: IChatWidget, ...uris: URI[]): Promise<void> {
+		currentEditingSession.discardPendingEdits(...uris);
 		await currentEditingSession.reject(...uris);
+	}
+});
+
+registerAction2(class DiscardPendingAction extends WorkingSetAction {
+	constructor() {
+		super({
+			id: 'chatEditing.discardPendingFile',
+			title: localize2('discardPending.file', 'Discard Pending'),
+			icon: Codicon.closeAll,
+			menu: [{
+				id: MenuId.ChatMultiDiffContext,
+				order: 1,
+				group: 'pending'
+			}, {
+				id: MenuId.MultiDiffEditorFileToolbar,
+				order: 2,
+				group: 'pending'
+			}, {
+				id: MenuId.ChatEditingWidgetModifiedFilesToolbar,
+				order: 3,
+				group: 'pending'
+			}]
+		});
+	}
+
+	async runWorkingSetAction(accessor: ServicesAccessor, currentEditingSession: IChatEditingSession, chatWidget: IChatWidget, ...uris: URI[]): Promise<void> {
+		await currentEditingSession.discardPendingEdits(...uris);
 	}
 });
 
@@ -214,10 +270,35 @@ export class ChatEditingAcceptAllAction extends EditingSessionAction {
 	}
 
 	override async runEditingSessionAction(accessor: ServicesAccessor, editingSession: IChatEditingSession, chatWidget: IChatWidget, ...args: any[]) {
+		await editingSession.applyPendingEdits();
 		await editingSession.accept();
 	}
 }
 registerAction2(ChatEditingAcceptAllAction);
+
+export class ChatEditingApplyAllPendingAction extends EditingSessionAction {
+
+	constructor() {
+		super({
+			id: 'chatEditing.applyAllPending',
+			title: localize('applyAll', 'Apply Changes'),
+			icon: Codicon.checkAll,
+			tooltip: localize('applyAllEdits', 'Apply All Pending Changes'),
+			precondition: hasUndecidedChatEditingResourceContextKey,
+			menu: [{
+				id: MenuId.ChatEditingWidgetToolbar,
+				group: 'pending',
+				order: 0,
+				when: hasUndecidedChatEditingResourceContextKey
+			}]
+		});
+	}
+
+	override async runEditingSessionAction(accessor: ServicesAccessor, editingSession: IChatEditingSession, chatWidget: IChatWidget, ...args: any[]) {
+		await editingSession.applyPendingEdits();
+	}
+}
+registerAction2(ChatEditingApplyAllPendingAction);
 
 export class ChatEditingDiscardAllAction extends EditingSessionAction {
 
@@ -245,6 +326,7 @@ export class ChatEditingDiscardAllAction extends EditingSessionAction {
 	}
 
 	override async runEditingSessionAction(accessor: ServicesAccessor, editingSession: IChatEditingSession, chatWidget: IChatWidget, ...args: any[]) {
+		editingSession.discardPendingEdits();
 		await discardAllEditsWithConfirmation(accessor, editingSession);
 	}
 }

@@ -4,10 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { IFileService } from '../../../../platform/files/common/files.js';
-import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import type { IFileService } from '../../../../platform/files/common/files.js';
+import type { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IChatTool } from '../common/chatService.js';
-import { VSBuffer } from '../../../../base/common/buffer.js';
+
+export interface IToolEditProposal {
+	readonly path: string;
+	readonly uri: URI;
+	readonly originalContent: string;
+	readonly proposedContent: string;
+	readonly kind: 'write' | 'edit';
+}
 
 export class ChatToolsRegistry {
 	private tools: Map<string, IChatTool> = new Map();
@@ -15,6 +22,7 @@ export class ChatToolsRegistry {
 	constructor(
 		private readonly fileService: IFileService,
 		private readonly workspaceContextService: IWorkspaceContextService,
+		private readonly proposeEdit: (proposal: IToolEditProposal) => Promise<string>,
 	) {
 		this.registerDefaultTools();
 	}
@@ -164,11 +172,20 @@ export class ChatToolsRegistry {
 			execute: async (params: { path: string; content: string }) => {
 				try {
 					const uri = this.resolveUri(params.path);
-					await this.fileService.writeFile(
+					let previousContent = '';
+					try {
+						const existing = await this.fileService.readFile(uri);
+						previousContent = existing.value.toString();
+					} catch {
+						previousContent = '';
+					}
+					return await this.proposeEdit({
+						path: params.path,
 						uri,
-						VSBuffer.fromString(params.content),
-					);
-					return `Successfully wrote to file: ${params.path}`;
+						originalContent: previousContent,
+						proposedContent: params.content,
+						kind: 'write',
+					});
 				} catch (error) {
 					throw new Error(
 						`Failed to write file: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -210,7 +227,6 @@ export class ChatToolsRegistry {
 					const uri = this.resolveUri(params.path);
 					const content = await this.fileService.readFile(uri);
 					const currentContent = content.value.toString();
-
 					if (!currentContent.includes(params.oldText)) {
 						throw new Error(
 							`Text not found in file. Make sure the oldText matches exactly.`,
@@ -221,12 +237,18 @@ export class ChatToolsRegistry {
 						params.oldText,
 						params.newText,
 					);
-					await this.fileService.writeFile(
-						uri,
-						VSBuffer.fromString(newContent),
-					);
 
-					return `Successfully edited file: ${params.path}\nReplaced text with new content.`;
+					if (currentContent === newContent) {
+						return `No changes detected for ${params.path}.`;
+					}
+
+					return await this.proposeEdit({
+						path: params.path,
+						uri,
+						originalContent: currentContent,
+						proposedContent: newContent,
+						kind: 'edit',
+					});
 				} catch (error) {
 					throw new Error(
 						`Failed to edit file: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -410,4 +432,5 @@ export class ChatToolsRegistry {
 
 		return await tool.execute(parameters);
 	}
+
 }

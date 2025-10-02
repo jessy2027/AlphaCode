@@ -344,6 +344,9 @@ export class VibeCodingView extends ViewPane {
 		}
 
 		clearNode(this.messagesContainer);
+		if (this.currentStreamingMessage) {
+			this.currentStreamingMessage = undefined;
+		}
 
 		let session = this.chatService.getCurrentSession();
 
@@ -380,6 +383,9 @@ export class VibeCodingView extends ViewPane {
 
 		for (const message of session.messages) {
 			this.renderMessage(message);
+		}
+		if (this.isStreaming || this.currentStreamingBuffer.trim().length > 0) {
+			this.ensureStreamingMessage(this.currentStreamingMessageId);
 		}
 
 		// Scroll to bottom
@@ -550,6 +556,81 @@ export class VibeCodingView extends ViewPane {
 		}
 
 		const actions = append(card, $('.alphacode-tool-card-actions'));
+
+		const proposalId = typeof metadata.proposalId === 'string' ? metadata.proposalId : undefined;
+		if (proposalId) {
+			const decisionRow = append(actions, $('.alphacode-tool-card-decision'));
+			const decisionStatus = append(
+				decisionRow,
+				$('span.alphacode-tool-card-decision-status'),
+			) as HTMLSpanElement;
+			decisionStatus.textContent = this.chatService.hasPendingProposal(proposalId)
+				? localize('alphacode.chat.tool.decision.pending', 'Review required')
+				: localize('alphacode.chat.tool.decision.resolved', 'Already decided');
+
+			const buttons = append(decisionRow, $('.alphacode-tool-card-decision-buttons'));
+			const acceptLabel = localize('alphacode.chat.tool.decision.accept', 'Accept change');
+			const acceptButton = append(
+				buttons,
+				$('button.alphacode-tool-card-decision-button.primary', undefined, acceptLabel),
+			) as HTMLButtonElement;
+			acceptButton.type = 'button';
+
+			const rejectLabel = localize('alphacode.chat.tool.decision.reject', 'Reject change');
+			const rejectButton = append(
+				buttons,
+				$('button.alphacode-tool-card-decision-button', undefined, rejectLabel),
+			) as HTMLButtonElement;
+			rejectButton.type = 'button';
+
+			const setDecisionState = (state: 'pending' | 'accepted' | 'rejected' | 'error', message?: string) => {
+				const pending = state === 'pending';
+				acceptButton.disabled = !pending;
+				rejectButton.disabled = !pending;
+				if (state === 'accepted') {
+					decisionStatus.textContent = localize('alphacode.chat.tool.decision.accepted', 'Change accepted');
+				} else if (state === 'rejected') {
+					decisionStatus.textContent = localize('alphacode.chat.tool.decision.rejected', 'Change rejected');
+				} else if (state === 'error' && message) {
+					decisionStatus.textContent = message;
+				} else if (pending) {
+					decisionStatus.textContent = localize('alphacode.chat.tool.decision.pending', 'Review required');
+				}
+			};
+
+			if (!this.chatService.hasPendingProposal(proposalId)) {
+				setDecisionState('accepted');
+			} else {
+				const handleDecision = async (kind: 'accept' | 'reject') => {
+					setDecisionState('pending');
+					acceptButton.disabled = true;
+					rejectButton.disabled = true;
+					try {
+						if (kind === 'accept') {
+							await this.chatService.acceptProposal(proposalId);
+							setDecisionState('accepted');
+						} else {
+							await this.chatService.rejectProposal(proposalId);
+							setDecisionState('rejected');
+						}
+					} catch (error) {
+						console.error('Failed to resolve proposal', error);
+						acceptButton.disabled = false;
+						rejectButton.disabled = false;
+						const messageText = error instanceof Error ? error.message : String(error);
+						setDecisionState('error', messageText);
+					}
+				};
+
+				this._register(
+					addDisposableListener(acceptButton, 'click', () => handleDecision('accept')),
+				);
+				this._register(
+					addDisposableListener(rejectButton, 'click', () => handleDecision('reject')),
+				);
+			}
+		}
+
 		const copyOutputLabel = localize('alphacode.chat.tool.copyOutput', 'Copy output');
 		const copiedLabel = localize('alphacode.chat.tool.copied', 'Copied!');
 		const copyOutputButton = append(
@@ -726,20 +807,15 @@ export class VibeCodingView extends ViewPane {
 		done: boolean;
 		messageId?: string;
 	}): void {
+		this.ensureStreamingMessage(chunk.messageId);
 		if (!this.currentStreamingMessage) {
 			return;
 		}
-
+		if (chunk.messageId && this.currentStreamingMessageId && chunk.messageId !== this.currentStreamingMessageId) {
+			return;
+		}
 		if (chunk.messageId && !this.currentStreamingMessageId) {
 			this.currentStreamingMessageId = chunk.messageId;
-		}
-
-		if (
-			this.currentStreamingMessageId &&
-			chunk.messageId &&
-			chunk.messageId !== this.currentStreamingMessageId
-		) {
-			return;
 		}
 
 		if (!chunk.done) {
@@ -781,6 +857,52 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
+	private ensureStreamingMessage(messageId?: string): void {
+		if (!this.messagesContainer) {
+			return;
+		}
+		if (this.currentStreamingMessage && this.currentStreamingMessage.isConnected) {
+			if (messageId && !this.currentStreamingMessageId) {
+				this.currentStreamingMessageId = messageId;
+			}
+			return;
+		}
+
+		const messageElement = append(
+			this.messagesContainer,
+			$('.alphacode-chat-message.assistant'),
+		);
+		const header = append(
+			messageElement,
+			$('.alphacode-chat-message-header'),
+		);
+		append(header, $('.alphacode-chat-message-avatar', undefined, 'AI'));
+		append(
+			header,
+			$('span', undefined, localize('alphacode.chat.assistant', 'AlphaCode AI')),
+		);
+		this.currentStreamingMessage = append(
+			messageElement,
+			$('.alphacode-chat-message-content'),
+		);
+		this.currentStreamingMessage.textContent = '';
+		if (this.currentStreamingBuffer.trim().length > 0) {
+			this.markdownRenderer.render(
+				this.currentStreamingBuffer,
+				this.currentStreamingMessage,
+			);
+		} else {
+			append(
+				this.currentStreamingMessage,
+				$('.alphacode-chat-loading-spinner'),
+			);
+		}
+		if (messageId) {
+			this.currentStreamingMessageId = messageId;
+		}
+		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+	}
+
 	private async sendMessage(): Promise<void> {
 		if (!this.inputTextArea || this.isStreaming) {
 			return;
@@ -805,6 +927,7 @@ export class VibeCodingView extends ViewPane {
 			timestamp: Date.now(),
 		};
 		this.renderMessage(userMessage);
+		this.ensureStreamingMessage();
 
 		// Get context from active editor
 		const activeEditor = this.editorService.activeTextEditorControl;

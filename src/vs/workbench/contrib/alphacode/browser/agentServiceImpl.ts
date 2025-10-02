@@ -5,7 +5,7 @@
 
 import { Disposable } from "../../../../base/common/lifecycle.js";
 import { IAlphaCodeAIService } from "../common/aiService.js";
-import { IAIMessage } from "../common/aiProvider.js";
+import type { IAIMessage } from "../common/aiProvider.js";
 import {
 	AgentType,
 	IAgentRequest,

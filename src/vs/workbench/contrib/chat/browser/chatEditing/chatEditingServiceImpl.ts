@@ -73,7 +73,7 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 		@IFileService private readonly _fileService: IFileService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 		@IStorageService storageService: IStorageService,
-		@ILogService logService: ILogService,
+		@ILogService private readonly _logService: ILogService,
 		@IExtensionService extensionService: IExtensionService,
 		@IProductService productService: IProductService,
 		@INotebookService private readonly notebookService: INotebookService,
@@ -229,6 +229,7 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 		});
 
 		const editedFilesExist = new ResourceMap<Promise<void>>();
+		let hasShownMultiDiff = false;
 		const ensureEditorOpen = (partUri: URI) => {
 			const uri = CellUri.parse(partUri)?.notebook ?? partUri;
 			if (editedFilesExist.has(uri)) {
@@ -246,6 +247,10 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 					|| Boolean(activeUri && session.entries.get().find(entry => isEqual(activeUri, entry.modifiedURI)));
 				if (this._configurationService.getValue('accessibility.openChatEditedFiles')) {
 					this._editorService.openEditor({ resource: uri, options: { inactive, preserveFocus: true, pinned: true } });
+				}
+				if (!hasShownMultiDiff) {
+					hasShownMultiDiff = true;
+					session.show().catch(err => this._logService.error(err));
 				}
 			}));
 		};
