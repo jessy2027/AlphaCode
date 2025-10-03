@@ -2,7 +2,6 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-
 .interactive-session {
 	/* 11px when base font is 13px */
 	--vscode-chat-font-size-body-xs: 0.846em;
@@ -16,6 +15,19 @@
 	--vscode-chat-font-size-body-xl: 1.231em;
 	/* 20px when base font is 13px */
 	--vscode-chat-font-size-body-xxl: 1.538em;
+	/* Couleurs personnalisées AlphaCode */
+	--alpha-chat-user-background: linear-gradient(135deg, #ff616d 0%, #ff3b4a 100%);
+	--alpha-chat-user-foreground: #ffffff;
+	--alpha-chat-user-code-background: rgba(255, 255, 255, 0.22);
+	--alpha-chat-response-background: rgba(16, 18, 32, 0.92);
+	--alpha-chat-response-border: rgba(255, 255, 255, 0.08);
+	--alpha-chat-response-foreground: rgba(248, 250, 255, 0.96);
+	--alpha-chat-meta-foreground: rgba(255, 255, 255, 0.72);
+	--alpha-chat-meta-muted: rgba(255, 255, 255, 0.48);
+	--alpha-chat-tool-background: rgba(18, 21, 36, 0.68);
+	--alpha-chat-tool-foreground: rgba(247, 249, 255, 0.92);
+	--alpha-chat-tool-border: rgba(255, 255, 255, 0.12);
+	--alpha-chat-tool-shadow: 0 28px 42px -28px rgba(5, 8, 20, 0.9);
 }
 
 .interactive-session {
@@ -34,11 +46,140 @@
 	padding: 12px 16px;
 	display: flex;
 	flex-direction: column;
+	gap: 12px;
 	color: var(--vscode-interactive-session-foreground);
 
 	cursor: default;
 	user-select: text;
 	-webkit-user-select: text;
+}
+
+.interactive-item-container .header {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin-bottom: 0;
+}
+
+.interactive-item-container .header .user {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+}
+
+.interactive-item-container .header .username {
+	font-size: 13px;
+	font-weight: 600;
+	position: relative;
+	padding-inline-start: 0;
+}
+
+.interactive-item-container.interactive-request .header .username::before,
+.interactive-item-container.interactive-response .header .username::before {
+	content: '';
+	display: block;
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	font-weight: 600;
+	margin-bottom: 2px;
+}
+
+.interactive-item-container.interactive-request .header .username::before {
+	content: 'Vous';
+	color: rgba(255, 255, 255, 0.66);
+}
+
+.interactive-item-container.interactive-response .header .username::before {
+	content: 'IA';
+	color: var(--alpha-chat-meta-foreground);
+}
+
+.interactive-item-container .detail-container {
+	display: block;
+	width: 100%;
+}
+
+.interactive-item-container .detail-container .detail {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	font-weight: 600;
+	padding-bottom: 4px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+ 	color: var(--alpha-chat-meta-muted);
+}
+
+.interactive-item-container.interactive-request .detail-container .detail {
+	color: rgba(255, 255, 255, 0.68);
+	border-bottom-color: rgba(255, 255, 255, 0.22);
+}
+
+.interactive-item-container.interactive-response .detail-container .detail {
+	color: var(--alpha-chat-meta-foreground);
+	border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+
+.interactive-item-container.interactive-response {
+	padding: 22px 26px 20px;
+	border-radius: 18px;
+	background: var(--alpha-chat-response-background);
+	border: 1px solid var(--alpha-chat-response-border);
+	box-shadow: 0 26px 44px -30px rgba(0, 0, 0, 0.75);
+	color: var(--alpha-chat-response-foreground);
+	margin: 10px 32px 16px 0;
+}
+
+.interactive-item-container.interactive-response .header .username,
+.interactive-item-container.interactive-response .detail-container .detail,
+.interactive-item-container.interactive-response .value {
+	color: inherit;
+}
+
+.interactive-item-container.interactive-response .avatar .icon {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.interactive-item-container.interactive-response .value {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	width: 100%;
+}
+
+.interactive-item-container.interactive-response .value .rendered-markdown {
+	background: transparent;
+	color: var(--alpha-chat-response-foreground);
+	line-height: 1.6;
+}
+
+.interactive-item-container.interactive-response .value .rendered-markdown p {
+	margin-bottom: 14px;
+}
+
+.interactive-item-container.interactive-response .value .rendered-markdown p:last-child {
+	margin-bottom: 0;
+}
+
+.interactive-item-container.interactive-response .request-hover {
+	position: absolute;
+	top: 16px;
+	right: 20px;
+}
+
+.interactive-item-container.interactive-response .chat-footer-toolbar {
+	margin-top: 8px;
+}
+
+.interactive-item-container.interactive-request {
+	padding-inline: 0;
+	background: transparent;
+	gap: 8px;
 }
 
 .interactive-item-container:not(:has(.chat-extensions-content-part)) .header {
@@ -443,14 +584,67 @@
 }
 
 .interactive-item-container .value > .rendered-markdown p {
-	/* Targetting normal text paras. `p` can also appear in other elements/widgets */
+	/* Targeting normal text paras. `p` can also appear in other elements/widgets */
 	margin: 0 0 16px 0;
 }
 
 .interactive-item-container .value > .chat-tool-invocation-part {
+	background: var(--alpha-chat-tool-background);
+	border-radius: 14px;
+	border: 1px solid var(--alpha-chat-tool-border);
+	padding: 16px 20px;
+	color: var(--alpha-chat-tool-foreground);
+	box-shadow: var(--alpha-chat-tool-shadow);
+	position: relative;
+	gap: 12px;
+	display: flex;
+	flex-direction: column;
+	transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+	&:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 26px 38px -20px rgba(5, 8, 20, 0.88);
+	}
+
+	.header-pill {
+		align-self: flex-start;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		padding: 3px 10px 2px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.08);
+		color: var(--alpha-chat-tool-foreground);
+	}
+
+	.rendered-markdown {
+		color: inherit;
+	}
+
 	.rendered-markdown p {
-		margin: 0 0 6px 0;
-		opacity: 0.85;
+		margin: 0 0 10px 0;
+	}
+
+	.rendered-markdown p:first-child {
+		font-family: var(--monaco-monospace-font);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		font-size: 12px;
+		text-decoration: underline;
+		text-decoration-color: rgba(255, 255, 255, 0.55);
+		text-underline-offset: 6px;
+		margin-bottom: 12px;
+	}
+
+	.rendered-markdown p:last-child {
+		margin-bottom: 0;
+	}
+
+	.rendered-markdown code,
+	.rendered-markdown pre {
+		background: rgba(255, 255, 255, 0.08) !important;
+		color: inherit !important;
 	}
 
 	.disclaimer {
@@ -479,9 +673,9 @@
 		position: relative;
 
 		.message-wrapper {
-			/* This mask fades out the end of the second line of text so the "see more" message can be displayed over it. */
 			mask-image:
-				linear-gradient(to right, rgba(0, 0, 0, 1) calc(100% - 95px), rgba(0, 0, 0, 0) calc(100% - 72px)), linear-gradient(to top, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 20px, rgba(0, 0, 0, 1) 2px, rgba(0, 0, 0, 1) 100%);
+				linear-gradient(to right, rgba(0, 0, 0, 1) calc(100% - 95px), rgba(0, 0, 0, 0) calc(100% - 72px)),
+				linear-gradient(to top, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 20px, rgba(0, 0, 0, 1) 2px, rgba(0, 0, 0, 1) 100%);
 			mask-repeat: no-repeat, no-repeat;
 			pointer-events: none;
 			max-height: 40px;
@@ -524,22 +718,26 @@
 	}
 
 	.tool-output-part {
-		border: 1px solid var(--vscode-widget-border);
-		border-radius: 6px;
-		background: var(--vscode-editor-background);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 8px;
+		background: rgba(7, 9, 18, 0.5);
 		margin: 4px 0;
 		overflow: hidden;
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 
 		.output-title {
 			padding: 8px 12px;
-			background: var(--vscode-editorWidget-background);
-			border-bottom: 1px solid var(--vscode-widget-border);
+			background: rgba(255, 255, 255, 0.06);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 			font-size: var(--vscode-chat-font-size-body-m);
 		}
 
 		.output-error {
 			margin: 6px 4px;
 			color: var(--vscode-errorForeground);
+			background: rgba(255, 71, 71, 0.14);
+			border-radius: 8px;
+			padding: 8px 10px;
 
 			.output-error-header {
 				display: flex;
@@ -2336,14 +2534,57 @@ have to be updated for changes to the rules above, or to support more deeply nes
 	}
 
 	.interactive-item-container.interactive-request .value .rendered-markdown {
-		background-color: var(--vscode-chat-requestBubbleBackground);
-		border-radius: 8px;
-		padding: 8px 12px;
+		background: var(--alpha-chat-user-background, var(--vscode-chat-requestBubbleBackground));
+		border-radius: 14px;
+		padding: 12px 18px;
 		max-width: 90%;
 		margin-left: auto;
 		width: fit-content;
-		margin-bottom: 5px;
+		margin-bottom: 8px;
 		position: relative;
+		color: var(--alpha-chat-user-foreground, var(--vscode-foreground));
+		box-shadow: 0 18px 36px -18px rgba(255, 59, 74, 0.65);
+		outline: none;
+		border: none;
+		transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+		&::after {
+			content: '';
+			position: absolute;
+			right: -8px;
+			bottom: 18px;
+			width: 14px;
+			height: 14px;
+			background: inherit;
+			transform: rotate(45deg);
+			border-radius: 0 4px 6px 0;
+		}
+
+		&:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 24px 44px -18px rgba(255, 59, 74, 0.75);
+		}
+
+		a {
+			color: rgba(255, 255, 255, 0.92);
+			text-decoration: underline;
+			font-weight: 500;
+		}
+
+		a:hover {
+			color: #ffe4eb;
+		}
+
+		code,
+		pre {
+			background: var(--alpha-chat-user-code-background, rgba(255, 255, 255, 0.24)) !important;
+			color: var(--alpha-chat-user-foreground, #ffffff) !important;
+		}
+
+		strong,
+		em {
+			color: inherit;
+		}
 	}
 
 	.interactive-item-container.interactive-request .value .rendered-markdown {
