@@ -17,14 +17,19 @@
 
 ## Phase 2 – Améliorations du chat AlphaCode (Semaines 2 à 5)
 
-### 2.1 Ajout d'un système d'attache de fichiers (Semaines 2-3)
+### 2.1 Ajout d'un système d'attache de fichiers (Semaines 2-3) ✅ TERMINÉ
 - **Objectif** Permettre aux utilisateurs d'envoyer un ou plusieurs fichiers au sein d'une conversation.
 - **Livrables** Interface d'attache fonctionnelle, stockage sécurisé et documentation d'usage.
-- **TODO**
-  - [ ] Concevoir l'UI/UX d'ajout de pièces jointes et la gestion des types supportés.
-  - [ ] Implémenter l'upload sécurisé (limites de taille, antivirus, chiffrement en transit).
-  - [ ] Adapter l'API backend pour stocker et servir les fichiers, avec métadonnées.
-  - [ ] Ajouter des validations et messages d'erreur clairs côté client.
+- **IMPLÉMENTÉ**
+  - [x] Concevoir l'UI/UX d'ajout de pièces jointes et la gestion des types supportés.
+  - [x] Implémenter l'upload sécurisé (limites de taille, antivirus, chiffrement en transit).
+  - [x] Adapter l'API backend pour stocker et servir les fichiers, avec métadonnées.
+  - [x] Ajouter des validations et messages d'erreur clairs côté client.
+  - [x] Créer les services de gestion des fichiers (upload, validation, stockage).
+  - [x] Développer l'interface utilisateur avec drag & drop et barre de progression.
+  - [x] Implémenter la validation avancée avec règles configurables.
+  - [x] Ajouter le chiffrement et la compression des fichiers.
+  - [x] Créer la documentation complète et les tests unitaires.
 
 ### 2.2 Édition des réponses dans le chat (Semaine 3)
 - **Objectif** Autoriser l'utilisateur (ou l'IA sous contrôle) à modifier un message déjà envoyé.
@@ -74,9 +79,16 @@
 - **Livrables** Release notes complètes, tableaux de bord de suivi et backlog post-lancement.
 
 
-ajoute un btn stop pour les chat
+
 - **TODO**
   - [ ] Déployer en canary puis en généralisation, avec métriques d'usage et de stabilité.
   - [ ] Mettre en place des alertes pour détection de régressions (ghost text, chat, outils IA).
   - [ ] Collecter les retours utilisateurs et identifier les améliorations post-lancement.
   - [ ] Prioriser et planifier les actions du backlog post-lancement.
+
+
+ajoute un btn stop pour les chat
+- **TODO**
+  - [ ] Ajouter un bouton "Arrêter" dans la barre d'outils du chat.
+  - [ ] Implémenter la logique d'arrêt de la conversation.
+  - [ ] Mettre à jour les logs et journaux d'audit pour suivre les arrêts.
