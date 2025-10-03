@@ -60,7 +60,7 @@
   - [ ] Mettre à jour la checklist de régression et la partager avec l'équipe QA.
 
 ## Phase 3 – Contrôle des actions outils IA (Semaines 6-7)
-- **Objectif** Afficher la différence proposée par l'IA lorsqu'elle utilise un outil (ex. modification de fichier) et offrir la possibilité d'accepter ou refuser la modification.
+- **Objectif** Afficher la différence proposée par l'IA lorsqu'elle utilise un outil (ex. modification de fichier) et offrir la possibilité d'accepter ou refuser tout les modifications (tout les fichier mdofier) ou par modifiation dans un fichier (ligne bien presice)  ou tout le fichier et un ouverture automatique des fichiers dans l'editeur lors d'une modification dans un fichier avec un outil (IA)
 - **Livrables** Workflow de validation des diffs IA disponible dans toutes les conversations.
 - **Mesure de succès** Adoption par les bêta testeurs et réduction des erreurs introduites par l'IA.
 - **TODO**
