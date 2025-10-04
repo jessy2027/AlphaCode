@@ -668,6 +668,58 @@
     box-shadow: 0 0 0 2px var(--vscode-focusBorder), 0 12px 28px rgba(0, 0, 0, 0.26);
 }
 
+/* Tool simple display */
+.alphacode-tool-simple {
+    display: block;
+    padding: 6px 10px;
+    margin: 4px 0;
+    font-size: 12px;
+    font-family: var(--vscode-editor-font-family);
+    color: color-mix(in srgb, var(--vscode-foreground) 75%, transparent);
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 30%, transparent);
+    border-left: 2px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
+    border-radius: 4px;
+}
+
+/* Tool file card - Format structuré pour Edit/Write */
+.alphacode-tool-file-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    margin: 4px 0;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 25%, transparent);
+    border-left: 2px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family);
+}
+
+.alphacode-tool-file-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--vscode-badge-foreground);
+    background: var(--vscode-badge-background);
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.alphacode-tool-file-name {
+    flex: 1;
+    font-size: 13px;
+    color: var(--vscode-foreground);
+}
+
+.alphacode-tool-file-lines {
+    font-size: 12px;
+    color: var(--vscode-errorForeground);
+    font-weight: 500;
+}
+
 /* Thought section styling */
 .alphacode-thought-section {
     display: flex;
