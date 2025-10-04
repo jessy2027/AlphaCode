@@ -19,7 +19,8 @@ export interface IChatMessage {
 	toolCalls?: IToolCall[];
 	toolCallId?: string;
 	metadata?: Record<string, any>;
-	hidden?: boolean; // Pour les messages système non visibles par l'utilisateur
+	/** Fichiers attachés au message */
+	attachments?: string[]; // IDs des fichiers attachés
 }
 
 export interface IChatSession {

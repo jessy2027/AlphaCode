@@ -35,11 +35,12 @@ import {
 import {
 	SIDE_BAR_BACKGROUND,
 	SIDE_BAR_FOREGROUND,
-} from "../../../common/theme.js";
-import { IAlphaCodeChatService, IChatMessage } from "../common/chatService.js";
-import { IAlphaCodeAIService } from "../common/aiService.js";
-import { IEditorService } from "../../../services/editor/common/editorService.js";
-import { ProposalsView } from "./proposalsView.js";
+} from '../../../common/theme.js';
+import { IAlphaCodeChatService, IChatMessage } from '../common/chatService.js';
+import { IAlphaCodeAIService } from '../common/aiService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IAlphaCodeFileAttachmentService } from '../common/fileAttachmentService.js';
+import { FileAttachmentWidget } from './fileAttachmentWidget.js';
 
 export class VibeCodingView extends ViewPane {
 	private containerElement: HTMLElement | undefined;
@@ -53,8 +54,7 @@ export class VibeCodingView extends ViewPane {
 	private isStreaming: boolean = false;
 	private markdownRenderer: MarkdownRenderer;
 	private welcomeContainer: HTMLElement | undefined;
-	private sendStopButton: HTMLButtonElement | undefined;
-	private proposalsView: ProposalsView;
+	private fileAttachmentWidget: FileAttachmentWidget | undefined;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -71,6 +71,7 @@ export class VibeCodingView extends ViewPane {
 		@IAlphaCodeChatService private readonly chatService: IAlphaCodeChatService,
 		@IAlphaCodeAIService private readonly aiService: IAlphaCodeAIService,
 		@IEditorService private readonly editorService: IEditorService,
+		@IAlphaCodeFileAttachmentService private readonly fileAttachmentService: IAlphaCodeFileAttachmentService,
 	) {
 		super(
 			options,
@@ -290,12 +291,48 @@ export class VibeCodingView extends ViewPane {
 			$(".alphacode-chat-input-container"),
 		);
 
+		// File attachment widget
+		const attachmentContainer = append(
+			inputContainer,
+			$('.alphacode-file-attachment-area'),
+		);
+		this.fileAttachmentWidget = this._register(
+			new FileAttachmentWidget(
+				{
+					container: attachmentContainer,
+					compact: true,
+					showDropZone: false,
+				},
+				this.fileAttachmentService,
+			),
+		);
+
 		const inputWrapper = append(
 			inputContainer,
 			$(".alphacode-chat-input-wrapper"),
 		);
 
-		// Text input
+		// Attach button
+		const attachButton = append(
+			inputWrapper,
+			$(
+				'button.alphacode-attach-button',
+				undefined,
+			),
+		) as HTMLButtonElement;
+		const attachIcon = append(attachButton, $('span.alphacode-attach-button-icon'));
+		attachIcon.textContent = '📎';
+		append(attachButton, $('span', undefined, localize('alphacode.chat.attach', 'Attach')));
+		this._register(
+			addDisposableListener(attachButton, 'click', () => {
+				// Trigger file input
+				const fileInput = attachmentContainer.querySelector('input[type="file"]') as HTMLInputElement;
+				if (fileInput) {
+					fileInput.click();
+				}
+			}),
+		);
+
 		this.inputTextArea = append(
 			inputWrapper,
 			$("textarea.alphacode-chat-input"),
@@ -652,14 +689,83 @@ export class VibeCodingView extends ViewPane {
 
 		content.textContent = message.content;
 
+		// Render attached files if any
+		if (message.attachments && message.attachments.length > 0) {
+			this.renderMessageAttachments(messageElement, message.attachments);
+		}
+
 		// Scroll to bottom
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 	}
 
-	private renderToolMessage(
-		contentElement: HTMLElement,
-		message: IChatMessage,
-	): void {
+	private async renderMessageAttachments(
+		messageElement: HTMLElement,
+		attachmentIds: string[],
+	): Promise<void> {
+		const attachmentsContainer = append(
+			messageElement,
+			$('.alphacode-message-attachments'),
+		);
+
+		for (const fileId of attachmentIds) {
+			try {
+				const attachment = await this.fileAttachmentService.getFile(fileId);
+				if (attachment) {
+					const fileItem = $('.alphacode-attached-file-item');
+
+					// Icon or preview
+					if (attachment.previewUrl && attachment.mimeType.startsWith('image/')) {
+						const preview = document.createElement('img');
+						preview.src = attachment.previewUrl;
+						preview.className = 'alphacode-file-preview';
+						preview.alt = attachment.name;
+						append(fileItem, preview);
+					} else {
+						const icon = $('.alphacode-file-icon');
+						icon.textContent = this.getFileIcon(attachment.mimeType);
+						append(fileItem, icon);
+					}
+
+					// File info
+					const info = $('.alphacode-file-info');
+					const name = $('.alphacode-file-name');
+					name.textContent = attachment.name;
+					name.title = attachment.name;
+					append(info, name);
+
+					const meta = $('.alphacode-file-meta');
+					const size = $('.alphacode-file-size');
+					size.textContent = this.formatFileSize(attachment.size);
+					append(meta, size);
+					append(info, meta);
+					append(fileItem, info);
+
+					append(attachmentsContainer, fileItem);
+				}
+			} catch (error) {
+				console.error('Failed to render attachment:', error);
+			}
+		}
+	}
+
+	private getFileIcon(mimeType: string): string {
+		if (mimeType.startsWith('image/')) return '🖼️';
+		if (mimeType.startsWith('video/')) return '🎥';
+		if (mimeType.startsWith('audio/')) return '🎵';
+		if (mimeType === 'application/pdf') return '📄';
+		if (mimeType.includes('json')) return '📋';
+		if (mimeType.includes('xml')) return '📃';
+		if (mimeType.includes('zip')) return '📦';
+		return '📎';
+	}
+
+	private formatFileSize(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	private renderToolMessage(contentElement: HTMLElement, message: IChatMessage): void {
 		const metadata = message.metadata ?? {};
 		const toolName = metadata.name || "Tool";
 
@@ -1019,13 +1125,24 @@ export class VibeCodingView extends ViewPane {
 		this.currentStreamingMessageId = undefined;
 		this.updateSendStopButton();
 
+		// Get attached files
+		const attachedFiles = this.fileAttachmentWidget?.getAttachedFiles() || [];
+		const attachmentIds = attachedFiles.map(f => f.id);
+
 		// Add user message immediately
 		const userMessage: IChatMessage = {
 			id: generateUuid(),
 			role: "user",
 			content,
 			timestamp: Date.now(),
+			attachments: attachmentIds.length > 0 ? attachmentIds : undefined,
 		};
+		
+		// Set message ID for the widget
+		if (this.fileAttachmentWidget) {
+			this.fileAttachmentWidget.setMessageId(userMessage.id);
+		}
+		
 		this.renderMessage(userMessage);
 		this.ensureStreamingMessage();
 

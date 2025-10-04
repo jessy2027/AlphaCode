@@ -668,97 +668,41 @@
     box-shadow: 0 0 0 2px var(--vscode-focusBorder), 0 12px 28px rgba(0, 0, 0, 0.26);
 }
 
-/* Tool simple display */
-.alphacode-tool-simple {
-    display: block;
-    padding: 6px 10px;
-    margin: 4px 0;
-    font-size: 12px;
-    font-family: var(--vscode-editor-font-family);
-    color: color-mix(in srgb, var(--vscode-foreground) 75%, transparent);
-    background: color-mix(in srgb, var(--vscode-editorWidget-background) 30%, transparent);
-    border-left: 2px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
-    border-radius: 4px;
-}
-
-/* Tool file card - Format structuré pour Edit/Write */
-.alphacode-tool-file-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    margin: 4px 0;
-    background: color-mix(in srgb, var(--vscode-editorWidget-background) 25%, transparent);
-    border-left: 2px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
-    border-radius: 4px;
-    font-family: var(--vscode-editor-font-family);
-}
-
-.alphacode-tool-file-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 28px;
-    padding: 2px 6px;
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--vscode-badge-foreground);
-    background: var(--vscode-badge-background);
-    border-radius: 3px;
-    text-transform: uppercase;
-}
-
-.alphacode-tool-file-name {
-    flex: 1;
-    font-size: 13px;
-    color: var(--vscode-foreground);
-}
-
-.alphacode-tool-file-lines {
-    font-size: 12px;
-    color: var(--vscode-errorForeground);
-    font-weight: 500;
-}
-
-/* Thought section styling */
-.alphacode-thought-section {
+/* Message attachments */
+.alphacode-message-attachments {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin: 6px 0;
-    padding: 6px 10px;
-    background: color-mix(in srgb, var(--vscode-editorWidget-background) 40%, transparent);
-    border-left: 2px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
-    border-radius: 4px;
-    font-size: 11px;
-    opacity: 0.8;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    background-color: color-mix(in srgb, var(--vscode-editor-background) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
 }
 
-.alphacode-thought-label {
-    font-weight: 500;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    opacity: 0.7;
+.alphacode-message-attachments .alphacode-attached-file-item {
+    background-color: var(--vscode-list-inactiveSelectionBackground);
+    border: 1px solid var(--vscode-panel-border);
+    opacity: 0.9;
 }
 
-.alphacode-thought-content {
-    line-height: 1.4;
-    white-space: pre-wrap;
+.alphacode-message-attachments .alphacode-attached-file-item:hover {
+    opacity: 1;
 }
 
-/* Inline tool display */
-.alphacode-inline-tool {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 6px;
-    margin: 0 2px;
-    background: color-mix(in srgb, var(--vscode-badge-background) 80%, transparent);
-    color: var(--vscode-badge-foreground);
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: 500;
+/* File attachment input area */
+.alphacode-file-attachment-area {
+    margin-bottom: 8px;
+}
+
+.alphacode-chat-input-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.alphacode-chat-input-wrapper .alphacode-attach-button {
+    flex-shrink: 0;
 }
 
 /* Proposals container */

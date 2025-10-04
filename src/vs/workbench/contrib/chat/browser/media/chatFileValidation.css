@@ -1,0 +1,429 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.chat-file-validation-widget {
+	display: none;
+	flex-direction: column;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-input-border);
+	background-color: var(--vscode-input-background);
+	margin: 8px 0;
+	overflow: hidden;
+	transition: all 0.3s ease;
+}
+
+.chat-file-validation-widget.visible {
+	display: flex;
+	animation: slideIn 0.3s ease-out;
+}
+
+.chat-file-validation-widget.valid {
+	border-color: var(--vscode-inputValidation-infoBorder);
+	background-color: var(--vscode-inputValidation-infoBackground);
+}
+
+.chat-file-validation-widget.invalid {
+	border-color: var(--vscode-inputValidation-errorBorder);
+	background-color: var(--vscode-inputValidation-errorBackground);
+}
+
+.chat-file-validation-widget.compact {
+	margin: 4px 0;
+}
+
+/* En-tete */
+.validation-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+}
+
+.validation-header:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.validation-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+}
+
+.status-icon {
+	font-size: 16px;
+	flex-shrink: 0;
+}
+
+.status-icon.codicon-check-all {
+	color: var(--vscode-testing-iconPassed);
+}
+
+.status-icon.codicon-error {
+	color: var(--vscode-errorForeground);
+}
+
+.file-name {
+	font-weight: 500;
+	color: var(--vscode-foreground);
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.status-text {
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+}
+
+.validation-summary {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-size: 12px;
+}
+
+.error-count {
+	color: var(--vscode-errorForeground);
+	font-weight: 500;
+}
+
+.warning-count {
+	color: var(--vscode-editorWarning-foreground);
+	font-weight: 500;
+}
+
+.info-count {
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+}
+
+.processing-time {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.expand-button {
+	background: none;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 3px;
+	transition: background-color 0.2s ease;
+}
+
+.expand-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Contenu detaille */
+.validation-content {
+	border-top: 1px solid var(--vscode-input-border);
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.validation-result {
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--vscode-input-border);
+}
+
+.validation-result:last-child {
+	border-bottom: none;
+}
+
+.validation-result.error.invalid {
+	background-color: var(--vscode-inputValidation-errorBackground);
+	border-left: 3px solid var(--vscode-errorForeground);
+}
+
+.validation-result.warning.invalid {
+	background-color: var(--vscode-inputValidation-warningBackground);
+	border-left: 3px solid var(--vscode-editorWarning-foreground);
+}
+
+.validation-result.info {
+	background-color: var(--vscode-inputValidation-infoBackground);
+	border-left: 3px solid var(--vscode-inputValidation-infoBorder);
+}
+
+.result-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.severity-icon {
+	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.severity-icon.codicon-error {
+	color: var(--vscode-errorForeground);
+}
+
+.severity-icon.codicon-warning {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.severity-icon.codicon-info {
+	color: var(--vscode-foreground);
+}
+
+.severity-icon.codicon-check {
+	color: var(--vscode-testing-iconPassed);
+}
+
+.result-message {
+	flex: 1;
+	font-size: 13px;
+	color: var(--vscode-foreground);
+}
+
+.result-code {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	font-family: var(--vscode-editor-font-family);
+	background-color: var(--vscode-badge-background);
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+/* Suggestions */
+.result-suggestions {
+	margin-top: 8px;
+	padding: 8px 12px;
+	background-color: var(--vscode-editor-background);
+	border-radius: 4px;
+	border-left: 3px solid var(--vscode-inputValidation-infoBorder);
+}
+
+.suggestions-header {
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--vscode-foreground);
+	margin-bottom: 4px;
+}
+
+.suggestions-list {
+	margin: 0;
+	padding-left: 16px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.suggestions-list li {
+	margin-bottom: 2px;
+	line-height: 1.4;
+}
+
+/* Details techniques */
+.result-details {
+	margin-top: 8px;
+}
+
+.result-details details {
+	font-size: 12px;
+}
+
+.result-details summary {
+	cursor: pointer;
+	color: var(--vscode-textLink-foreground);
+	margin-bottom: 4px;
+}
+
+.result-details summary:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.result-details pre {
+	background-color: var(--vscode-textCodeBlock-background);
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 3px;
+	padding: 8px;
+	font-family: var(--vscode-editor-font-family);
+	font-size: 11px;
+	overflow-x: auto;
+	margin: 4px 0 0 0;
+}
+
+/* Actions */
+.validation-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 8px 16px;
+	border-top: 1px solid var(--vscode-input-border);
+	background-color: var(--vscode-editor-background);
+}
+
+.validation-actions .monaco-button {
+	height: 26px;
+	font-size: 12px;
+	padding: 0 12px;
+}
+
+/* Mode compact */
+.chat-file-validation-widget.compact .validation-header {
+	padding: 8px 12px;
+}
+
+.chat-file-validation-widget.compact .validation-result {
+	padding: 8px 12px;
+}
+
+.chat-file-validation-widget.compact .validation-actions {
+	padding: 6px 12px;
+}
+
+.chat-file-validation-widget.compact .file-name {
+	max-width: 150px;
+}
+
+.chat-file-validation-widget.compact .validation-summary {
+	gap: 8px;
+}
+
+/* Etats d'expansion */
+.chat-file-validation-widget.expanded .validation-content {
+	display: block;
+}
+
+.chat-file-validation-widget:not(.expanded) .validation-content {
+	display: none;
+}
+
+/* Animations */
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+		max-height: 0;
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+		max-height: 500px;
+	}
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.validation-content {
+	animation: fadeIn 0.2s ease-in;
+}
+
+/* Scrollbar personnalisee */
+.validation-content::-webkit-scrollbar {
+	width: 8px;
+}
+
+.validation-content::-webkit-scrollbar-track {
+	background: var(--vscode-scrollbarSlider-background);
+}
+
+.validation-content::-webkit-scrollbar-thumb {
+	background: var(--vscode-scrollbarSlider-hoverBackground);
+	border-radius: 4px;
+}
+
+.validation-content::-webkit-scrollbar-thumb:hover {
+	background: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+	.validation-header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 8px;
+	}
+	
+	.validation-summary {
+		align-self: flex-end;
+	}
+	
+	.file-name {
+		max-width: none;
+	}
+	
+	.validation-actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	
+	.validation-actions .monaco-button {
+		width: 100%;
+		margin-bottom: 4px;
+	}
+	
+	.validation-actions .monaco-button:last-child {
+		margin-bottom: 0;
+	}
+}
+
+/* Theme sombre specifique */
+.vs-dark .chat-file-validation-widget.valid {
+	background-color: rgba(0, 100, 0, 0.1);
+	border-color: rgba(0, 150, 0, 0.3);
+}
+
+.vs-dark .chat-file-validation-widget.invalid {
+	background-color: rgba(150, 0, 0, 0.1);
+	border-color: rgba(200, 0, 0, 0.3);
+}
+
+/* Theme clair specifique */
+.vs .chat-file-validation-widget.valid {
+	background-color: rgba(0, 100, 0, 0.05);
+	border-color: rgba(0, 150, 0, 0.2);
+}
+
+.vs .chat-file-validation-widget.invalid {
+	background-color: rgba(150, 0, 0, 0.05);
+	border-color: rgba(200, 0, 0, 0.2);
+}
+
+/* Focus et accessibilite */
+.validation-header:focus,
+.expand-button:focus {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.validation-actions .monaco-button:focus {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+/* Etats de chargement */
+.chat-file-validation-widget.loading {
+	opacity: 0.7;
+}
+
+.chat-file-validation-widget.loading .validation-header::after {
+	content: '';
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--vscode-progressBar-background);
+	border-top: 2px solid transparent;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+	margin-left: 8px;
+}
+
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
