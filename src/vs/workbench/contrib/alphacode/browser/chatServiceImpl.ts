@@ -16,7 +16,7 @@ import {
 import { IAlphaCodeAIService } from "../common/aiService.js";
 import { IChatEditingService } from "../../chat/common/chatEditingService.js";
 import type { IAIMessage } from "../common/aiProvider.js";
-import type {
+import {
 	IAlphaCodeChatService,
 	IChatContext,
 	IChatMessage,
@@ -25,6 +25,8 @@ import type {
 	IChatTool,
 	IToolCall,
 	IToolResult,
+	IEditProposalWithChanges,
+	IProposalDecision,
 } from "../common/chatService.js";
 import {
 	IAlphaCodeContextService,
@@ -34,6 +36,7 @@ import { IAlphaCodeSecurityService } from "../common/securityService.js";
 import { IAlphaCodeFileAttachmentService } from "../common/fileAttachmentService.js";
 import { ChatToolsRegistry } from "./chatTools.js";
 import type { IToolEditProposal } from "./chatTools.js";
+import { calculateLineChanges, applyChanges, getChangeSummary } from "./diffUtils.js";
 import { IFileService } from "../../../../platform/files/common/files.js";
 import { IWorkspaceContextService } from "../../../../platform/workspace/common/workspace.js";
 import { IEditorService } from "../../../../workbench/services/editor/common/editorService.js";
@@ -51,7 +54,7 @@ const STORAGE_KEY_TOOL_DECISIONS = "alphacode.chat.tool.decisions";
 interface IToolEditDecisionRecord {
 	id: string;
 	path: string;
-	action: "accepted" | "rejected";
+	action: "accepted" | "rejected" | "partially-accepted";
 	timestamp: number;
 }
 
@@ -77,13 +80,26 @@ export class AlphaCodeChatService
 	);
 	readonly onDidStreamChunk: Event<IStreamChunk> = this._onDidStreamChunk.event;
 
+	private readonly _onDidCreateProposal = this._register(
+		new Emitter<IEditProposalWithChanges>(),
+	);
+	readonly onDidCreateProposal: Event<IEditProposalWithChanges> =
+		this._onDidCreateProposal.event;
+
+	private readonly _onDidChangeProposalStatus = this._register(
+		new Emitter<IEditProposalWithChanges>(),
+	);
+	readonly onDidChangeProposalStatus: Event<IEditProposalWithChanges> =
+		this._onDidChangeProposalStatus.event;
+
 	private sessions: Map<string, IChatSession> = new Map();
 	private currentSessionId: string | undefined;
 	private toolsRegistry: ChatToolsRegistry;
-	private pendingProposals: Map<string, IToolEditProposal & { id: string }> = new Map();
+	private pendingProposals: Map<string, IEditProposalWithChanges> = new Map();
 	private readonly proposalTools: IChatTool[];
 	private auditLog: IToolEditDecisionRecord[] = [];
 	private proposalSequence = 0;
+	private backupContents: Map<string, string> = new Map();
 
 	constructor(
 		@IAlphaCodeAIService private readonly aiService: IAlphaCodeAIService,
@@ -432,7 +448,7 @@ export class AlphaCodeChatService
 			"You are AlphaCode AI, an intelligent coding assistant integrated into AlphaCodeIDE. Help users with code generation, refactoring, debugging, and documentation.";
 
 		systemContent +=
-			'\n\n## Available Tools\n\nYou have access to the following tools to help users. To use a tool, respond with a tool call in this format:\n\n```tool\n{\n  "name": "tool_name",\n  "parameters": {\n    "param1": "value1"\n  }\n}\n```\n\nAvailable tools:\n';
+			'\n\n## Available Tools\n\nYou have access to powerful tools to help users. When you use a tool, it will be executed IMMEDIATELY in real-time as you write it. For file editing tools (write_file, edit_file), a diff view will automatically open for the user to review your changes.\n\n### Tool Call Format\n\nTo use a tool, respond with a tool call in this exact format:\n\n```tool\n{\n  "name": "tool_name",\n  "parameters": {\n    "param1": "value1",\n    "param2": "value2"\n  }\n}\n```\n\n**IMPORTANT**: \n- The tool block will be executed as soon as it\'s complete (you don\'t need to finish your entire message)\n- For write_file and edit_file tools, a diff editor will open automatically showing changes in red (deletions) and green (additions)\n- The user can accept or reject changes from the diff view\n- You can continue explaining after using a tool\n\n### Example\n\nUser: "Create a hello world function in Python"\n\nYou can respond:\n\nI\'ll create a Python file with a hello world function:\n\n```tool\n{\n  "name": "write_file",\n  "parameters": {\n    "path": "hello.py",\n    "content": "def hello_world():\\n    print(\\"Hello, World!\\")\\n\\nif __name__ == \\"__main__\\":\\n    hello_world()"\n  }\n}\n```\n\nThis will create a new Python file with a simple hello world function. The diff editor is now open for your review.\n\n## Available Tools:\n';
 
 		const tools = this.toolsRegistry.getAllTools();
 		for (const tool of tools) {
@@ -621,49 +637,77 @@ export class AlphaCodeChatService
 		proposal: IToolEditProposal,
 	): Promise<string> {
 		const id = `proposal-${++this.proposalSequence}`;
-		const normalized: IToolEditProposal & { id: string } = {
-			...proposal,
+		const changes = calculateLineChanges(
+			proposal.originalContent ?? "",
+			proposal.proposedContent ?? "",
+		);
+		const enhancedProposal: IEditProposalWithChanges = {
 			id,
+			path: proposal.path,
+			filePath: proposal.uri.fsPath,
+			kind: proposal.kind,
 			originalContent: proposal.originalContent ?? "",
 			proposedContent: proposal.proposedContent ?? "",
+			changes,
+			timestamp: Date.now(),
+			status: 'pending',
 		};
-		this.pendingProposals.set(id, normalized);
-		await this.openDiffForProposal(normalized);
-		return `Edit proposal ${id} created for ${proposal.path}. Use accept_edit_proposal or reject_edit_proposal to finalize.`;
+		
+		// Save backup for potential rollback
+		this.backupContents.set(id, proposal.originalContent ?? "");
+		
+		this.pendingProposals.set(id, enhancedProposal);
+		this._onDidCreateProposal.fire(enhancedProposal);
+		
+		// Open diff editor immediately
+		await this.openDiffForProposal(enhancedProposal);
+		
+		const summary = getChangeSummary(changes);
+		return `Edit proposal ${id} created for ${proposal.path}. ${summary}. The diff editor is now open for review. Use accept_edit_proposal or reject_edit_proposal to finalize.`;
 	}
 
-	private async openDiffForProposal(proposal: IToolEditProposal & { id: string }): Promise<void> {
+	private async openDiffForProposal(proposal: IEditProposalWithChanges): Promise<void> {
 		try {
 			const label = `${proposal.kind === "write" ? "Create" : "Edit"}: ${proposal.path}`;
-			const fileName = proposal.path.split(/[\\/]/).pop() ?? "file";
+			const fileName = proposal.path.split(/[\/]/).pop() ?? "file";
+			
+			// Create unique URIs for the diff view
 			const originalResource = URI.from({
 				scheme: "untitled",
-				path: `/alphacode/proposals/${proposal.id}/original/${fileName}`,
+				path: `/alphacode/original/${proposal.id}/${fileName}`,
 			});
 			const modifiedResource = URI.from({
 				scheme: "untitled",
-				path: `/alphacode/proposals/${proposal.id}/modified/${fileName}`,
+				path: `/alphacode/modified/${proposal.id}/${fileName}`,
 			});
+			
 			const diffInput: IResourceDiffEditorInput = {
 				label,
-				description: proposal.path,
+				description: `${proposal.path} (${proposal.changes.length} change${proposal.changes.length > 1 ? 's' : ''})`,
 				original: {
 					resource: originalResource,
 					forceUntitled: true,
 					contents: proposal.originalContent,
+					label: proposal.kind === 'write' ? 'Empty File' : 'Original',
 				},
 				modified: {
 					resource: modifiedResource,
 					forceUntitled: true,
 					contents: proposal.proposedContent,
+					label: 'Proposed Changes',
 				},
 				options: {
 					pinned: true,
+					preserveFocus: false, // Give focus to the diff editor
+					revealIfVisible: true,
+					activation: 1, // EditorActivation.ACTIVATE
 				},
 			};
+			
 			await this.editorService.openEditor(diffInput);
 		} catch (error) {
-			console.error("Failed to open diff for proposal", error);
+			console.error('Failed to open diff for proposal:', error);
+			throw error;
 		}
 	}
 
@@ -672,13 +716,22 @@ export class AlphaCodeChatService
 		if (!proposal) {
 			throw new Error(`Unknown proposal: ${id}`);
 		}
+		
+		const uri = URI.file(proposal.filePath);
 		await this.fileService.writeFile(
-			proposal.uri,
+			uri,
 			VSBuffer.fromString(proposal.proposedContent),
 		);
+		
+		// Update proposal status
+		proposal.status = 'accepted';
+		this._onDidChangeProposalStatus.fire(proposal);
+		
 		this.pendingProposals.delete(id);
+		this.backupContents.delete(id);
 		this.logDecision(proposal, "accepted");
-		return `Applied proposal ${id} to ${proposal.path}.`;
+		
+		return `✓ Applied proposal ${id} to ${proposal.path}.`;
 	}
 
 	private async rejectEditProposal(id: string): Promise<string> {
@@ -686,9 +739,36 @@ export class AlphaCodeChatService
 		if (!proposal) {
 			throw new Error(`Unknown proposal: ${id}`);
 		}
+		
+		// Perform rollback - restore original content if file was modified
+		const backup = this.backupContents.get(id);
+		if (backup !== undefined) {
+			try {
+				const uri = URI.file(proposal.filePath);
+				// Check if file exists and was modified
+				try {
+					const currentContent = await this.fileService.readFile(uri);
+					if (currentContent.value.toString() !== backup) {
+						// Rollback to original content
+						await this.fileService.writeFile(uri, VSBuffer.fromString(backup));
+					}
+				} catch (error) {
+					// File might not exist yet, that's ok
+				}
+			} catch (error) {
+				console.error('Failed to rollback:', error);
+			}
+		}
+		
+		// Update proposal status
+		proposal.status = 'rejected';
+		this._onDidChangeProposalStatus.fire(proposal);
+		
 		this.pendingProposals.delete(id);
+		this.backupContents.delete(id);
 		this.logDecision(proposal, "rejected");
-		return `Rejected proposal ${id} for ${proposal.path}.`;
+		
+		return `✗ Rejected proposal ${id} for ${proposal.path}. Changes have been rolled back.`;
 	}
 
 	private async listEditProposals(): Promise<string> {
@@ -703,8 +783,8 @@ export class AlphaCodeChatService
 	}
 
 	private logDecision(
-		proposal: IToolEditProposal & { id: string },
-		action: "accepted" | "rejected",
+		proposal: IEditProposalWithChanges,
+		action: "accepted" | "rejected" | "partially-accepted",
 	): void {
 		this.auditLog.push({
 			id: proposal.id,
@@ -733,7 +813,7 @@ export class AlphaCodeChatService
 				this.auditLog = parsed.filter((entry) =>
 					typeof entry?.id === "string" &&
 					typeof entry?.path === "string" &&
-					(entry?.action === "accepted" || entry?.action === "rejected") &&
+					(entry?.action === "accepted" || entry?.action === "rejected" || entry?.action === "partially-accepted") &&
 					typeof entry?.timestamp === "number",
 				);
 			}
@@ -812,7 +892,7 @@ export class AlphaCodeChatService
 		};
 	}
 
-	private findProposalForTool(toolCall: IToolCall): (IToolEditProposal & { id: string }) | undefined {
+	private findProposalForTool(toolCall: IToolCall): IEditProposalWithChanges | undefined {
 		const candidateIds = Array.from(this.pendingProposals.keys());
 		for (let i = candidateIds.length - 1; i >= 0; i--) {
 			const proposal = this.pendingProposals.get(candidateIds[i]);
@@ -918,10 +998,25 @@ export class AlphaCodeChatService
 		let furthestIndex = searchIndex;
 
 		while (searchIndex < length) {
-			const fenceStart = content.indexOf("```tool", searchIndex);
+			// Search for ``` first, then verify if followed by "tool"
+			// This handles streaming where ```tool may arrive in fragments
+			const fenceStart = content.indexOf("```", searchIndex);
+			
 			if (fenceStart === -1) {
 				furthestIndex = length;
 				break;
+			}
+			
+			// Check if followed by "tool"
+			const afterFence = fenceStart + 3;
+			const nextChars = content.substring(afterFence, afterFence + 10);
+			
+			// Accept "tool" immediately after ```
+			const toolMatch = nextChars.match(/^(tool)/);
+			if (!toolMatch) {
+				// Not a tool block, search for next
+				searchIndex = fenceStart + 3;
+				continue;
 			}
 
 			const headerEnd = content.indexOf("\n", fenceStart);
@@ -1019,7 +1114,7 @@ export class AlphaCodeChatService
 					});
 				}
 			} catch (error: unknown) {
-				console.error("Failed to parse tool call:", error);
+				console.error('Failed to parse tool call:', error);
 			}
 		}
 
@@ -1134,5 +1229,137 @@ export class AlphaCodeChatService
 		} catch (error) {
 			return `${toolCall.name}:${String(toolCall.parameters)}`;
 		}
+	}
+
+	// New granular control methods for Phase 3
+
+	getPendingProposals(): IEditProposalWithChanges[] {
+		return Array.from(this.pendingProposals.values())
+			.filter(p => p.status === 'pending')
+			.sort((a, b) => b.timestamp - a.timestamp);
+	}
+
+	getProposal(proposalId: string): IEditProposalWithChanges | undefined {
+		return this.pendingProposals.get(proposalId);
+	}
+
+	async applyProposalDecision(decision: IProposalDecision): Promise<void> {
+		const proposal = this.pendingProposals.get(decision.proposalId);
+		if (!proposal) {
+			throw new Error(`Proposal ${decision.proposalId} not found`);
+		}
+
+		switch (decision.action) {
+			case 'accept-all':
+				await this.acceptEditProposal(decision.proposalId);
+				break;
+
+			case 'reject-all':
+				await this.rejectEditProposal(decision.proposalId);
+				break;
+
+			case 'accept-changes':
+				if (!decision.changeIndexes || decision.changeIndexes.length === 0) {
+					throw new Error('No change indexes provided for accept-changes action');
+				}
+				await this.applyPartialChanges(proposal, decision.changeIndexes, true);
+				break;
+
+			case 'reject-changes':
+				if (!decision.changeIndexes || decision.changeIndexes.length === 0) {
+					throw new Error('No change indexes provided for reject-changes action');
+				}
+				await this.applyPartialChanges(proposal, decision.changeIndexes, false);
+				break;
+		}
+	}
+
+	private async applyPartialChanges(
+		proposal: IEditProposalWithChanges,
+		changeIndexes: number[],
+		accept: boolean
+	): Promise<void> {
+		const uri = URI.file(proposal.filePath);
+		
+		if (accept) {
+			// Apply only selected changes
+			const newContent = applyChanges(
+				proposal.originalContent,
+				proposal.changes,
+				changeIndexes
+			);
+			await this.fileService.writeFile(uri, VSBuffer.fromString(newContent));
+			
+			// Update proposal status
+			proposal.status = 'partially-accepted';
+			this._onDidChangeProposalStatus.fire(proposal);
+			
+			this.logDecision(proposal, 'partially-accepted');
+			this.appendSystemMessage(
+				`Partially applied proposal ${proposal.id} to ${proposal.path} (${changeIndexes.length} changes).`
+			);
+		} else {
+			// Reject only selected changes - keep the rest pending
+			const remainingChanges = proposal.changes.filter((_, index) => 
+				!changeIndexes.includes(index)
+			);
+			
+			if (remainingChanges.length === 0) {
+				// All changes rejected
+				await this.rejectEditProposal(proposal.id);
+			} else {
+				// Some changes still pending
+				proposal.changes = remainingChanges;
+				this._onDidChangeProposalStatus.fire(proposal);
+				this.appendSystemMessage(
+					`Rejected ${changeIndexes.length} changes from proposal ${proposal.id}.`
+				);
+			}
+		}
+	}
+
+	async acceptAllProposals(): Promise<void> {
+		const pending = this.getPendingProposals();
+		const results: string[] = [];
+		
+		for (const proposal of pending) {
+			try {
+				await this.acceptEditProposal(proposal.id);
+				results.push(`✓ ${proposal.path}`);
+			} catch (error) {
+				results.push(`✗ ${proposal.path}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			}
+		}
+		
+		this.appendSystemMessage(
+			`Accepted all proposals:\n${results.join('\n')}`
+		);
+	}
+
+	async rejectAllProposals(): Promise<void> {
+		const pending = this.getPendingProposals();
+		const results: string[] = [];
+		
+		for (const proposal of pending) {
+			try {
+				await this.rejectEditProposal(proposal.id);
+				results.push(`✓ ${proposal.path}`);
+			} catch (error) {
+				results.push(`✗ ${proposal.path}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			}
+		}
+		
+		this.appendSystemMessage(
+			`Rejected all proposals:\n${results.join('\n')}`
+		);
+	}
+
+	getProposalAuditLog(): Array<{
+		id: string;
+		path: string;
+		action: string;
+		timestamp: number;
+	}> {
+		return [...this.auditLog];
 	}
 }

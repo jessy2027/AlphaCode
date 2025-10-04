@@ -13,7 +13,6 @@ import {
 } from "../../../../platform/storage/common/storage.js";
 import { IAlphaCodeAIService } from "../common/aiService.js";
 import { IAIMessage } from "../common/aiProvider.js";
-import { Range } from "../../../../editor/common/core/range.js";
 import {
 	IAlphaCodePairProgrammingService,
 	IPairProgrammingSuggestion,
@@ -50,6 +49,12 @@ export class AlphaCodePairProgrammingService
 	);
 	readonly onDidChangeCursorContext: Event<ICursorContext> =
 		this._onDidChangeCursorContext.event;
+
+	private readonly _onDidChangeSuggestionStatus = this._register(
+		new Emitter<IPairProgrammingSuggestion>(),
+	);
+	readonly onDidChangeSuggestionStatus: Event<IPairProgrammingSuggestion> =
+		this._onDidChangeSuggestionStatus.event;
 
 	private config: IPairProgrammingConfig;
 	private pendingSuggestions: Map<string, IPairProgrammingSuggestion> =
@@ -202,15 +207,11 @@ Provide a helpful suggestion for this context.`,
 				type: parsed.type || "code",
 				content: parsed.content || "",
 				description: parsed.description || "AI suggestion",
-				fileUri: context.fileUri,
-				range: new Range(
-					context.position.line,
-					context.position.column,
-					context.position.line,
-					context.position.column,
-				),
+				context: context,
 				timestamp: Date.now(),
 				confidence: parsed.confidence || 0.5,
+				status: 'pending',
+				originalContent: context.surroundingCode,
 			};
 		} catch (error) {
 			// If AI doesn't return JSON, create suggestion from raw content
@@ -221,15 +222,11 @@ Provide a helpful suggestion for this context.`,
 					type: "code",
 					content: content,
 					description: "Code suggestion",
-					fileUri: context.fileUri,
-					range: new Range(
-						context.position.line,
-						context.position.column,
-						context.position.line,
-						context.position.column,
-					),
+					context: context,
 					timestamp: Date.now(),
 					confidence: 0.6,
+					status: 'pending',
+					originalContent: context.surroundingCode,
 				};
 			}
 			return undefined;
@@ -242,6 +239,10 @@ Provide a helpful suggestion for this context.`,
 			return;
 		}
 
+		// Update status
+		suggestion.status = 'accepted';
+		this._onDidChangeSuggestionStatus.fire(suggestion);
+
 		// TODO: Apply suggestion to editor
 		// This would require ITextEditorService to insert the content
 
@@ -249,6 +250,11 @@ Provide a helpful suggestion for this context.`,
 	}
 
 	rejectSuggestion(suggestionId: string): void {
+		const suggestion = this.pendingSuggestions.get(suggestionId);
+		if (suggestion) {
+			suggestion.status = 'rejected';
+			this._onDidChangeSuggestionStatus.fire(suggestion);
+		}
 		this.pendingSuggestions.delete(suggestionId);
 	}
 
@@ -263,6 +269,24 @@ Provide a helpful suggestion for this context.`,
 			clearTimeout(timeout);
 		}
 		this.suggestionTimeouts.clear();
+	}
+
+	getSuggestion(suggestionId: string): IPairProgrammingSuggestion | undefined {
+		return this.pendingSuggestions.get(suggestionId);
+	}
+
+	async acceptAllSuggestions(): Promise<void> {
+		const pending = this.getPendingSuggestions();
+		for (const suggestion of pending) {
+			await this.acceptSuggestion(suggestion.id);
+		}
+	}
+
+	async rejectAllSuggestions(): Promise<void> {
+		const pending = this.getPendingSuggestions();
+		for (const suggestion of pending) {
+			this.rejectSuggestion(suggestion.id);
+		}
 	}
 
 	override dispose(): void {

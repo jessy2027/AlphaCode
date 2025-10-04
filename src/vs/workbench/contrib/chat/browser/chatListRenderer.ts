@@ -369,7 +369,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		const contextKeyService = templateDisposables.add(this.contextKeyService.createScoped(rowContainer));
 		const scopedInstantiationService = templateDisposables.add(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, contextKeyService])));
 
-		const requestHover = dom.append(rowContainer, $('.request-hover'));
+		const requestHover = dom.append(valueParent, $('.request-hover'));
 		let titleToolbar: MenuWorkbenchToolBar | undefined;
 		if (this.rendererOptions.noHeader) {
 			header.classList.add('hidden');
@@ -385,7 +385,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		}
 		this.hoverHidden(requestHover);
 
-		const checkpointContainer = dom.append(rowContainer, $('.checkpoint-container'));
+		const checkpointContainer = dom.append(valueParent, $('.checkpoint-container'));
 		const codiconContainer = dom.append(checkpointContainer, $('.codicon-container'));
 		dom.append(codiconContainer, $('span.codicon.codicon-bookmark'));
 
@@ -417,7 +417,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		const value = dom.append(valueParent, $('.value'));
 		const elementDisposables = new DisposableStore();
 
-		const footerToolbarContainer = dom.append(rowContainer, $('.chat-footer-toolbar'));
+		const footerToolbarContainer = dom.append(valueParent, $('.chat-footer-toolbar'));
 		if (this.rendererOptions.noFooter) {
 			footerToolbarContainer.classList.add('hidden');
 		}
@@ -439,7 +439,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		footerDetailsContainer.tabIndex = 0;
 		footerDetailsContainer.role = 'note';
 
-		const checkpointRestoreContainer = dom.append(rowContainer, $('.checkpoint-restore-container'));
+		const checkpointRestoreContainer = dom.append(valueParent, $('.checkpoint-restore-container'));
 		const codiconRestoreContainer = dom.append(checkpointRestoreContainer, $('.codicon-container'));
 		dom.append(codiconRestoreContainer, $('span.codicon.codicon-bookmark'));
 		const label = dom.append(checkpointRestoreContainer, $('span.checkpoint-label-text'));
