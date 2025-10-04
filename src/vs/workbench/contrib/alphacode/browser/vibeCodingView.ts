@@ -39,6 +39,7 @@ import {
 import { IAlphaCodeChatService, IChatMessage } from '../common/chatService.js';
 import { IAlphaCodeAIService } from '../common/aiService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { ProposalsView } from './proposalsView.js';
 
 export class VibeCodingView extends ViewPane {
 	private containerElement: HTMLElement | undefined;
@@ -84,6 +85,8 @@ export class VibeCodingView extends ViewPane {
 		);
 		this.markdownRenderer = new MarkdownRenderer();
 		this.isConfigured = !!this.aiService.getProviderConfig();
+		this.proposalsView = new ProposalsView(this.chatService);
+		this._register(this.proposalsView);
 		this._register(
 			this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk)),
 		);
@@ -257,6 +260,22 @@ export class VibeCodingView extends ViewPane {
 			addDisposableListener(clearButton, 'click', () => {
 				this.chatService.clearCurrentSession();
 				this.renderMessages();
+			}),
+		);
+
+		// Stop button (hidden by default)
+		this.stopButton = append(
+			toolbarActions,
+			$(
+				'button.monaco-text-button.alphacode-chat-toolbar-button.stop-button',
+				undefined,
+				localize('alphacode.chat.stop', 'Stop'),
+			),
+		) as HTMLButtonElement;
+		this.stopButton.style.display = 'none';
+		this._register(
+			addDisposableListener(this.stopButton, 'click', () => {
+				this.stopStreaming();
 			}),
 		);
 
@@ -747,6 +766,27 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
+	private stopStreaming(): void {
+		this.isStreaming = false;
+		this.currentStreamingBuffer = '';
+		this.currentStreamingMessageId = undefined;
+
+		// Hide stop button
+		if (this.stopButton) {
+			this.stopButton.style.display = 'none';
+		}
+
+		// Clear current streaming message
+		if (this.currentStreamingMessage) {
+			clearNode(this.currentStreamingMessage);
+			this.currentStreamingMessage.textContent = localize(
+				'alphacode.chat.stopped',
+				'Response generation stopped.'
+			);
+			this.currentStreamingMessage = undefined;
+		}
+	}
+
 	private onStreamChunk(chunk: {
 		content: string;
 		done: boolean;
@@ -764,6 +804,11 @@ export class VibeCodingView extends ViewPane {
 		}
 
 		if (!chunk.done) {
+			// Show stop button during streaming
+			if (this.stopButton) {
+				this.stopButton.style.display = 'inline-block';
+			}
+
 			if (chunk.content) {
 				this.currentStreamingBuffer += chunk.content;
 			}
@@ -797,6 +842,11 @@ export class VibeCodingView extends ViewPane {
 				this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 			}
 		} else {
+			// Hide stop button when done
+			if (this.stopButton) {
+				this.stopButton.style.display = 'none';
+			}
+
 			this.currentStreamingBuffer = '';
 			this.currentStreamingMessageId = undefined;
 		}

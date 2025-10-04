@@ -35,7 +35,8 @@ import { CodeMapperService, ICodeMapperService } from '../common/chatCodeMapperS
 import '../common/chatColors.js';
 import { IChatEditingService } from '../common/chatEditingService.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../services/chat/common/chatEntitlementService.js';
-import { IChatLayoutService } from '../common/chatLayoutService.js';
+import { IAiDiffApprovalService } from '../common/aiDiffApprovalService.js';
+import { AiDiffApprovalService } from './aiDiffApprovalServiceImpl.js';
 import { ChatModeService, IChatModeService } from '../common/chatModes.js';
 import { ChatResponseResourceFileSystemProvider } from '../common/chatResponseResourceFileSystemProvider.js';
 import { IChatService } from '../common/chatService.js';
@@ -97,6 +98,7 @@ import { SimpleBrowserOverlay } from './chatEditing/simpleBrowserEditorOverlay.j
 import { ChatEditor, IChatEditorOptions } from './chatEditor.js';
 import { ChatEditorInput, ChatEditorInputSerializer } from './chatEditorInput.js';
 import { ChatLayoutService } from './chatLayoutService.js';
+import { IChatLayoutService } from '../common/chatLayoutService.js';
 import { agentSlashCommandToMarkdown, agentToMarkdown } from './chatMarkdownDecorationsRenderer.js';
 import { ChatOutputRendererService, IChatOutputRendererService } from './chatOutputItemRenderer.js';
 import { ChatCompatibilityNotifier, ChatExtensionPointHandler } from './chatParticipant.contribution.js';
@@ -959,6 +961,7 @@ registerSingleton(IVoiceChatService, VoiceChatService, InstantiationType.Delayed
 registerSingleton(IChatCodeBlockContextProviderService, ChatCodeBlockContextProviderService, InstantiationType.Delayed);
 registerSingleton(ICodeMapperService, CodeMapperService, InstantiationType.Delayed);
 registerSingleton(IChatEditingService, ChatEditingService, InstantiationType.Delayed);
+registerSingleton(IAiDiffApprovalService, AiDiffApprovalService, InstantiationType.Delayed);
 registerSingleton(IChatMarkdownAnchorService, ChatMarkdownAnchorService, InstantiationType.Delayed);
 registerSingleton(ILanguageModelIgnoredFilesService, LanguageModelIgnoredFilesService, InstantiationType.Delayed);
 registerSingleton(IPromptsService, PromptsService, InstantiationType.Delayed);

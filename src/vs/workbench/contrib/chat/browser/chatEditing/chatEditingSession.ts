@@ -31,6 +31,7 @@ import { MultiDiffEditorInput } from '../../../multiDiffEditor/browser/multiDiff
 import { CellUri, ICellEditOperation } from '../../../notebook/common/notebookCommon.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { ChatEditingSessionState, ChatEditKind, getMultiDiffSourceUri, IChatEditingSession, IModifiedEntryTelemetryInfo, IModifiedFileEntry, ISnapshotEntry, IStreamingEdits, ModifiedFileEntryState } from '../../common/chatEditingService.js';
+import { AiDiffApprovalState, IAiDiffApprovalChange, IAiDiffApprovalDescriptor, IAiDiffApprovalService } from '../../common/aiDiffApprovalService.js';
 import { IChatResponseModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 import { ChatAgentLocation } from '../../common/constants.js';
@@ -159,6 +160,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		@IChatService private readonly _chatService: IChatService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IAccessibilitySignalService private readonly _accessibilitySignalService: IAccessibilitySignalService,
+		@IAiDiffApprovalService private readonly _aiDiffApprovalService: IAiDiffApprovalService,
 	) {
 		super();
 		this._timeline = _instantiationService.createInstance(ChatEditingTimeline);
@@ -355,9 +357,86 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 		for (const entry of applicableEntries) {
 			await entry[action]();
+			const requestId = entry.lastModifyingRequestId ?? entry.telemetryInfo.requestId;
+			this._publishApprovalUpdate(entry, requestId, true);
 		}
 
 		return applicableEntries.length;
+	}
+
+	private _publishApprovalUpdate(entry: AbstractChatEditingModifiedFileEntry | undefined, requestId: string, completed: boolean): void {
+		if (!entry || !requestId) {
+			return;
+		}
+
+		const change = this._createApprovalChange(entry);
+		if (!change) {
+			return;
+		}
+
+		const descriptor: IAiDiffApprovalDescriptor = {
+			sessionId: this.chatSessionId,
+			requestId,
+			createdAt: Date.now(),
+			telemetry: entry.telemetryInfo,
+			changes: [change],
+			summary: {
+				added: change.diff?.added ?? change.summaryAdded,
+				removed: change.diff?.removed ?? change.summaryRemoved,
+				files: 1
+			},
+			state: completed ? this._mapApprovalState(entry.state.get()) : AiDiffApprovalState.Pending
+		};
+
+		this._aiDiffApprovalService.mergeChanges(descriptor);
+		if (completed) {
+			this._aiDiffApprovalService.updateState(descriptor.sessionId, descriptor.requestId, descriptor.state);
+		}
+	}
+
+	private _createApprovalChange(entry: AbstractChatEditingModifiedFileEntry): (IAiDiffApprovalChange & { summaryAdded: number; summaryRemoved: number }) | undefined {
+		let changes = 0;
+		try {
+			changes = entry.changesCount.get();
+		} catch {
+			return undefined;
+		}
+
+		let added = 0;
+		let removed = 0;
+		try {
+			if ('linesAdded' in entry) {
+				added = (entry as any).linesAdded.get();
+			}
+			if ('linesRemoved' in entry) {
+				removed = (entry as any).linesRemoved.get();
+			}
+		} catch {
+			// ignore metrics errors
+		}
+
+		return {
+			entryId: entry.entryId,
+			uri: entry.modifiedURI,
+			state: entry.state.get(),
+			changes,
+			diff: undefined,
+			summaryAdded: added,
+			summaryRemoved: removed
+		};
+	}
+
+	private _mapApprovalState(state: ModifiedFileEntryState): AiDiffApprovalState {
+		switch (state) {
+			case ModifiedFileEntryState.Accepted:
+				return AiDiffApprovalState.Accepted;
+			case ModifiedFileEntryState.Rejected:
+				return AiDiffApprovalState.Rejected;
+			case ModifiedFileEntryState.Modified:
+				return AiDiffApprovalState.Pending;
+			default:
+				return AiDiffApprovalState.Pending;
+		}
 	}
 
 	async show(previousChanges?: boolean): Promise<void> {
@@ -526,11 +605,13 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 			entry.acceptStreamingEditsStart(responseModel, tx);
 			this._timeline.ensureEditInUndoStopMatches(responseModel.requestId, undoStop, entry, false, tx);
 		});
+		this._publishApprovalUpdate(entry, responseModel.requestId, false);
 	}
 
 	private async _acceptEdits(resource: URI, textEdits: (TextEdit | ICellEditOperation)[], isLastEdits: boolean, responseModel: IChatResponseModel): Promise<void> {
 		const entry = await this._getOrCreateModifiedFileEntry(resource, NotExistBehavior.Create, this._getTelemetryInfoForModel(responseModel));
 		await entry.acceptAgentEdits(resource, textEdits, isLastEdits, responseModel);
+		this._publishApprovalUpdate(entry, responseModel.requestId, isLastEdits);
 	}
 
 	private _getTelemetryInfoForModel(responseModel: IChatResponseModel): IModifiedEntryTelemetryInfo {
@@ -568,7 +649,9 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		}
 
 		this._timeline.ensureEditInUndoStopMatches(requestId, undoStop, entry, /* next= */ true, undefined);
-		return entry.acceptStreamingEditsEnd();
+		await entry.acceptStreamingEditsEnd();
+		this._publishApprovalUpdate(entry, requestId, true);
+		return;
 
 	}
 

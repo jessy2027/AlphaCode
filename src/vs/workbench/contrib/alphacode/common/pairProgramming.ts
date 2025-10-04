@@ -6,7 +6,6 @@
 import { Event } from "../../../../base/common/event.js";
 import { createDecorator } from "../../../../platform/instantiation/common/instantiation.js";
 import { URI } from "../../../../base/common/uri.js";
-import { Range } from "../../../../editor/common/core/range.js";
 
 export const IAlphaCodePairProgrammingService =
 	createDecorator<IAlphaCodePairProgrammingService>(
@@ -15,13 +14,14 @@ export const IAlphaCodePairProgrammingService =
 
 export interface IPairProgrammingSuggestion {
 	id: string;
-	type: "code" | "refactor" | "fix" | "completion";
+	type: 'code' | 'refactor' | 'fix' | 'completion';
 	content: string;
 	description: string;
-	fileUri: URI;
-	range: Range;
+	confidence: number;
+	context: ICursorContext;
 	timestamp: number;
-	confidence: number; // 0-1
+	status?: 'pending' | 'accepted' | 'rejected';
+	originalContent?: string;
 }
 
 export interface ICursorContext {
@@ -51,7 +51,7 @@ export interface IAlphaCodePairProgrammingService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Event fired when a new suggestion is available
+	 * Event fired when a suggestion is generated
 	 */
 	readonly onDidGenerateSuggestion: Event<IPairProgrammingSuggestion>;
 
@@ -59,6 +59,11 @@ export interface IAlphaCodePairProgrammingService {
 	 * Event fired when cursor context changes
 	 */
 	readonly onDidChangeCursorContext: Event<ICursorContext>;
+
+	/**
+	 * Event fired when a suggestion status changes
+	 */
+	readonly onDidChangeSuggestionStatus: Event<IPairProgrammingSuggestion>;
 
 	/**
 	 * Get current configuration
@@ -101,4 +106,19 @@ export interface IAlphaCodePairProgrammingService {
 	 * Clear all pending suggestions
 	 */
 	clearSuggestions(): void;
+
+	/**
+	 * Get a specific suggestion by ID
+	 */
+	getSuggestion(suggestionId: string): IPairProgrammingSuggestion | undefined;
+
+	/**
+	 * Accept all pending suggestions
+	 */
+	acceptAllSuggestions(): Promise<void>;
+
+	/**
+	 * Reject all pending suggestions
+	 */
+	rejectAllSuggestions(): Promise<void>;
 }
