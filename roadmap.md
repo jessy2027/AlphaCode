@@ -73,8 +73,11 @@
 - **Objectif** Mettre en production progressive les nouveautés et surveiller leur impact.
 - **Livrables** Release notes complètes, tableaux de bord de suivi et backlog post-lancement.
 
+### ✅ Bouton stop pour le chat - IMPLÉMENTÉ
+- Le bouton d'envoi (↑) se transforme en bouton stop (⏸) pendant que l'IA génère une réponse
+- Fond rouge en mode stop pour une meilleure visibilité
+- Fonctionnalité `stopStreaming()` pour arrêter la génération en cours
 
-ajoute un btn stop pour les chat
 - **TODO**
   - [ ] Déployer en canary puis en généralisation, avec métriques d'usage et de stabilité.
   - [ ] Mettre en place des alertes pour détection de régressions (ghost text, chat, outils IA).
