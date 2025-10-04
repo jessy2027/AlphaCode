@@ -569,3 +569,40 @@
     outline: none;
     box-shadow: 0 0 0 2px var(--vscode-focusBorder), 0 12px 28px rgba(0, 0, 0, 0.26);
 }
+
+/* Message attachments */
+.alphacode-message-attachments {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    background-color: color-mix(in srgb, var(--vscode-editor-background) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
+}
+
+.alphacode-message-attachments .alphacode-attached-file-item {
+    background-color: var(--vscode-list-inactiveSelectionBackground);
+    border: 1px solid var(--vscode-panel-border);
+    opacity: 0.9;
+}
+
+.alphacode-message-attachments .alphacode-attached-file-item:hover {
+    opacity: 1;
+}
+
+/* File attachment input area */
+.alphacode-file-attachment-area {
+    margin-bottom: 8px;
+}
+
+.alphacode-chat-input-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.alphacode-chat-input-wrapper .alphacode-attach-button {
+    flex-shrink: 0;
+}

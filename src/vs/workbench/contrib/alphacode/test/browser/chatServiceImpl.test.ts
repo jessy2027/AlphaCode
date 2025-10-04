@@ -14,6 +14,7 @@ import type { IFileService } from "../../../../../platform/files/common/files.js
 import type { IWorkspaceContextService } from "../../../../../platform/workspace/common/workspace.js";
 import { URI } from "../../../../../base/common/uri.js";
 import type { IEditorService } from "../../../../../workbench/services/editor/common/editorService.js";
+import type { IAlphaCodeFileAttachmentService } from "../../common/fileAttachmentService.js";
 const disposableStore = ensureNoDisposablesAreLeakedInTestSuite();
 
 suite("AlphaCodeChatService - Tool Calls", () => {
@@ -25,7 +26,8 @@ suite("AlphaCodeChatService - Tool Calls", () => {
 	let mockFileService: IFileService;
 	let mockWorkspaceContextService: IWorkspaceContextService;
 	let mockChatEditingService: any;
-let mockEditorService: IEditorService;
+	let mockEditorService: IEditorService;
+	let mockFileAttachmentService: IAlphaCodeFileAttachmentService;
 
 	setup(() => {
 		// Mock AI service
@@ -79,6 +81,11 @@ let mockEditorService: IEditorService;
 			openEditor: async () => undefined,
 		} as any;
 
+		mockFileAttachmentService = {
+			getFile: async () => undefined,
+			getFilesByMessage: async () => [],
+		} as any;
+
 		chatService = disposableStore.add(new AlphaCodeChatService(
 			mockAIService,
 			mockStorageService,
@@ -88,6 +95,7 @@ let mockEditorService: IEditorService;
 			mockWorkspaceContextService,
 			mockEditorService,
 			mockChatEditingService,
+			mockFileAttachmentService,
 		));
 	});
 

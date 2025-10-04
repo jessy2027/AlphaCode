@@ -19,6 +19,8 @@ export interface IChatMessage {
 	toolCalls?: IToolCall[];
 	toolCallId?: string;
 	metadata?: Record<string, any>;
+	/** Fichiers attachés au message */
+	attachments?: string[]; // IDs des fichiers attachés
 }
 
 export interface IChatSession {
