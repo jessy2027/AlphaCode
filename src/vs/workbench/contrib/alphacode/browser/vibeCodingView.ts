@@ -54,8 +54,8 @@ export class VibeCodingView extends ViewPane {
 	private markdownRenderer: MarkdownRenderer;
 	private welcomeContainer: HTMLElement | undefined;
 	private sendStopButton: HTMLButtonElement | undefined;
-	private proposalsView: ProposalsView;
 	private stopButton: HTMLButtonElement | undefined;
+	private proposalsView: ProposalsView;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -87,7 +87,7 @@ export class VibeCodingView extends ViewPane {
 		);
 		this.markdownRenderer = new MarkdownRenderer();
 		this.isConfigured = !!this.aiService.getProviderConfig();
-		this.proposalsView = new ProposalsView(this.chatService);
+		this.proposalsView = this.instantiationService.createInstance(ProposalsView);
 		this._register(this.proposalsView);
 		this._register(
 			this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk)),
@@ -807,6 +807,31 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
+	private stopStreaming(): void {
+		this.isStreaming = false;
+		this.currentStreamingBuffer = '';
+		this.currentStreamingMessageId = undefined;
+		this.updateSendStopButton();
+
+		// Hide stop button
+		if (this.stopButton) {
+			this.stopButton.style.display = 'none';
+		}
+
+		// Clear current streaming message if exists
+		if (this.currentStreamingMessage) {
+			const existingContent = this.currentStreamingBuffer.trim();
+			if (!existingContent) {
+				clearNode(this.currentStreamingMessage);
+				this.currentStreamingMessage.textContent = localize(
+					'alphacode.chat.stopped',
+					'Response generation stopped.'
+				);
+			}
+			this.currentStreamingMessage = undefined;
+		}
+	}
+
 	private async applyCode(code: string): Promise<void> {
 		// Get active editor
 		const activeEditor = this.editorService.activeTextEditorControl;
@@ -847,26 +872,6 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
-	private stopStreaming(): void {
-		this.isStreaming = false;
-		this.currentStreamingBuffer = "";
-		this.currentStreamingMessageId = undefined;
-
-		// Hide stop button
-		if (this.stopButton) {
-			this.stopButton.style.display = "none";
-		}
-
-		// Clear current streaming message
-		if (this.currentStreamingMessage) {
-			clearNode(this.currentStreamingMessage);
-			this.currentStreamingMessage.textContent = localize(
-				"alphacode.chat.stopped",
-				"Response generation stopped.",
-			);
-			this.currentStreamingMessage = undefined;
-		}
-	}
 
 	private onStreamChunk(chunk: {
 		content: string;
