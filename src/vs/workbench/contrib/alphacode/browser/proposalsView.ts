@@ -17,9 +17,13 @@ import { getChangeSummary } from './diffUtils.js';
 
 export class ProposalsView extends Disposable {
 	private proposalsList: HTMLElement | undefined;
+	private rootContainer: HTMLElement | undefined;
+	private globalActionsContainer: HTMLElement | undefined;
+	private acceptAllBtn: HTMLButtonElement | undefined;
+	private rejectAllBtn: HTMLButtonElement | undefined;
 
 	constructor(
-		private readonly chatService: IAlphaCodeChatService
+		@IAlphaCodeChatService private readonly chatService: IAlphaCodeChatService
 	) {
 		super();
 
@@ -33,6 +37,7 @@ export class ProposalsView extends Disposable {
 	}
 
 	renderIn(container: HTMLElement): void {
+		this.rootContainer = container;
 		container.classList.add('alphacode-proposals-view');
 
 		// Header
@@ -43,18 +48,18 @@ export class ProposalsView extends Disposable {
 		);
 
 		// Global actions
-		const globalActions = append(container, $('.proposals-global-actions'));
-		const acceptAllBtn = append(
-			globalActions,
+		this.globalActionsContainer = append(container, $('.proposals-global-actions'));
+		this.acceptAllBtn = append(
+			this.globalActionsContainer,
 			$('button.monaco-button.monaco-text-button', undefined, localize('alphacode.proposals.acceptAll', 'Accept All'))
 		) as HTMLButtonElement;
-		const rejectAllBtn = append(
-			globalActions,
+		this.rejectAllBtn = append(
+			this.globalActionsContainer,
 			$('button.monaco-button.monaco-text-button.secondary', undefined, localize('alphacode.proposals.rejectAll', 'Reject All'))
 		) as HTMLButtonElement;
 
 		this._register(
-			addDisposableListener(acceptAllBtn, 'click', async () => {
+			addDisposableListener(this.acceptAllBtn, 'click', async () => {
 				try {
 					await this.chatService.acceptAllProposals();
 					this.render();
@@ -65,7 +70,7 @@ export class ProposalsView extends Disposable {
 		);
 
 		this._register(
-			addDisposableListener(rejectAllBtn, 'click', async () => {
+			addDisposableListener(this.rejectAllBtn, 'click', async () => {
 				try {
 					await this.chatService.rejectAllProposals();
 					this.render();
@@ -82,7 +87,7 @@ export class ProposalsView extends Disposable {
 	}
 
 	private render(): void {
-		if (!this.proposalsList) {
+		if (!this.proposalsList || !this.rootContainer) {
 			return;
 		}
 
@@ -90,16 +95,27 @@ export class ProposalsView extends Disposable {
 
 		const proposals = this.chatService.getPendingProposals();
 
+		// Masquer toute la vue si aucune proposition
 		if (proposals.length === 0) {
-			const emptyState = append(
-				this.proposalsList,
-				$('.proposals-empty')
-			);
-			append(
-				emptyState,
-				$('p', undefined, localize('alphacode.proposals.empty', 'No pending proposals'))
-			);
+			this.rootContainer.style.display = 'none';
+			// Désactiver les boutons globaux
+			if (this.acceptAllBtn) {
+				this.acceptAllBtn.disabled = true;
+			}
+			if (this.rejectAllBtn) {
+				this.rejectAllBtn.disabled = true;
+			}
 			return;
+		}
+
+		// Afficher la vue si des propositions existent
+		this.rootContainer.style.display = 'block';
+		// Activer les boutons globaux
+		if (this.acceptAllBtn) {
+			this.acceptAllBtn.disabled = false;
+		}
+		if (this.rejectAllBtn) {
+			this.rejectAllBtn.disabled = false;
 		}
 
 		for (const proposal of proposals) {

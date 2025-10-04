@@ -19,6 +19,7 @@ export interface IChatMessage {
 	toolCalls?: IToolCall[];
 	toolCallId?: string;
 	metadata?: Record<string, any>;
+	hidden?: boolean; // Pour les messages système non visibles par l'utilisateur
 }
 
 export interface IChatSession {
@@ -225,4 +226,14 @@ export interface IAlphaCodeChatService {
 		action: string;
 		timestamp: number;
 	}>;
+
+	/**
+	 * Abort the current streaming response
+	 */
+	abortCurrentStream(): void;
+
+	/**
+	 * Check if a stream is currently active
+	 */
+	isCurrentlyStreaming(): boolean;
 }

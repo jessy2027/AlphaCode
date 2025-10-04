@@ -760,3 +760,12 @@
     font-size: 10px;
     font-weight: 500;
 }
+
+/* Proposals container */
+.alphacode-proposals-container {
+    flex-shrink: 0;
+    border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 30%, transparent);
+    background: color-mix(in srgb, var(--vscode-editor-background) 95%, transparent);
+    max-height: 400px;
+    overflow-y: auto;
+}
