@@ -1,0 +1,192 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.alphacode-proposals-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 12px;
+	overflow-y: auto;
+}
+
+.proposals-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.proposals-header h3 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.proposals-global-actions {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.proposals-global-actions button {
+	flex: 1;
+	padding: 6px 12px;
+	font-size: 12px;
+}
+
+.proposals-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.proposals-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 32px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.proposal-card {
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
+	padding: 12px;
+	background: var(--vscode-editor-background);
+	transition: border-color 0.2s;
+}
+
+.proposal-card:hover {
+	border-color: var(--vscode-focusBorder);
+}
+
+.proposal-header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.proposal-title-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.proposal-kind {
+	font-size: 12px;
+	padding: 2px 6px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	border-radius: 3px;
+	font-weight: 500;
+}
+
+.proposal-path {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--vscode-editor-foreground);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.proposal-summary {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.proposal-actions {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.proposal-actions button.small {
+	padding: 4px 10px;
+	font-size: 11px;
+}
+
+.proposal-changes {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--vscode-panel-border);
+}
+
+.changes-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.changes-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 8px;
+	padding-left: 8px;
+}
+
+.change-item {
+	padding: 8px;
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 3px;
+}
+
+.change-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.change-header input[type="checkbox"] {
+	cursor: pointer;
+}
+
+.line-number {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	font-family: var(--monaco-monospace-font);
+}
+
+.diff-preview {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	line-height: 16px;
+	overflow-x: auto;
+}
+
+.diff-old {
+	color: var(--vscode-diffEditor-removedTextBackground);
+	background: rgba(255, 0, 0, 0.1);
+	padding: 2px 4px;
+	margin: 1px 0;
+}
+
+.diff-new {
+	color: var(--vscode-diffEditor-insertedTextBackground);
+	background: rgba(0, 255, 0, 0.1);
+	padding: 2px 4px;
+	margin: 1px 0;
+}
+
+button.secondary {
+	background: transparent;
+	border: 1px solid var(--vscode-button-border);
+	color: var(--vscode-button-foreground);
+}
+
+button.secondary:hover {
+	background: var(--vscode-button-hoverBackground);
+}
