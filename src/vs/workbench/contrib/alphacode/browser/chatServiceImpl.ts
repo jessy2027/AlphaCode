@@ -33,7 +33,6 @@ import {
 } from "../common/contextService.js";
 import type { IFileContext } from "../common/contextService.js";
 import { IAlphaCodeSecurityService } from "../common/securityService.js";
-import { IAlphaCodeFileAttachmentService } from "../common/fileAttachmentService.js";
 import { ChatToolsRegistry } from "./chatTools.js";
 import type { IToolEditProposal } from "./chatTools.js";
 import { calculateLineChanges, applyChanges, getChangeSummary } from "./diffUtils.js";
@@ -112,7 +111,6 @@ export class AlphaCodeChatService
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IChatEditingService private readonly chatEditingService: IChatEditingService,
-		@IAlphaCodeFileAttachmentService private readonly fileAttachmentService: IAlphaCodeFileAttachmentService,
 	) {
 		super();
 		this.loadDecisionLog();
@@ -330,17 +328,6 @@ export class AlphaCodeChatService
 			enrichedContext.workspaceSnippets =
 				enrichedContext.workspaceSnippets ??
 				(workspaceSnippets.filter(Boolean) as string[]);
-		}
-
-		// Enrichir le contexte avec les fichiers attachés
-		const attachedFilesContent = await this.getAttachedFilesContent(userMessage);
-		if (attachedFilesContent) {
-			enrichedContext = {
-				...enrichedContext,
-				selectedCode: enrichedContext.selectedCode
-					? `${enrichedContext.selectedCode}\n\n${attachedFilesContent}`
-					: attachedFilesContent,
-			};
 		}
 
 		const aiMessages: IAIMessage[] = this.buildAIMessages(
@@ -1196,63 +1183,6 @@ export class AlphaCodeChatService
 			await session.applyPendingEdits();
 			await session.show();
 		}
-	}
-
-	private async getAttachedFilesContent(message: IChatMessage): Promise<string | undefined> {
-		if (!message.attachments || message.attachments.length === 0) {
-			return undefined;
-		}
-
-		const fileContents: string[] = [];
-		fileContents.push('=== ATTACHED FILES ===\n');
-
-		for (const fileId of message.attachments) {
-			try {
-				const file = await this.fileAttachmentService.getFile(fileId);
-				if (!file) {
-					continue;
-				}
-
-				fileContents.push(`\n--- FILE: ${file.name} ---`);
-				fileContents.push(`Type: ${file.mimeType}`);
-				fileContents.push(`Size: ${this.formatBytes(file.size)}`);
-
-				// Utiliser le contenu extrait si disponible
-				if (file.extractedContent) {
-					if (file.extractedContent.language) {
-						fileContents.push(`Language: ${file.extractedContent.language}`);
-					}
-					
-					// Utiliser le résumé si le texte est trop long
-					if (file.extractedContent.summary && file.extractedContent.text.length > 2000) {
-						fileContents.push('\nSummary:');
-						fileContents.push(file.extractedContent.summary);
-					} else if (file.extractedContent.text) {
-						fileContents.push('\nContent:');
-						fileContents.push(file.extractedContent.text);
-					}
-				} else {
-					fileContents.push('[File content not extracted]');
-				}
-
-				fileContents.push(`--- END OF ${file.name} ---\n`);
-			} catch (error) {
-				console.error(`Error loading attachment ${fileId}:`, error);
-			}
-		}
-
-		fileContents.push('\n=== END OF ATTACHED FILES ===');
-		return fileContents.join('\n');
-	}
-
-	private formatBytes(bytes: number): string {
-		if (bytes < 1024) {
-			return `${bytes} B`;
-		}
-		if (bytes < 1024 * 1024) {
-			return `${(bytes / 1024).toFixed(1)} KB`;
-		}
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
 	private executeToolCallDuringStreaming(
