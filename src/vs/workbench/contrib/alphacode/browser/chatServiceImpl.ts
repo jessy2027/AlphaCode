@@ -34,6 +34,7 @@ import {
 import type { IFileContext } from "../common/contextService.js";
 import { IAlphaCodeSecurityService } from "../common/securityService.js";
 import { IAlphaCodeFileAttachmentService } from "../common/fileAttachmentService.js";
+import { IFileSemanticSearchService } from "../common/fileSemanticSearchService.js";
 import { ChatToolsRegistry } from "./chatTools.js";
 import type { IToolEditProposal } from "./chatTools.js";
 import { calculateLineChanges, applyChanges, getChangeSummary } from "./diffUtils.js";
@@ -113,6 +114,7 @@ export class AlphaCodeChatService
 		@IEditorService private readonly editorService: IEditorService,
 		@IChatEditingService private readonly chatEditingService: IChatEditingService,
 		@IAlphaCodeFileAttachmentService private readonly fileAttachmentService: IAlphaCodeFileAttachmentService,
+		@IFileSemanticSearchService private readonly semanticSearchService: IFileSemanticSearchService,
 	) {
 		super();
 		this.loadDecisionLog();
@@ -284,7 +286,6 @@ export class AlphaCodeChatService
 			role: "user",
 			content,
 			timestamp: Date.now(),
-			hidden, // Marquer comme caché si c'est un message système
 		};
 
 		session.messages.push(userMessage);

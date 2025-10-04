@@ -139,10 +139,6 @@
 	gap: 8px;
 }
 
-.alphacode-file-size {
-	
-}
-
 .alphacode-file-status {
 	display: flex;
 	align-items: center;
@@ -265,6 +261,14 @@
 	color: var(--vscode-badge-foreground);
 	font-size: 11px;
 	font-weight: 600;
+}
+
+/* Badge d'embedding */
+.alphacode-file-embedding-badge {
+	display: inline-flex;
+	align-items: center;
+	font-size: 12px;
+	opacity: 0.8;
 }
 
 /* Animation de chargement */

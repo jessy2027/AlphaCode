@@ -55,6 +55,7 @@ export class VibeCodingView extends ViewPane {
 	private markdownRenderer: MarkdownRenderer;
 	private welcomeContainer: HTMLElement | undefined;
 	private fileAttachmentWidget: FileAttachmentWidget | undefined;
+	private sendStopButton: HTMLButtonElement | undefined;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -87,8 +88,6 @@ export class VibeCodingView extends ViewPane {
 		);
 		this.markdownRenderer = new MarkdownRenderer();
 		this.isConfigured = !!this.aiService.getProviderConfig();
-		this.proposalsView = this.instantiationService.createInstance(ProposalsView);
-		this._register(this.proposalsView);
 		this._register(
 			this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk)),
 		);
@@ -278,13 +277,6 @@ export class VibeCodingView extends ViewPane {
 		);
 		this.renderMessages();
 
-		// Proposals view container
-		const proposalsContainer = append(
-			this.chatContainer,
-			$(".alphacode-proposals-container"),
-		);
-		this.proposalsView.renderIn(proposalsContainer);
-
 		// Input container
 		const inputContainer = append(
 			this.chatContainer,
@@ -346,25 +338,6 @@ export class VibeCodingView extends ViewPane {
 		const inputToolbar = append(
 			inputWrapper,
 			$(".alphacode-chat-input-toolbar"),
-		);
-
-		// Left section
-		const toolbarLeft = append(inputToolbar, $(".alphacode-chat-toolbar-left"));
-
-		// Add attachment button
-		const attachButton = append(
-			toolbarLeft,
-			$(
-				"button.alphacode-chat-icon-button",
-				{ title: localize("alphacode.chat.attach", "Attach files") },
-				"+",
-			),
-		) as HTMLButtonElement;
-		this._register(
-			addDisposableListener(attachButton, "click", () => {
-				// TODO: Implement file attachment
-				console.log("Attach files clicked");
-			}),
 		);
 
 		// Center section - Model name
@@ -492,11 +465,6 @@ export class VibeCodingView extends ViewPane {
 		} | null = null;
 
 		for (const message of session.messages) {
-			// Ignorer les messages cachés (système)
-			if (message.hidden) {
-				continue;
-			}
-
 			if (message.role === "user") {
 				if (currentGroup) {
 					groupedMessages.push(currentGroup);

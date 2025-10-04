@@ -44,6 +44,8 @@ import { IAlphaCodeFileAttachmentService } from "../common/fileAttachmentService
 import { AlphaCodeFileAttachmentService } from "./fileAttachmentServiceImpl.js";
 import { IFileEmbeddingService } from "../common/fileEmbeddingService.js";
 import { FileEmbeddingService } from "./fileEmbeddingServiceImpl.js";
+import { IFileSemanticSearchService } from "../common/fileSemanticSearchService.js";
+import { FileSemanticSearchService } from "./fileSemanticSearchServiceImpl.js";
 import "../common/configuration.js";
 import "./alphacodeActions.js";
 
@@ -121,5 +123,10 @@ registerSingleton(
 registerSingleton(
 	IFileEmbeddingService,
 	FileEmbeddingService,
+	InstantiationType.Delayed,
+);
+registerSingleton(
+	IFileSemanticSearchService,
+	FileSemanticSearchService,
 	InstantiationType.Delayed,
 );

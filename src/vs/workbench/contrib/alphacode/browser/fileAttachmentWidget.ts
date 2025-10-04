@@ -313,6 +313,14 @@ export class FileAttachmentWidget extends Disposable {
 			append(meta, status);
 		}
 
+		// Indicateur d'embedding
+		if (attachment.metadata?.hasEmbedding) {
+			const embeddingBadge = $('.alphacode-file-embedding-badge');
+			embeddingBadge.textContent = '🧠';
+			embeddingBadge.title = localize('embeddingIndexed', 'Indexé pour recherche sémantique');
+			append(meta, embeddingBadge);
+		}
+
 		append(info, meta);
 		append(item, info);
 

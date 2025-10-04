@@ -13,6 +13,7 @@ import { hashAsync } from '../../../../base/common/hash.js';
 import { localize } from '../../../../nls.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { IFileEmbeddingService } from '../common/fileEmbeddingService.js';
+import { IFileSemanticSearchService } from '../common/fileSemanticSearchService.js';
 import {
 	IAlphaCodeFileAttachmentService,
 	IFileAttachment,
@@ -46,8 +47,7 @@ interface IStoredAttachmentMetadata {
 
 export class AlphaCodeFileAttachmentService
 	extends Disposable
-	implements IAlphaCodeFileAttachmentService
-{
+	implements IAlphaCodeFileAttachmentService {
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _onDidUploadFile = this._register(
@@ -67,6 +67,7 @@ export class AlphaCodeFileAttachmentService
 		@IStorageService private readonly storageService: IStorageService,
 		@IEnvironmentService private readonly environmentService: IEnvironmentService,
 		@IFileEmbeddingService private readonly embeddingService: IFileEmbeddingService,
+		@IFileSemanticSearchService private readonly semanticSearchService: IFileSemanticSearchService,
 	) {
 		super();
 
@@ -238,8 +239,8 @@ export class AlphaCodeFileAttachmentService
 			if (file.type.startsWith('image/')) {
 				previewUrl = await this.generateImagePreview(buffer, file.type);
 			}
-			
-			// Extraire le contenu pour l'IA
+
+			// Extraire le contenu pour l'IA et générer l'embedding
 			const extraction = await this.embeddingService.processFileForAI(
 				buffer,
 				file.type,
@@ -257,13 +258,25 @@ export class AlphaCodeFileAttachmentService
 				hash: fileHash,
 				scanStatus: this.securityConfig.enableAntivirusScan ? 'pending' : 'clean',
 				previewUrl,
-				metadata: {},
+				metadata: {
+					hasEmbedding: !!extraction?.embedding,
+					embeddingVersion: extraction?.embedding ? '1.0' : undefined,
+				},
 				extractedContent: extraction ? {
 					text: extraction.text,
 					summary: extraction.summary,
 					language: extraction.metadata.language,
 				} : undefined,
 			};
+
+			// Indexer le fichier pour la recherche sémantique
+			if (extraction?.embedding) {
+				try {
+					await this.semanticSearchService.indexFile(fileId, extraction.embedding);
+				} catch (error) {
+					console.error('Failed to index file for semantic search:', error);
+				}
+			}
 
 			// Sauvegarder les métadonnées
 			this.attachmentsMetadata[fileId] = { ...attachment, messageId };
@@ -341,6 +354,13 @@ export class AlphaCodeFileAttachmentService
 		try {
 			// Supprimer le fichier du disque
 			await this.fileService.del(attachment.uri);
+
+			// Retirer du index sémantique
+			try {
+				await this.semanticSearchService.removeFromIndex(fileId);
+			} catch (error) {
+				console.error('Failed to remove from semantic index:', error);
+			}
 
 			// Supprimer les métadonnées
 			delete this.attachmentsMetadata[fileId];
