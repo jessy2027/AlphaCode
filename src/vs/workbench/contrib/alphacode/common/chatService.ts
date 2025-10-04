@@ -227,4 +227,14 @@ export interface IAlphaCodeChatService {
 		action: string;
 		timestamp: number;
 	}>;
+
+	/**
+	 * Abort the current streaming response
+	 */
+	abortCurrentStream(): void;
+
+	/**
+	 * Check if a stream is currently active
+	 */
+	isCurrentlyStreaming(): boolean;
 }

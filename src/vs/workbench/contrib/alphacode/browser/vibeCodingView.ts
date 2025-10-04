@@ -87,13 +87,19 @@ export class VibeCodingView extends ViewPane {
 		);
 		this.markdownRenderer = new MarkdownRenderer();
 		this.isConfigured = !!this.aiService.getProviderConfig();
-		this.proposalsView = new ProposalsView(this.chatService);
+		this.proposalsView = this.instantiationService.createInstance(ProposalsView);
 		this._register(this.proposalsView);
 		this._register(
 			this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk)),
 		);
 		this._register(
-			this.chatService.onDidAddMessage(() => this.renderMessages()),
+			this.chatService.onDidAddMessage((message) => {
+				// Ne pas re-render pendant le streaming pour éviter de perdre le message en cours
+				// Les messages seront affichés à la fin du streaming
+				if (!this.isStreaming) {
+					this.renderMessages();
+				}
+			}),
 		);
 
 		// Listen for AI configuration changes to switch from welcome to chat
@@ -265,28 +271,19 @@ export class VibeCodingView extends ViewPane {
 			}),
 		);
 
-		// Stop button (hidden by default)
-		this.stopButton = append(
-			toolbarActions,
-			$(
-				"button.monaco-text-button.alphacode-chat-toolbar-button.stop-button",
-				undefined,
-				localize("alphacode.chat.stop", "Stop"),
-			),
-		) as HTMLButtonElement;
-		this.stopButton.style.display = "none";
-		this._register(
-			addDisposableListener(this.stopButton, "click", () => {
-				this.stopStreaming();
-			}),
-		);
-
 		// Messages container
 		this.messagesContainer = append(
 			this.chatContainer,
 			$(".alphacode-chat-messages"),
 		);
 		this.renderMessages();
+
+		// Proposals view container
+		const proposalsContainer = append(
+			this.chatContainer,
+			$(".alphacode-proposals-container"),
+		);
+		this.proposalsView.renderIn(proposalsContainer);
 
 		// Input container
 		const inputContainer = append(
@@ -495,6 +492,11 @@ export class VibeCodingView extends ViewPane {
 		} | null = null;
 
 		for (const message of session.messages) {
+			// Ignorer les messages cachés (système)
+			if (message.hidden) {
+				continue;
+			}
+
 			if (message.role === "user") {
 				if (currentGroup) {
 					groupedMessages.push(currentGroup);
@@ -767,20 +769,30 @@ export class VibeCodingView extends ViewPane {
 		const metadata = message.metadata ?? {};
 		const toolName = metadata.name || "Tool";
 
+		// Extraire les paramètres depuis metadata.parameters
+		let parameters: any = {};
+		if (metadata.parameters) {
+			try {
+				parameters = typeof metadata.parameters === 'string' 
+					? JSON.parse(metadata.parameters)
+					: metadata.parameters;
+			} catch {
+				// Si le parsing échoue, on utilise un objet vide
+			}
+		}
+
 		// allow-any-unicode-next-line
-		// Extraire les informations du message
+		// Extraire les informations des paramètres
 		if (toolName.toLowerCase().includes("read")) {
 			// Pour read_file - format simple
-			const fileMatch = message.content.match(/file_path['":\s]+([^\s'"]+)/);
-			const offsetMatch = message.content.match(/offset['":\s]+(\d+)/);
-			const limitMatch = message.content.match(/limit['":\s]+(\d+)/);
+			const filePath = parameters.file_path || parameters.path;
 
 			let simplifiedText = "";
-			if (fileMatch) {
-				const filename = fileMatch[1].split(/[/\\]/).pop();
-				if (offsetMatch && limitMatch) {
-					const start = parseInt(offsetMatch[1]);
-					const end = start + parseInt(limitMatch[1]) - 1;
+			if (filePath) {
+				const filename = filePath.split(/[/\\]/).pop();
+				if (parameters.offset !== undefined && parameters.limit !== undefined) {
+					const start = parameters.offset;
+					const end = start + parameters.limit - 1;
 					simplifiedText = `Read ${filename} #L${start}-${end}`;
 				} else {
 					simplifiedText = `Read ${filename}`;
@@ -796,16 +808,18 @@ export class VibeCodingView extends ViewPane {
 			toolName.toLowerCase().includes("write")
 		) {
 			// Pour edit/write - format structuré avec badge
-			const fileMatch = message.content.match(/file_path['":\s]+([^\s'"]+)/);
+			const filePath = parameters.file_path || parameters.path || metadata.path;
 
-			if (fileMatch) {
-				const filepath = fileMatch[1];
-				const filename = filepath.split(/[/\\]/).pop() || "file";
+			if (filePath) {
+				const filename = filePath.split(/[/\\]/).pop() || "file";
 				const ext = filename.split(".").pop()?.toUpperCase() || "";
 
 				// allow-any-unicode-next-line
-				// Calculer le nombre de lignes modifiées (approximatif)
-				const linesChanged = message.content.split("\n").length - 1;
+				// Calculer le nombre de lignes modifiées
+				const summary = metadata.summary || "";
+				const linesMatch = summary.match(/(\d+)\s+lines?\s+changed/i);
+				const linesChanged = linesMatch ? parseInt(linesMatch[1]) : 
+					(message.content.split("\n").length - 1);
 
 				const toolCard = append(
 					contentElement,
@@ -822,15 +836,15 @@ export class VibeCodingView extends ViewPane {
 
 				// Indicateur de lignes
 				const linesSpan = append(toolCard, $("span.alphacode-tool-file-lines"));
-				linesSpan.textContent = `-${linesChanged}`;
+				linesSpan.textContent = `±${linesChanged}`;
 			} else {
 				const toolText = append(contentElement, $("div.alphacode-tool-simple"));
 				toolText.textContent = "Edit file";
 			}
 		} else {
-			// Autres outils
+			// Autres outils - afficher un résumé si disponible
 			const toolText = append(contentElement, $("div.alphacode-tool-simple"));
-			toolText.textContent = toolName;
+			toolText.textContent = metadata.summary || metadata.description || toolName;
 		}
 	}
 
@@ -912,6 +926,32 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
+	private stopStreaming(): void {
+		// Abort the actual stream in the chat service
+		this.chatService.abortCurrentStream();
+		
+		this.isStreaming = false;
+		this.currentStreamingBuffer = '';
+		this.currentStreamingMessageId = undefined;
+		this.updateSendStopButton();
+
+		// Clear current streaming message if exists
+		if (this.currentStreamingMessage) {
+			const existingContent = this.currentStreamingBuffer.trim();
+			if (!existingContent) {
+				clearNode(this.currentStreamingMessage);
+				this.currentStreamingMessage.textContent = localize(
+					'alphacode.chat.stopped',
+					'Response generation stopped.'
+				);
+			}
+			this.currentStreamingMessage = undefined;
+		}
+		
+		// Re-render pour afficher tous les messages qui ont été ajoutés
+		this.renderMessages();
+	}
+
 	private async applyCode(code: string): Promise<void> {
 		// Get active editor
 		const activeEditor = this.editorService.activeTextEditorControl;
@@ -952,26 +992,6 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
-	private stopStreaming(): void {
-		this.isStreaming = false;
-		this.currentStreamingBuffer = "";
-		this.currentStreamingMessageId = undefined;
-
-		// Hide stop button
-		if (this.stopButton) {
-			this.stopButton.style.display = "none";
-		}
-
-		// Clear current streaming message
-		if (this.currentStreamingMessage) {
-			clearNode(this.currentStreamingMessage);
-			this.currentStreamingMessage.textContent = localize(
-				"alphacode.chat.stopped",
-				"Response generation stopped.",
-			);
-			this.currentStreamingMessage = undefined;
-		}
-	}
 
 	private onStreamChunk(chunk: {
 		content: string;
@@ -994,11 +1014,6 @@ export class VibeCodingView extends ViewPane {
 		}
 
 		if (!chunk.done) {
-			// Show stop button during streaming
-			if (this.stopButton) {
-				this.stopButton.style.display = "inline-block";
-			}
-
 			if (chunk.content) {
 				this.currentStreamingBuffer += chunk.content;
 			}
@@ -1032,13 +1047,14 @@ export class VibeCodingView extends ViewPane {
 				this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 			}
 		} else {
-			// Hide stop button when done
-			if (this.stopButton) {
-				this.stopButton.style.display = "none";
-			}
-
 			this.currentStreamingBuffer = "";
 			this.currentStreamingMessageId = undefined;
+			this.isStreaming = false;
+			this.updateSendStopButton();
+			
+			// Re-render tous les messages maintenant que le streaming est terminé
+			// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
+			this.renderMessages();
 		}
 	}
 
@@ -1186,6 +1202,10 @@ export class VibeCodingView extends ViewPane {
 				this.isStreaming = false;
 				this.currentStreamingMessage = undefined;
 				this.updateSendStopButton();
+				
+				// Re-render tous les messages maintenant que le streaming est terminé
+				// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
+				this.renderMessages();
 			}
 		}
 	}

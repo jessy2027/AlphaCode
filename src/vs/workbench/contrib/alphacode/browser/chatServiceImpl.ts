@@ -91,7 +91,6 @@ export class AlphaCodeChatService
 	);
 	readonly onDidChangeProposalStatus: Event<IEditProposalWithChanges> =
 		this._onDidChangeProposalStatus.event;
-
 	private sessions: Map<string, IChatSession> = new Map();
 	private currentSessionId: string | undefined;
 	private toolsRegistry: ChatToolsRegistry;
@@ -100,6 +99,7 @@ export class AlphaCodeChatService
 	private auditLog: IToolEditDecisionRecord[] = [];
 	private proposalSequence = 0;
 	private backupContents: Map<string, string> = new Map();
+	private currentStreamAbortController: AbortController | undefined;
 
 	constructor(
 		@IAlphaCodeAIService private readonly aiService: IAlphaCodeAIService,
@@ -265,6 +265,14 @@ export class AlphaCodeChatService
 	}
 
 	async sendMessage(content: string, context?: IChatContext): Promise<void> {
+		return this._sendMessage(content, context, false);
+	}
+
+	async sendMessageHidden(content: string, context?: IChatContext): Promise<void> {
+		return this._sendMessage(content, context, true);
+	}
+
+	private async _sendMessage(content: string, context?: IChatContext, hidden: boolean = false): Promise<void> {
 		const session = this.getCurrentSession();
 		if (!session) {
 			throw new Error("No active chat session");
@@ -276,11 +284,15 @@ export class AlphaCodeChatService
 			role: "user",
 			content,
 			timestamp: Date.now(),
+			hidden, // Marquer comme caché si c'est un message système
 		};
 
 		session.messages.push(userMessage);
 		session.updated = Date.now();
-		this._onDidAddMessage.fire(userMessage);
+		if (!hidden) {
+			// Ne pas notifier l'UI pour les messages cachés
+			this._onDidAddMessage.fire(userMessage);
+		}
 		this.saveSessions();
 
 		let enrichedContext = context;
@@ -337,21 +349,43 @@ export class AlphaCodeChatService
 		);
 
 		try {
+			// Create abort controller for this stream
+			this.currentStreamAbortController = new AbortController();
 			const messageId = generateUuid();
 			let fullContent = "";
+			let displayContent = "";
 			let assistantMessage: IChatMessage | undefined;
 			const detectedToolCalls = new Map<string, IToolCall>();
-			const toolExecutionPromises: Promise<void>[] = [];
+			const writeToolExecutionPromises: Promise<void>[] = [];
+			const readToolCalls: IToolCall[] = [];
 			const toolExtractionState = { lastIndex: 0 };
+			let writeToolDetected = false;
 
 			await this.aiService.sendMessageStream(aiMessages, async (chunk) => {
+				// Check if aborted
+				if (this.currentStreamAbortController?.signal.aborted) {
+					throw new DOMException('Stream aborted', 'AbortError');
+				}
 				if (!chunk.done) {
 					fullContent += chunk.content;
-					if (!assistantMessage && fullContent.trim().length > 0) {
+					
+					// Nettoyer le contenu affiché en retirant tous les blocs ```tool...```
+					displayContent = this.removeToolBlocks(fullContent);
+					
+					// Détecter si un outil d'ÉCRITURE commence (write_file, edit_file)
+					const writeToolMatch = fullContent.match(/```tool[\s\S]*?"name"\s*:\s*"(write_file|edit_file)"/i);
+					if (writeToolMatch && !writeToolDetected) {
+						writeToolDetected = true;
+						
+						// Signaler la fin du stream pour l'affichage
+						this._onDidStreamChunk.fire({ content: "", done: true, messageId });
+					}
+					
+					if (!assistantMessage && displayContent.trim().length > 0) {
 						assistantMessage = {
 							id: messageId,
 							role: "assistant",
-							content: fullContent,
+							content: displayContent,
 							timestamp: Date.now(),
 						};
 						session.messages.push(assistantMessage);
@@ -360,16 +394,20 @@ export class AlphaCodeChatService
 						this.saveSessions();
 						await this._ensureChatEditingView();
 					} else if (assistantMessage) {
-						assistantMessage.content = fullContent;
+						assistantMessage.content = displayContent;
 						assistantMessage.timestamp = Date.now();
 					}
 
-					this._onDidStreamChunk.fire({
-						content: chunk.content,
-						done: false,
-						messageId,
-					});
+					// Ne diffuser que si pas d'outil d'écriture détecté
+					if (!writeToolDetected) {
+						this._onDidStreamChunk.fire({
+							content: chunk.content,
+							done: false,
+							messageId,
+						});
+					}
 
+					// Toujours extraire les tools du contenu complet
 					const toolCallsInContent = this.extractToolCalls(
 						fullContent,
 						toolExtractionState,
@@ -378,21 +416,45 @@ export class AlphaCodeChatService
 						const key = this.getToolCallKey(toolCall);
 						if (!detectedToolCalls.has(key)) {
 							detectedToolCalls.set(key, toolCall);
-							toolExecutionPromises.push(
-								this.executeToolCallDuringStreaming(session, toolCall),
-							);
+							
+							// Différencier outils de lecture vs écriture
+							if (this.isWriteTool(toolCall.name)) {
+								// Outils d'écriture: exécuter immédiatement
+								writeToolExecutionPromises.push(
+									this.executeToolCallDuringStreaming(session, toolCall),
+								);
+							} else {
+								// Outils de lecture: collecter pour exécution après le streaming
+								readToolCalls.push(toolCall);
+							}
 						}
 					}
 				} else {
-					this._onDidStreamChunk.fire({ content: "", done: true, messageId });
+					if (!writeToolDetected) {
+						this._onDidStreamChunk.fire({ content: "", done: true, messageId });
+					}
 				}
 			});
 
-			if (!assistantMessage && fullContent.trim().length > 0) {
+			// Clear abort controller
+			this.currentStreamAbortController = undefined;
+
+			// Attendre que tous les outils d'ÉCRITURE soient exécutés
+			await Promise.all(writeToolExecutionPromises);
+
+			// Maintenant exécuter tous les outils de LECTURE groupés
+			if (readToolCalls.length > 0) {
+				for (const toolCall of readToolCalls) {
+					await this.executeToolCallDuringStreaming(session, toolCall);
+				}
+			}
+
+			// Ne créer un message assistant que s'il y a du contenu à afficher
+			if (!assistantMessage && displayContent.trim().length > 0) {
 				assistantMessage = {
 					id: messageId,
 					role: "assistant",
-					content: fullContent,
+					content: displayContent,
 					timestamp: Date.now(),
 				};
 				session.messages.push(assistantMessage);
@@ -401,8 +463,8 @@ export class AlphaCodeChatService
 				await this._ensureChatEditingView();
 			}
 
-			if (assistantMessage) {
-				assistantMessage.content = fullContent;
+			if (assistantMessage && displayContent.trim().length > 0) {
+				assistantMessage.content = displayContent;
 				assistantMessage.timestamp = Date.now();
 				if (detectedToolCalls.size > 0) {
 					assistantMessage.toolCalls = Array.from(
@@ -413,21 +475,21 @@ export class AlphaCodeChatService
 				}
 			}
 
-			this.saveSessions();
-
-			await Promise.all(toolExecutionPromises);
-
-			if (detectedToolCalls.size > 0) {
-				await this.sendMessage(
-					"Continue based on the tool results above.",
-					enrichedContext,
-				);
-			}
+			// Les outils ont été exécutés, les résultats sont déjà dans les messages
+			// Pas besoin de demander un résumé supplémentaire qui perturbe l'affichage
 		} catch (error) {
+			// Clear abort controller
+			this.currentStreamAbortController = undefined;
+
+			// Si c'est une annulation, ne pas afficher d'erreur
+			if (error instanceof Error && error.name === 'AbortError') {
+				return;
+			}
+
 			const errorMessage: IChatMessage = {
 				id: generateUuid(),
 				role: "assistant",
-				content: `Error: ${error instanceof Error ? error.message : "Unknown error occurred"}`,
+				content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
 				timestamp: Date.now(),
 			};
 
@@ -1231,6 +1293,18 @@ export class AlphaCodeChatService
 		}
 	}
 
+	private isWriteTool(toolName: string): boolean {
+		// Outils qui modifient des fichiers et doivent arrêter le streaming
+		const writeTools = ['write_file', 'edit_file', 'delete_file'];
+		return writeTools.includes(toolName);
+	}
+
+	private removeToolBlocks(content: string): string {
+		// Retirer tous les blocs ```tool...``` du contenu pour l'affichage
+		// Les outils seront affichés via les messages "tool" dédiés
+		return content.replace(/```tool[\s\S]*?```/g, '').trim();
+	}
+
 	// New granular control methods for Phase 3
 
 	getPendingProposals(): IEditProposalWithChanges[] {
@@ -1361,5 +1435,16 @@ export class AlphaCodeChatService
 		timestamp: number;
 	}> {
 		return [...this.auditLog];
+	}
+
+	abortCurrentStream(): void {
+		if (this.currentStreamAbortController) {
+			this.currentStreamAbortController.abort();
+			this.currentStreamAbortController = undefined;
+		}
+	}
+
+	isCurrentlyStreaming(): boolean {
+		return this.currentStreamAbortController !== undefined;
 	}
 }
