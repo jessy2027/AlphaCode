@@ -40,10 +40,6 @@ import { IAlphaCodePairProgrammingService } from "../common/pairProgramming.js";
 import { AlphaCodePairProgrammingService } from "./pairProgrammingServiceImpl.js";
 import { IAlphaCodeSecurityService } from "../common/securityService.js";
 import { AlphaCodeSecurityService } from "./securityServiceImpl.js";
-import { IAlphaCodeFileAttachmentService } from "../common/fileAttachmentService.js";
-import { AlphaCodeFileAttachmentService } from "./fileAttachmentServiceImpl.js";
-import { IFileEmbeddingService } from "../common/fileEmbeddingService.js";
-import { FileEmbeddingService } from "./fileEmbeddingServiceImpl.js";
 import "../common/configuration.js";
 import "./alphacodeActions.js";
 
@@ -111,15 +107,5 @@ registerSingleton(
 registerSingleton(
 	IAlphaCodeSecurityService,
 	AlphaCodeSecurityService,
-	InstantiationType.Delayed,
-);
-registerSingleton(
-	IAlphaCodeFileAttachmentService,
-	AlphaCodeFileAttachmentService,
-	InstantiationType.Delayed,
-);
-registerSingleton(
-	IFileEmbeddingService,
-	FileEmbeddingService,
 	InstantiationType.Delayed,
 );
