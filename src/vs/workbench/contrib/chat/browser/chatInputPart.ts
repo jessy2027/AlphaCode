@@ -1365,6 +1365,22 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this._onDidChangeHeight.fire();
 			}
 		}));
+
+		// Bouton Stop (fictif pour l'instant)
+		const stopButton = this._register(new Button(inputContainer, {
+			supportIcons: true,
+			buttonBackground: 'rgba(255, 97, 109, 0.92)',
+			buttonForeground: '#ffffff',
+			buttonHoverBackground: 'rgba(255, 59, 74, 1)',
+		}));
+		stopButton.element.classList.add('chat-stop-button');
+		stopButton.label = `$(${Codicon.debugStop.id})`;
+		stopButton.setTitle(localize('stopButtonLabel', "Stop generation")); // allow-any-unicode-next-line
+		this._register(stopButton.onDidClick(() => {
+			// TODO: Implement stop generation
+			// For now, this is a placeholder button
+			console.log('Stop button clicked - implementation pending');
+		}));
 	}
 
 	public toggleChatInputOverlay(editing: boolean): void {

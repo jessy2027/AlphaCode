@@ -59,6 +59,8 @@ export class ChatToolProgressSubPart extends BaseChatToolInvocationSubPart {
 
 	private renderProgressContent(content: IMarkdownString | string) {
 		if (typeof content === 'string') {
+			// Simplifier le message pour le rendre plus concis
+			content = this.simplifyMessage(content);
 			content = new MarkdownString().appendText(content);
 		}
 
@@ -68,5 +70,14 @@ export class ChatToolProgressSubPart extends BaseChatToolInvocationSubPart {
 		};
 
 		return this.instantiationService.createInstance(ChatProgressContentPart, progressMessage, this.renderer, this.context, undefined, true, this.getIcon());
+	}
+
+	private simplifyMessage(message: string): string {
+		// Rendre les messages plus concis comme dans l'image
+		// Exemple: "Reading file X" et "Reading file Y" -> "Read 2 files"
+		if (message.length > 80) {
+			return message.substring(0, 77) + '...';
+		}
+		return message;
 	}
 }
