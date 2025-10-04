@@ -74,6 +74,30 @@ export interface IChatTool {
 	execute(parameters: any): Promise<string>;
 }
 
+export interface IEditProposalChange {
+	lineNumber: number;
+	oldText: string;
+	newText: string;
+}
+
+export interface IEditProposalWithChanges {
+	id: string;
+	path: string;
+	filePath: string;
+	kind: 'write' | 'edit';
+	originalContent: string;
+	proposedContent: string;
+	changes: IEditProposalChange[];
+	timestamp: number;
+	status: 'pending' | 'accepted' | 'rejected' | 'partially-accepted';
+}
+
+export interface IProposalDecision {
+	proposalId: string;
+	action: 'accept-all' | 'reject-all' | 'accept-changes' | 'reject-changes';
+	changeIndexes?: number[]; // For granular control
+}
+
 export interface IAlphaCodeChatService {
 	readonly _serviceBrand: undefined;
 
@@ -91,6 +115,16 @@ export interface IAlphaCodeChatService {
 	 * Event fired when streaming chunks arrive
 	 */
 	readonly onDidStreamChunk: Event<IStreamChunk>;
+
+	/**
+	 * Event fired when a new edit proposal is created
+	 */
+	readonly onDidCreateProposal: Event<IEditProposalWithChanges>;
+
+	/**
+	 * Event fired when a proposal status changes
+	 */
+	readonly onDidChangeProposalStatus: Event<IEditProposalWithChanges>;
 
 	/**
 	 * Get the current chat session
@@ -156,4 +190,39 @@ export interface IAlphaCodeChatService {
 	 * Returns true when the proposal is still pending.
 	 */
 	hasPendingProposal(proposalId: string): boolean;
+
+	/**
+	 * Get all pending proposals with detailed changes
+	 */
+	getPendingProposals(): IEditProposalWithChanges[];
+
+	/**
+	 * Get a specific proposal by ID
+	 */
+	getProposal(proposalId: string): IEditProposalWithChanges | undefined;
+
+	/**
+	 * Accept or reject specific changes in a proposal
+	 */
+	applyProposalDecision(decision: IProposalDecision): Promise<void>;
+
+	/**
+	 * Accept all pending proposals
+	 */
+	acceptAllProposals(): Promise<void>;
+
+	/**
+	 * Reject all pending proposals
+	 */
+	rejectAllProposals(): Promise<void>;
+
+	/**
+	 * Get the audit log of proposal decisions
+	 */
+	getProposalAuditLog(): Array<{
+		id: string;
+		path: string;
+		action: string;
+		timestamp: number;
+	}>;
 }

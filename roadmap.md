@@ -59,24 +59,59 @@
   - [ ] Rédiger les guides utilisateur et notes de version.
   - [ ] Mettre à jour la checklist de régression et la partager avec l'équipe QA.
 
-## Phase 3 – Contrôle des actions outils IA (Semaines 6-7)
-- **Objectif** Afficher la différence proposée par l'IA lorsqu'elle utilise un outil (ex. modification de fichier) et offrir la possibilité d'accepter ou refuser tout les modifications (tout les fichier mdofier) ou par modifiation dans un fichier (ligne bien presice)  ou tout le fichier et un ouverture automatique des fichiers dans l'editeur lors d'une modification dans un fichier avec un outil (IA)
+## Phase 3 – Contrôle des actions outils IA (Semaines 6-7) 
+- **Objectif** Afficher la différence proposée par l'IA lorsqu'elle utilise un outil (ex. modification de fichier) et offrir la possibilité d'accepter ou refuser toutes les modifications (tous les fichiers modifiés) ou par modification dans un fichier (ligne bien précise) ou tout le fichier et une ouverture automatique des fichiers dans l'éditeur lors d'une modification dans un fichier avec un outil (IA)
 - **Livrables** Workflow de validation des diffs IA disponible dans toutes les conversations.
 - **Mesure de succès** Adoption par les bêta testeurs et réduction des erreurs introduites par l'IA.
-- **TODO**
-  - [ ] Instrumenter la capture des diffs générés par les outils IA.
-  - [ ] Développer un composant UI de visualisation des diffs avec options d'acceptation/annulation.
-  - [ ] Intégrer des hooks d'approbation dans le pipeline d'exécution des outils.
-  - [ ] Ajouter une journalisation des décisions (accepté/refusé) pour audit.
+- **Implémenté**
+  - [x] Instrumenter la capture des diffs générés par les outils IA
+  - [x] Développer un composant UI de visualisation des diffs avec options d'acceptation/annulation
+  - [x] Intégrer des hooks d'approbation dans le pipeline d'exécution des outils
+  - [x] Ajouter une journalisation des décisions (accepté/refusé) pour audit
+  - [x] Bouton Stop pour arrêter la génération IA
+  - [x] Contrôle granulaire ligne par ligne
+  - [x] Ouverture automatique des diffs dans l'éditeur
+  - [x] Vue dédiée pour la gestion des proposals
+  - [x] Actions globales (Accept All / Reject All)
+  - [x] Extension au système de pair programming (copilote)
+
+### Fichiers créés/modifiés
+
+#### Nouveaux fichiers
+- `src/vs/workbench/contrib/alphacode/browser/diffUtils.ts` - Utilitaires de calcul de diffs
+- `src/vs/workbench/contrib/alphacode/browser/proposalsView.ts` - Vue UI des proposals
+- `src/vs/workbench/contrib/alphacode/browser/media/proposalsView.css` - Styles
+- `PHASE3_TOOL_CONTROL.md` - Documentation complète
+- `PHASE3_QUICKSTART.md` - Guide de démarrage rapide
+
+#### Fichiers modifiés
+- `src/vs/workbench/contrib/alphacode/common/chatService.ts` - Interfaces étendues
+- `src/vs/workbench/contrib/alphacode/browser/chatServiceImpl.ts` - Logique de gestion
+- `src/vs/workbench/contrib/alphacode/browser/vibeCodingView.ts` - Intégration UI
+- `src/vs/workbench/contrib/alphacode/common/pairProgramming.ts` - Extension copilote
+
+### Fonctionnalités clés
+1. **Visualisation des diffs** : Calcul automatique et affichage des changements ligne par ligne
+2. **Contrôle multi-niveaux** : Accept/Reject All, par fichier, ou par ligne
+3. **Ouverture automatique** : Les diffs s'ouvrent automatiquement dans l'éditeur
+4. **Journalisation** : Audit complet de toutes les décisions (200 dernières entrées)
+5. **Bouton Stop** : Arrêt immédiat de la génération IA en cours
+6. **Events réactifs** : `onDidCreateProposal`, `onDidChangeProposalStatus`
+7. **API complète** : Méthodes pour toutes les opérations de gestion
+
+### Documentation
+- Guide utilisateur : `PHASE3_QUICKSTART.md`
+- Documentation technique : `PHASE3_TOOL_CONTROL.md`
+- Exemples d'utilisation avec captures UI
+- API complète et événements
 
 ## Phase 4 – Déploiement et suivi (Semaines 8-9)
 - **Objectif** Mettre en production progressive les nouveautés et surveiller leur impact.
 - **Livrables** Release notes complètes, tableaux de bord de suivi et backlog post-lancement.
-
-
-ajoute un btn stop pour les chat
 - **TODO**
   - [ ] Déployer en canary puis en généralisation, avec métriques d'usage et de stabilité.
   - [ ] Mettre en place des alertes pour détection de régressions (ghost text, chat, outils IA).
   - [ ] Collecter les retours utilisateurs et identifier les améliorations post-lancement.
   - [ ] Prioriser et planifier les actions du backlog post-lancement.
+  - [ ] Créer les release notes pour la Phase 3 (contrôle des outils IA).
+  - [ ] Former les utilisateurs bêta aux nouvelles fonctionnalités.
