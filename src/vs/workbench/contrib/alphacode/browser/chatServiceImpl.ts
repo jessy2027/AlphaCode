@@ -30,11 +30,10 @@ import {
 } from "../common/chatService.js";
 import {
 	IAlphaCodeContextService,
+	type IFileContext,
 } from "../common/contextService.js";
-import type { IFileContext } from "../common/contextService.js";
 import { IAlphaCodeSecurityService } from "../common/securityService.js";
-import { ChatToolsRegistry } from "./chatTools.js";
-import type { IToolEditProposal } from "./chatTools.js";
+import { ChatToolsRegistry, type IToolEditProposal } from "./chatTools.js";
 import { calculateLineChanges, applyChanges, getChangeSummary } from "./diffUtils.js";
 import { IFileService } from "../../../../platform/files/common/files.js";
 import { IWorkspaceContextService } from "../../../../platform/workspace/common/workspace.js";
@@ -469,7 +468,7 @@ export class AlphaCodeChatService
 			this.currentStreamAbortController = undefined;
 
 			// Si c'est une annulation, ne pas afficher d'erreur
-			if (error instanceof Error && error.name === 'AbortError') {
+			if (error instanceof Error && error.name === "AbortError") {
 				return;
 			}
 
@@ -737,13 +736,13 @@ export class AlphaCodeChatService
 					resource: originalResource,
 					forceUntitled: true,
 					contents: proposal.originalContent,
-					label: proposal.kind === 'write' ? 'Empty File' : 'Original',
+					label: proposal.kind === "write" ? "Empty File" : "Original",
 				},
 				modified: {
 					resource: modifiedResource,
 					forceUntitled: true,
 					contents: proposal.proposedContent,
-					label: 'Proposed Changes',
+					label: "Proposed Changes",
 				},
 				options: {
 					pinned: true,
@@ -755,7 +754,7 @@ export class AlphaCodeChatService
 			
 			await this.editorService.openEditor(diffInput);
 		} catch (error) {
-			console.error('Failed to open diff for proposal:', error);
+			console.error("Failed to open diff for proposal:", error);
 			throw error;
 		}
 	}
@@ -805,7 +804,7 @@ export class AlphaCodeChatService
 					// File might not exist yet, that's ok
 				}
 			} catch (error) {
-				console.error('Failed to rollback:', error);
+				console.error("Failed to rollback:", error);
 			}
 		}
 		
