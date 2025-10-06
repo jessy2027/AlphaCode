@@ -35,6 +35,11 @@ import {
 import { IAlphaCodeSecurityService } from "../common/securityService.js";
 import { ChatToolsRegistry, type IToolEditProposal } from "./chatTools.js";
 import { calculateLineChanges, applyChanges, getChangeSummary } from "./diffUtils.js";
+import { ToolCallParser } from "./toolCallParser.js";
+import { MessageFormatter } from "./messageFormatter.js";
+import { StreamHandler } from "./streamHandler.js";
+import { PromptBuilder } from "./promptBuilder.js";
+import { ProposalManager } from "./proposalManager.js";
 import { IFileService } from "../../../../platform/files/common/files.js";
 import { IWorkspaceContextService } from "../../../../platform/workspace/common/workspace.js";
 import { IEditorService } from "../../../../workbench/services/editor/common/editorService.js";
@@ -58,8 +63,7 @@ interface IToolEditDecisionRecord {
 
 export class AlphaCodeChatService
 	extends Disposable
-	implements IAlphaCodeChatService
-{
+	implements IAlphaCodeChatService {
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _onDidAddMessage = this._register(
@@ -98,12 +102,16 @@ export class AlphaCodeChatService
 	private proposalSequence = 0;
 	private backupContents: Map<string, string> = new Map();
 	private currentStreamAbortController: AbortController | undefined;
+	private readonly toolParser = new ToolCallParser();
+	private readonly messageFormatter = new MessageFormatter();
+	private streamHandler!: StreamHandler;
+	private readonly promptBuilder: PromptBuilder;
+	private readonly proposalManager: ProposalManager;
 
 	constructor(
 		@IAlphaCodeAIService private readonly aiService: IAlphaCodeAIService,
 		@IStorageService private readonly storageService: IStorageService,
-		@IAlphaCodeSecurityService
-		private readonly securityService: IAlphaCodeSecurityService,
+		@IAlphaCodeSecurityService securityService: IAlphaCodeSecurityService,
 		@IAlphaCodeContextService
 		private readonly contextService: IAlphaCodeContextService,
 		@IFileService private readonly fileService: IFileService,
@@ -112,12 +120,27 @@ export class AlphaCodeChatService
 		@IChatEditingService private readonly chatEditingService: IChatEditingService,
 	) {
 		super();
+		this.promptBuilder = new PromptBuilder(securityService);
+		this.proposalManager = this._register(new ProposalManager(fileService, editorService));
+		
+		// Forward proposal events
+		this._register(this.proposalManager.onDidCreateProposal(p => this._onDidCreateProposal.fire(p)));
+		this._register(this.proposalManager.onDidChangeStatus(p => this._onDidChangeProposalStatus.fire(p)));
+		
 		this.loadDecisionLog();
 		this.toolsRegistry = new ChatToolsRegistry(
 			fileService,
 			workspaceContextService,
 			this.handleToolEditProposal.bind(this),
 		);
+		this.streamHandler = new StreamHandler(
+			this.toolParser,
+			(chunk) => this._onDidStreamChunk.fire(chunk),
+			(session, messageId, content) => this.createAssistantMessage(session, messageId, content),
+			() => this._ensureChatEditingView(),
+			(session, toolCall) => this.executeToolCallDuringStreaming(session, toolCall)
+		);
+
 		this.proposalTools = [
 			{
 				name: "accept_edit_proposal",
@@ -264,7 +287,6 @@ export class AlphaCodeChatService
 	async sendMessage(content: string, context?: IChatContext): Promise<void> {
 		return this._sendMessage(content, context, false);
 	}
-
 	async sendMessageHidden(content: string, context?: IChatContext): Promise<void> {
 		return this._sendMessage(content, context, true);
 	}
@@ -276,193 +298,14 @@ export class AlphaCodeChatService
 		}
 
 		// Add user message
-		const userMessage: IChatMessage = {
-			id: generateUuid(),
-			role: "user",
-			content,
-			timestamp: Date.now(),
-			hidden, // Marquer comme caché si c'est un message système
-		};
+		this.addUserMessage(session, content, hidden);
 
-		session.messages.push(userMessage);
-		session.updated = Date.now();
-		if (!hidden) {
-			// Ne pas notifier l'UI pour les messages cachés
-			this._onDidAddMessage.fire(userMessage);
-		}
-		this.saveSessions();
-
-		let enrichedContext = context;
-		const workspaceContext = await this.contextService.getWorkspaceContext();
-		const relevantFiles = await this.getRelevantFiles(
-			content,
-			workspaceContext.files,
-		);
-		const workspaceFiles = relevantFiles.map((file) => file.path);
-		const workspaceSnippets = relevantFiles
-			.slice(0, MAX_WORKSPACE_SNIPPETS)
-			.map((file) => this.createSnippetForFile(file));
-		const symbolEntries = workspaceContext.symbols
-			.slice(0, MAX_WORKSPACE_SYMBOLS)
-			.map(
-				(symbol) =>
-					`${symbol.kind}: ${symbol.name} (${symbol.location.uri.path})`,
-			);
-		if (
-			!enrichedContext ||
-			enrichedContext.workspaceFiles === undefined ||
-			enrichedContext.symbols === undefined ||
-			enrichedContext.workspaceSnippets === undefined
-		) {
-			enrichedContext = {
-				...context,
-				workspaceFiles,
-				symbols: symbolEntries,
-				workspaceSnippets: workspaceSnippets.filter(Boolean) as string[],
-			};
-		} else {
-			enrichedContext.workspaceFiles =
-				enrichedContext.workspaceFiles ?? workspaceFiles;
-			enrichedContext.symbols = enrichedContext.symbols ?? symbolEntries;
-			enrichedContext.workspaceSnippets =
-				enrichedContext.workspaceSnippets ??
-				(workspaceSnippets.filter(Boolean) as string[]);
-		}
-
-		const aiMessages: IAIMessage[] = this.buildAIMessages(
-			session,
-			enrichedContext,
-		);
+		// Enrich context with workspace data
+		const enrichedContext = await this.enrichContext(content, context);
+		const aiMessages = this.buildAIMessages(session, enrichedContext);
 
 		try {
-			// Create abort controller for this stream
-			this.currentStreamAbortController = new AbortController();
-			const messageId = generateUuid();
-			let fullContent = "";
-			let displayContent = "";
-			let assistantMessage: IChatMessage | undefined;
-			const detectedToolCalls = new Map<string, IToolCall>();
-			const writeToolExecutionPromises: Promise<void>[] = [];
-			const readToolCalls: IToolCall[] = [];
-			const toolExtractionState = { lastIndex: 0 };
-			let writeToolDetected = false;
-
-			await this.aiService.sendMessageStream(aiMessages, async (chunk) => {
-				// Check if aborted
-				if (this.currentStreamAbortController?.signal.aborted) {
-					throw new DOMException('Stream aborted', 'AbortError');
-				}
-				if (!chunk.done) {
-					fullContent += chunk.content;
-					
-					// Nettoyer le contenu affiché en retirant tous les blocs ```tool...```
-					displayContent = this.removeToolBlocks(fullContent);
-					
-					// Détecter si un outil d'ÉCRITURE commence (write_file, edit_file)
-					const writeToolMatch = fullContent.match(/```tool[\s\S]*?"name"\s*:\s*"(write_file|edit_file)"/i);
-					if (writeToolMatch && !writeToolDetected) {
-						writeToolDetected = true;
-						
-						// Signaler la fin du stream pour l'affichage
-						this._onDidStreamChunk.fire({ content: "", done: true, messageId });
-					}
-					
-					if (!assistantMessage && displayContent.trim().length > 0) {
-						assistantMessage = {
-							id: messageId,
-							role: "assistant",
-							content: displayContent,
-							timestamp: Date.now(),
-						};
-						session.messages.push(assistantMessage);
-						session.updated = Date.now();
-						this._onDidAddMessage.fire(assistantMessage);
-						this.saveSessions();
-						await this._ensureChatEditingView();
-					} else if (assistantMessage) {
-						assistantMessage.content = displayContent;
-						assistantMessage.timestamp = Date.now();
-					}
-
-					// Ne diffuser que si pas d'outil d'écriture détecté
-					if (!writeToolDetected) {
-						this._onDidStreamChunk.fire({
-							content: chunk.content,
-							done: false,
-							messageId,
-						});
-					}
-
-					// Toujours extraire les tools du contenu complet
-					const toolCallsInContent = this.extractToolCalls(
-						fullContent,
-						toolExtractionState,
-					);
-					for (const toolCall of toolCallsInContent) {
-						const key = this.getToolCallKey(toolCall);
-						if (!detectedToolCalls.has(key)) {
-							detectedToolCalls.set(key, toolCall);
-							
-							// Différencier outils de lecture vs écriture
-							if (this.isWriteTool(toolCall.name)) {
-								// Outils d'écriture: exécuter immédiatement
-								writeToolExecutionPromises.push(
-									this.executeToolCallDuringStreaming(session, toolCall),
-								);
-							} else {
-								// Outils de lecture: collecter pour exécution après le streaming
-								readToolCalls.push(toolCall);
-							}
-						}
-					}
-				} else {
-					if (!writeToolDetected) {
-						this._onDidStreamChunk.fire({ content: "", done: true, messageId });
-					}
-				}
-			});
-
-			// Clear abort controller
-			this.currentStreamAbortController = undefined;
-
-			// Attendre que tous les outils d'ÉCRITURE soient exécutés
-			await Promise.all(writeToolExecutionPromises);
-
-			// Maintenant exécuter tous les outils de LECTURE groupés
-			if (readToolCalls.length > 0) {
-				for (const toolCall of readToolCalls) {
-					await this.executeToolCallDuringStreaming(session, toolCall);
-				}
-			}
-
-			// Ne créer un message assistant que s'il y a du contenu à afficher
-			if (!assistantMessage && displayContent.trim().length > 0) {
-				assistantMessage = {
-					id: messageId,
-					role: "assistant",
-					content: displayContent,
-					timestamp: Date.now(),
-				};
-				session.messages.push(assistantMessage);
-				session.updated = Date.now();
-				this._onDidAddMessage.fire(assistantMessage);
-				await this._ensureChatEditingView();
-			}
-
-			if (assistantMessage && displayContent.trim().length > 0) {
-				assistantMessage.content = displayContent;
-				assistantMessage.timestamp = Date.now();
-				if (detectedToolCalls.size > 0) {
-					assistantMessage.toolCalls = Array.from(
-						detectedToolCalls.values(),
-					);
-				} else {
-					delete assistantMessage.toolCalls;
-				}
-			}
-
-			// Les outils ont été exécutés, les résultats sont déjà dans les messages
-			// Pas besoin de demander un résumé supplémentaire qui perturbe l'affichage
+			await this.handleStreamingResponse(session, aiMessages);
 		} catch (error) {
 			// Clear abort controller
 			this.currentStreamAbortController = undefined;
@@ -486,76 +329,48 @@ export class AlphaCodeChatService
 		}
 	}
 
-	private buildAIMessages(
-		session: IChatSession,
-		context?: IChatContext,
-	): IAIMessage[] {
-		const messages: IAIMessage[] = [];
+	private buildAIMessages(session: IChatSession, context?: IChatContext): IAIMessage[] {
+		const allTools = [...this.toolsRegistry.getAllTools(), ...this.proposalTools];
+		return this.promptBuilder.buildAIMessages(session, allTools, context);
+	}
 
-		let systemContent =
-			"You are AlphaCode AI, an intelligent coding assistant integrated into AlphaCodeIDE. Help users with code generation, refactoring, debugging, and documentation.";
 
-		systemContent +=
-			'\n\n## Available Tools\n\nYou have access to powerful tools to help users. When you use a tool, it will be executed IMMEDIATELY in real-time as you write it. For file editing tools (write_file, edit_file), a diff view will automatically open for the user to review your changes.\n\n### Tool Call Format\n\nTo use a tool, respond with a tool call in this exact format:\n\n```tool\n{\n  "name": "tool_name",\n  "parameters": {\n    "param1": "value1",\n    "param2": "value2"\n  }\n}\n```\n\n**IMPORTANT**: \n- The tool block will be executed as soon as it\'s complete (you don\'t need to finish your entire message)\n- For write_file and edit_file tools, a diff editor will open automatically showing changes in red (deletions) and green (additions)\n- The user can accept or reject changes from the diff view\n- You can continue explaining after using a tool\n\n### Example\n\nUser: "Create a hello world function in Python"\n\nYou can respond:\n\nI\'ll create a Python file with a hello world function:\n\n```tool\n{\n  "name": "write_file",\n  "parameters": {\n    "path": "hello.py",\n    "content": "def hello_world():\\n    print(\\"Hello, World!\\")\\n\\nif __name__ == \\"__main__\\":\\n    hello_world()"\n  }\n}\n```\n\nThis will create a new Python file with a simple hello world function. The diff editor is now open for your review.\n\n## Available Tools:\n';
+	private addUserMessage(session: IChatSession, content: string, hidden: boolean): void {
+		const userMessage: IChatMessage = {
+			id: generateUuid(),
+			role: "user",
+			content,
+			timestamp: Date.now(),
+			hidden,
+		};
 
-		const tools = this.toolsRegistry.getAllTools();
-		for (const tool of tools) {
-			systemContent += `\n### ${tool.name}\n${tool.description}\nParameters: ${JSON.stringify(tool.parameters, null, 2)}\n`;
+		session.messages.push(userMessage);
+		session.updated = Date.now();
+		if (!hidden) {
+			this._onDidAddMessage.fire(userMessage);
 		}
+		this.saveSessions();
+	}
 
-		if (context) {
-			systemContent += "\n\nContext:";
-			if (context.activeFile) {
-				systemContent += `\nActive file: ${context.activeFile}`;
-			}
-			if (context.selectedCode) {
-				// Mask secrets in selected code before sending to AI
-				const maskedCode = this.securityService.maskSecrets(
-					context.selectedCode,
-				);
-				systemContent += `\nSelected code:\n${maskedCode}`;
-			}
-			if (context.openFiles && context.openFiles.length > 0) {
-				systemContent += `\nOpen files: ${context.openFiles.join(", ")}`;
-			}
-			if (context.workspaceFiles && context.workspaceFiles.length > 0) {
-				systemContent += `\nRelevant workspace files:\n${context.workspaceFiles.join("\n")}`;
-			}
-			if (context.symbols && context.symbols.length > 0) {
-				systemContent += `\nWorkspace symbols:\n${context.symbols.join("\n")}`;
-			}
-			if (context.workspaceSnippets && context.workspaceSnippets.length > 0) {
-				systemContent += `\nWorkspace snippets:\n${context.workspaceSnippets.join("\n\n")}`;
-			}
-		}
+	private async enrichContext(content: string, context?: IChatContext): Promise<IChatContext> {
+		const workspaceContext = await this.contextService.getWorkspaceContext();
+		const relevantFiles = await this.getRelevantFiles(content, workspaceContext.files);
+		
+		const workspaceFiles = relevantFiles.map(f => f.path);
+		const workspaceSnippets = relevantFiles
+			.slice(0, MAX_WORKSPACE_SNIPPETS)
+			.map(f => this.createSnippetForFile(f))
+			.filter(Boolean) as string[];
+		const symbols = workspaceContext.symbols
+			.slice(0, MAX_WORKSPACE_SYMBOLS)
+			.map(s => `${s.kind}: ${s.name} (${s.location.uri.path})`);
 
-		messages.push({
-			role: "system",
-			content: systemContent,
-		});
-
-		const recentMessages = session.messages.slice(-10);
-		for (const msg of recentMessages) {
-			// Mask secrets in user messages
-			const content =
-				msg.role === "user"
-					? this.securityService.maskSecrets(msg.content)
-					: msg.content;
-
-			if (msg.role === "tool") {
-				messages.push({
-					role: "assistant",
-					content: `Tool result: ${content}`,
-				});
-			} else {
-				messages.push({
-					role: msg.role === "user" ? "user" : "assistant",
-					content,
-				});
-			}
-		}
-
-		return messages;
+		return {
+			...context,
+			workspaceFiles: context?.workspaceFiles ?? workspaceFiles,
+			symbols: context?.symbols ?? symbols,
+			workspaceSnippets: context?.workspaceSnippets ?? workspaceSnippets,
+		};
 	}
 
 	private async getRelevantFiles(
@@ -700,16 +515,16 @@ export class AlphaCodeChatService
 			timestamp: Date.now(),
 			status: 'pending',
 		};
-		
+
 		// Save backup for potential rollback
 		this.backupContents.set(id, proposal.originalContent ?? "");
-		
+
 		this.pendingProposals.set(id, enhancedProposal);
 		this._onDidCreateProposal.fire(enhancedProposal);
-		
+
 		// Open diff editor immediately
 		await this.openDiffForProposal(enhancedProposal);
-		
+
 		const summary = getChangeSummary(changes);
 		return `Edit proposal ${id} created for ${proposal.path}. ${summary}. The diff editor is now open for review. Use accept_edit_proposal or reject_edit_proposal to finalize.`;
 	}
@@ -718,7 +533,7 @@ export class AlphaCodeChatService
 		try {
 			const label = `${proposal.kind === "write" ? "Create" : "Edit"}: ${proposal.path}`;
 			const fileName = proposal.path.split(/[\/]/).pop() ?? "file";
-			
+
 			// Create unique URIs for the diff view
 			const originalResource = URI.from({
 				scheme: "untitled",
@@ -728,7 +543,7 @@ export class AlphaCodeChatService
 				scheme: "untitled",
 				path: `/alphacode/modified/${proposal.id}/${fileName}`,
 			});
-			
+
 			const diffInput: IResourceDiffEditorInput = {
 				label,
 				description: `${proposal.path} (${proposal.changes.length} change${proposal.changes.length > 1 ? 's' : ''})`,
@@ -751,7 +566,7 @@ export class AlphaCodeChatService
 					activation: 1, // EditorActivation.ACTIVATE
 				},
 			};
-			
+
 			await this.editorService.openEditor(diffInput);
 		} catch (error) {
 			console.error("Failed to open diff for proposal:", error);
@@ -764,21 +579,21 @@ export class AlphaCodeChatService
 		if (!proposal) {
 			throw new Error(`Unknown proposal: ${id}`);
 		}
-		
+
 		const uri = URI.file(proposal.filePath);
 		await this.fileService.writeFile(
 			uri,
 			VSBuffer.fromString(proposal.proposedContent),
 		);
-		
+
 		// Update proposal status
 		proposal.status = 'accepted';
 		this._onDidChangeProposalStatus.fire(proposal);
-		
+
 		this.pendingProposals.delete(id);
 		this.backupContents.delete(id);
 		this.logDecision(proposal, "accepted");
-		
+
 		return `✓ Applied proposal ${id} to ${proposal.path}.`;
 	}
 
@@ -787,7 +602,7 @@ export class AlphaCodeChatService
 		if (!proposal) {
 			throw new Error(`Unknown proposal: ${id}`);
 		}
-		
+
 		// Perform rollback - restore original content if file was modified
 		const backup = this.backupContents.get(id);
 		if (backup !== undefined) {
@@ -807,15 +622,15 @@ export class AlphaCodeChatService
 				console.error("Failed to rollback:", error);
 			}
 		}
-		
+
 		// Update proposal status
 		proposal.status = 'rejected';
 		this._onDidChangeProposalStatus.fire(proposal);
-		
+
 		this.pendingProposals.delete(id);
 		this.backupContents.delete(id);
 		this.logDecision(proposal, "rejected");
-		
+
 		return `✗ Rejected proposal ${id} for ${proposal.path}. Changes have been rolled back.`;
 	}
 
@@ -889,7 +704,7 @@ export class AlphaCodeChatService
 		timestamp: number,
 	): { content: string; metadata: Record<string, any> } {
 		const toolDefinition = this.toolsRegistry.getTool(toolCall.name);
-		const normalizedContent = this.normalizeToolContent(
+		const normalizedContent = this.messageFormatter.normalizeToolContent(
 			toolResult.error ?? toolResult.result,
 		);
 		const content =
@@ -898,8 +713,8 @@ export class AlphaCodeChatService
 				: localize(
 					"alphacode.chat.tool.noOutput",
 					"The tool did not return any output.",
-				  );
-		const summaryInfo = this.buildToolSummary(content);
+				);
+		const summaryInfo = this.messageFormatter.buildToolSummary(content);
 		const metadata: Record<string, any> = {
 			name: toolDefinition?.name ?? toolCall.name,
 			status: toolResult.error ? "error" : "success",
@@ -921,7 +736,7 @@ export class AlphaCodeChatService
 			metadata.description = toolDefinition.description;
 		}
 
-		const parametersString = this.stringifyToolParameters(toolCall.parameters);
+		const parametersString = this.messageFormatter.stringifyToolParameters(toolCall.parameters);
 		if (parametersString) {
 			metadata.parameters = parametersString;
 		}
@@ -957,222 +772,6 @@ export class AlphaCodeChatService
 		return undefined;
 	}
 
-	private buildToolSummary(content: string): {
-		summary: string;
-		details?: string;
-	} {
-		const normalized = content.replace(/\r\n/g, "\n").trim();
-		if (!normalized) {
-			return {
-				summary: localize(
-					"alphacode.chat.tool.noOutputSummary",
-					"No output returned.",
-				),
-			};
-		}
-
-		const previewLimit = 280;
-		const paragraphs = normalized
-			.split(/\n\s*\n/)
-			.map((part) => part.trim())
-			.filter((part) => part.length > 0);
-		const firstParagraph =
-			paragraphs.length > 0 ? paragraphs[0] : normalized;
-
-		if (normalized.length <= previewLimit && paragraphs.length <= 1) {
-			return { summary: normalized };
-		}
-
-		if (firstParagraph.length <= previewLimit) {
-			return {
-				summary: firstParagraph,
-				details: normalized !== firstParagraph ? normalized : undefined,
-			};
-		}
-
-		return {
-			summary: firstParagraph.slice(0, previewLimit).trimEnd() + "…",
-			details: normalized,
-		};
-	}
-
-	private stringifyToolParameters(parameters: any): string | undefined {
-		if (parameters === undefined || parameters === null) {
-			return undefined;
-		}
-
-		if (typeof parameters === "string") {
-			return parameters;
-		}
-
-		try {
-			const json = JSON.stringify(parameters, null, 2);
-			if (!json) {
-				return undefined;
-			}
-			return json.length > 2000 ? `${json.slice(0, 2000)}…` : json;
-		} catch (error: unknown) {
-			return String(parameters);
-		}
-	}
-
-	private normalizeToolContent(content: unknown): string {
-		if (typeof content === "string") {
-			return content.trim();
-		}
-
-		if (content === undefined || content === null) {
-			return "";
-		}
-
-		if (typeof content === "object") {
-			try {
-				return JSON.stringify(content, null, 2).trim();
-			} catch (error: unknown) {
-				return String(content).trim();
-			}
-		}
-
-		return String(content).trim();
-	}
-
-	private extractToolCalls(
-		content: string,
-		state?: { lastIndex: number },
-	): IToolCall[] {
-		const toolCalls: IToolCall[] = [];
-		const length = content.length;
-		let searchIndex = state?.lastIndex ?? 0;
-		let furthestIndex = searchIndex;
-
-		while (searchIndex < length) {
-			// Search for ``` first, then verify if followed by "tool"
-			// This handles streaming where ```tool may arrive in fragments
-			const fenceStart = content.indexOf("```", searchIndex);
-			
-			if (fenceStart === -1) {
-				furthestIndex = length;
-				break;
-			}
-			
-			// Check if followed by "tool"
-			const afterFence = fenceStart + 3;
-			const nextChars = content.substring(afterFence, afterFence + 10);
-			
-			// Accept "tool" immediately after ```
-			const toolMatch = nextChars.match(/^(tool)/);
-			if (!toolMatch) {
-				// Not a tool block, search for next
-				searchIndex = fenceStart + 3;
-				continue;
-			}
-
-			const headerEnd = content.indexOf("\n", fenceStart);
-			if (headerEnd === -1) {
-				furthestIndex = fenceStart;
-				break;
-			}
-
-			const blockStart = headerEnd + 1;
-			let cursor = blockStart;
-			let inString = false;
-			let escaped = false;
-			let closingIndex = -1;
-
-			while (cursor < length) {
-				const code = content.charCodeAt(cursor);
-
-				if (inString) {
-					if (escaped) {
-						escaped = false;
-					} else if (code === 92 /* \\ */) {
-						escaped = true;
-					} else if (code === 34 /* " */) {
-						inString = false;
-					}
-					cursor++;
-					continue;
-				}
-
-				if (code === 34 /* " */) {
-					inString = true;
-					cursor++;
-					continue;
-				}
-
-				if (
-					code === 96 /* ` */ &&
-					cursor + 2 < length &&
-					content.charCodeAt(cursor + 1) === 96 &&
-					content.charCodeAt(cursor + 2) === 96
-				) {
-					let preceding = cursor - 1;
-					while (preceding >= blockStart) {
-						const precedingCode = content.charCodeAt(preceding);
-						if (precedingCode === 32 /* space */ || precedingCode === 9 /* tab */) {
-							preceding--;
-							continue;
-						}
-						if (
-							precedingCode === 10 /* \n */ ||
-							precedingCode === 13 /* \r */
-						) {
-							closingIndex = cursor;
-						}
-						break;
-					}
-					if (preceding < blockStart) {
-						closingIndex = cursor;
-					}
-					if (closingIndex !== -1) {
-						break;
-					}
-				}
-
-				cursor++;
-			}
-
-			if (closingIndex === -1) {
-				furthestIndex = fenceStart;
-				break;
-			}
-
-			const rawBlock = content.slice(blockStart, closingIndex).trim();
-			let advanceIndex = closingIndex + 3;
-			while (
-				advanceIndex < length &&
-				(content.charCodeAt(advanceIndex) === 13 || content.charCodeAt(advanceIndex) === 10)
-			) {
-				advanceIndex++;
-			}
-			furthestIndex = advanceIndex;
-			searchIndex = advanceIndex;
-
-			if (!rawBlock) {
-				continue;
-			}
-
-			try {
-				const toolCallData = JSON.parse(rawBlock);
-				if (toolCallData.name && toolCallData.parameters) {
-					toolCalls.push({
-						id: generateUuid(),
-						name: toolCallData.name,
-						parameters: toolCallData.parameters,
-					});
-				}
-			} catch (error: unknown) {
-				console.error('Failed to parse tool call:', error);
-			}
-		}
-
-		if (state) {
-			state.lastIndex = Math.min(furthestIndex, length);
-		}
-
-		return toolCalls;
-	}
-
 	private async _ensureChatEditingView(): Promise<void> {
 		if (!this.currentSessionId) {
 			return;
@@ -1184,55 +783,82 @@ export class AlphaCodeChatService
 		}
 	}
 
-	private executeToolCallDuringStreaming(
+	private async executeToolCallDuringStreaming(
 		session: IChatSession,
 		toolCall: IToolCall,
 	): Promise<void> {
-		return (async () => {
-			const toolResult = await this.executeToolCall(toolCall);
-			const toolTimestamp = Date.now();
-			const formattedTool = this.createToolMessage(
-				toolCall,
-				toolResult,
-				toolTimestamp,
-			);
+		// Utiliser le timestamp de détection pour maintenir l'ordre chronologique
+		const toolTimestamp = toolCall.detectedAt ?? Date.now();
+		const toolResult = await this.executeToolCall(toolCall);
+		const formattedTool = this.createToolMessage(
+			toolCall,
+			toolResult,
+			toolTimestamp,
+		);
 
-			const toolMessage: IChatMessage = {
-				id: generateUuid(),
-				role: "tool",
-				content: formattedTool.content,
-				timestamp: toolTimestamp,
-				toolCallId: toolCall.id,
-				metadata: formattedTool.metadata,
-			};
+		const toolMessage: IChatMessage = {
+			id: generateUuid(),
+			role: "tool",
+			content: formattedTool.content,
+			timestamp: toolTimestamp,
+			toolCallId: toolCall.id,
+			metadata: formattedTool.metadata,
+		};
 
-			session.messages.push(toolMessage);
-			session.updated = toolTimestamp;
-			this._onDidAddMessage.fire(toolMessage);
-			this.saveSessions();
-			await this._ensureChatEditingView();
-		})();
+		session.messages.push(toolMessage);
+		session.updated = Date.now();
+		this._onDidAddMessage.fire(toolMessage);
+		this.saveSessions();
+		await this._ensureChatEditingView();
+		return;
 	}
 
-	private getToolCallKey(toolCall: IToolCall): string {
-		try {
-			return `${toolCall.name}:${JSON.stringify(toolCall.parameters)}`;
-		} catch (error) {
-			return `${toolCall.name}:${String(toolCall.parameters)}`;
+	private async handleStreamingResponse(session: IChatSession, aiMessages: IAIMessage[]): Promise<void> {
+		this.currentStreamAbortController = new AbortController();
+		const messageId = generateUuid();
+		const streamState = this.streamHandler.createInitialState();
+
+		await this.aiService.sendMessageStream(aiMessages, async (chunk) => {
+			if (this.currentStreamAbortController?.signal.aborted) {
+				throw new DOMException('Stream aborted', 'AbortError');
+			}
+
+			if (!chunk.done) {
+				await this.streamHandler.processChunk(session, messageId, chunk, streamState);
+			} else if (!streamState.writeToolDetected) {
+				this._onDidStreamChunk.fire({ content: "", done: true, messageId });
+			}
+		});
+
+		this.currentStreamAbortController = undefined;
+
+		await this.streamHandler.executePendingTools(session, streamState);
+		this.streamHandler.finalizeMessage(session, messageId, streamState);
+
+		// Si des outils ont été exécutés et qu'il y a du contenu à traiter, continuer la conversation
+		if (streamState.detectedToolCalls.size > 0 && streamState.readToolCalls.length > 0) {
+			// Relancer la conversation avec les résultats des outils
+			const updatedMessages = this.buildAIMessages(session);
+			await this.handleStreamingResponse(session, updatedMessages);
 		}
 	}
 
-	private isWriteTool(toolName: string): boolean {
-		// Outils qui modifient des fichiers et doivent arrêter le streaming
-		const writeTools = ['write_file', 'edit_file', 'delete_file'];
-		return writeTools.includes(toolName);
+
+	private createAssistantMessage(session: IChatSession, messageId: string, content: string): IChatMessage {
+		const message: IChatMessage = {
+			id: messageId,
+			role: "assistant",
+			content,
+			timestamp: Date.now(),
+		};
+		session.messages.push(message);
+		session.updated = Date.now();
+		this._onDidAddMessage.fire(message);
+		this.saveSessions();
+		return message;
 	}
 
-	private removeToolBlocks(content: string): string {
-		// Retirer tous les blocs ```tool...``` du contenu pour l'affichage
-		// Les outils seront affichés via les messages "tool" dédiés
-		return content.replace(/```tool[\s\S]*?```/g, '').trim();
-	}
+
 
 	// New granular control methods for Phase 3
 
@@ -1283,7 +909,7 @@ export class AlphaCodeChatService
 		accept: boolean
 	): Promise<void> {
 		const uri = URI.file(proposal.filePath);
-		
+
 		if (accept) {
 			// Apply only selected changes
 			const newContent = applyChanges(
@@ -1292,21 +918,21 @@ export class AlphaCodeChatService
 				changeIndexes
 			);
 			await this.fileService.writeFile(uri, VSBuffer.fromString(newContent));
-			
+
 			// Update proposal status
 			proposal.status = 'partially-accepted';
 			this._onDidChangeProposalStatus.fire(proposal);
-			
+
 			this.logDecision(proposal, 'partially-accepted');
 			this.appendSystemMessage(
 				`Partially applied proposal ${proposal.id} to ${proposal.path} (${changeIndexes.length} changes).`
 			);
 		} else {
 			// Reject only selected changes - keep the rest pending
-			const remainingChanges = proposal.changes.filter((_, index) => 
+			const remainingChanges = proposal.changes.filter((_change: any, index: number) =>
 				!changeIndexes.includes(index)
 			);
-			
+
 			if (remainingChanges.length === 0) {
 				// All changes rejected
 				await this.rejectEditProposal(proposal.id);
@@ -1324,7 +950,7 @@ export class AlphaCodeChatService
 	async acceptAllProposals(): Promise<void> {
 		const pending = this.getPendingProposals();
 		const results: string[] = [];
-		
+
 		for (const proposal of pending) {
 			try {
 				await this.acceptEditProposal(proposal.id);
@@ -1333,7 +959,7 @@ export class AlphaCodeChatService
 				results.push(`✗ ${proposal.path}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 			}
 		}
-		
+
 		this.appendSystemMessage(
 			`Accepted all proposals:\n${results.join('\n')}`
 		);
@@ -1342,7 +968,7 @@ export class AlphaCodeChatService
 	async rejectAllProposals(): Promise<void> {
 		const pending = this.getPendingProposals();
 		const results: string[] = [];
-		
+
 		for (const proposal of pending) {
 			try {
 				await this.rejectEditProposal(proposal.id);
@@ -1351,7 +977,7 @@ export class AlphaCodeChatService
 				results.push(`✗ ${proposal.path}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 			}
 		}
-		
+
 		this.appendSystemMessage(
 			`Rejected all proposals:\n${results.join('\n')}`
 		);

@@ -49,6 +49,7 @@ export interface IToolCall {
 	id: string;
 	name: string;
 	parameters: any;
+	detectedAt?: number; // Timestamp de détection pour ordre chronologique
 }
 
 export interface IToolResult {
