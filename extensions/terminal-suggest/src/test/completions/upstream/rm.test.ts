@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'mocha';
-import { testPaths, type ISuiteSpec } from '../../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../../helpers';
 import rmSpec from '../../../completions/upstream/rm';
 
 const allOptions = [
@@ -38,3 +38,5 @@ export const rmTestSuiteSpec: ISuiteSpec = {
 		// { input: `rm -${allOptions[0]} -${allOptions[1]} -|`, expectedCompletions: removeArrayEntries(allOptions, allOptions[0], allOptions[1]) },
 	]
 };
+
+registerSuiteSpecSanityChecks(rmTestSuiteSpec);

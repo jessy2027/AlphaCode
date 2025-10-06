@@ -1,10 +1,7 @@
 struct Foo {
   Foo();
-  int a;
+  int a = 1;
   int b;
-  int c;
+  int c = 3;
 };
-Foo::Foo()
-    : a(1),
-      //     b(2),
-      c(3) {}
+Foo::Foo() {}

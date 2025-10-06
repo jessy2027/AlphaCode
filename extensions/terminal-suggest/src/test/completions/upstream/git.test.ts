@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'mocha';
-import { testPaths, type ISuiteSpec } from '../../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../../helpers';
 import gitSpec from '../../../completions/git';
 
 // const gitSubcommandAndArgs = ['--bare', '--exec-path', '--git-dir', '--help', '--html-path', '--info-path', '--man-path', '--namespace', '--no-optional-locks', '--no-pager', '--no-replace-objects', '--paginate', '--version', '--work-tree', '-C', '-c', '-p', 'add', 'apply', 'archive', 'bisect', 'blame', 'branch', 'checkout', 'cherry-pick', 'clean', 'clone', 'commit', 'config', 'daemon', 'diff', 'fetch', 'grep', 'init', 'log', 'ls-remote', 'merge', 'mergetool', 'mv', 'pull', 'push', 'rebase', 'reflog', 'remote', 'reset', 'restore', 'revert', 'rm', 'show', 'stage', 'stash', 'status', 'submodule', 'switch', 'tag', 'worktree'];
@@ -36,3 +36,5 @@ export const gitTestSuiteSpec: ISuiteSpec = {
 		// { input: 'git merge |', expectedCompletions: gitMergeArgs }
 	],
 };
+
+registerSuiteSpecSanityChecks(gitTestSuiteSpec);

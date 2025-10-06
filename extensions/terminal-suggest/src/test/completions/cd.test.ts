@@ -5,7 +5,7 @@
 
 import 'mocha';
 import cdSpec from '../../completions/cd';
-import { testPaths, type ISuiteSpec } from '../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../helpers';
 
 const expectedCompletions = ['-'];
 const cdExpectedCompletions = [{ label: 'cd', description: (cdSpec as any).description }];
@@ -41,3 +41,5 @@ export const cdTestSuiteSpec: ISuiteSpec = {
 		{ input: 'cd ../sibling|', expectedCompletions, expectedResourceRequests: { type: 'folders', cwd: testPaths.cwdParent } },
 	]
 };
+
+registerSuiteSpecSanityChecks(cdTestSuiteSpec);

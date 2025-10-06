@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'mocha';
-import { testPaths, type ISuiteSpec } from '../../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../../helpers';
 import touchSpec from '../../../completions/upstream/touch';
 
 const allOptions = [
@@ -35,3 +35,5 @@ export const touchTestSuiteSpec: ISuiteSpec = {
 		{ input: 'touch |', expectedCompletions: allOptions, expectedResourceRequests: { type: 'folders', cwd: testPaths.cwd } },
 	]
 };
+
+registerSuiteSpecSanityChecks(touchTestSuiteSpec);

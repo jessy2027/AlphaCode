@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ok } from 'assert';
 import 'mocha';
 import * as vscode from 'vscode';
 import type { ICompletionResource } from '../types';
@@ -37,6 +38,14 @@ export const testPaths = {
 	cwd: vscode.Uri.joinPath(fixtureDir, 'parent/home'),
 	cwdChild: vscode.Uri.joinPath(fixtureDir, 'parent/home/child'),
 };
+
+export function registerSuiteSpecSanityChecks(suiteSpec: ISuiteSpec): void {
+	suite(`${suiteSpec.name} suite spec sanity`, () => {
+		test('declares at least one test specification', () => {
+			ok(Array.isArray(suiteSpec.testSpecs) && suiteSpec.testSpecs.length > 0);
+		});
+	});
+}
 
 export function removeArrayEntries<T>(array: T[], ...elements: T[]): T[] {
 	for (const element of elements) {
