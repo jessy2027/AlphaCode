@@ -43,7 +43,7 @@ import { ProposalManager } from "./proposalManager.js";
 import { IFileService } from "../../../../platform/files/common/files.js";
 import { IWorkspaceContextService } from "../../../../platform/workspace/common/workspace.js";
 import { IEditorService } from "../../../../workbench/services/editor/common/editorService.js";
-import type { IResourceDiffEditorInput } from "../../../../workbench/common/editor.js";
+import type { ITextResourceDiffEditorInput } from "../../../../workbench/common/editor.js";
 import { URI } from "../../../../base/common/uri.js";
 
 const STORAGE_KEY_SESSIONS = "alphacode.chat.sessions";
@@ -543,20 +543,19 @@ export class AlphaCodeChatService
 				scheme: "untitled",
 				path: `/alphacode/modified/${proposal.id}/${fileName}`,
 			});
-
-			const diffInput: IResourceDiffEditorInput = {
+			const diffInput: ITextResourceDiffEditorInput = {
 				label,
 				description: `${proposal.path} (${proposal.changes.length} change${proposal.changes.length > 1 ? 's' : ''})`,
 				original: {
 					resource: originalResource,
 					forceUntitled: true,
-					contents: proposal.originalContent,
+					contents: proposal.originalContent ?? "",
 					label: proposal.kind === "write" ? "Empty File" : "Original",
 				},
 				modified: {
 					resource: modifiedResource,
 					forceUntitled: true,
-					contents: proposal.proposedContent,
+					contents: proposal.proposedContent ?? "",
 					label: "Proposed Changes",
 				},
 				options: {

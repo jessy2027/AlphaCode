@@ -51,10 +51,14 @@ export class VibeCodingView extends ViewPane {
 	private currentStreamingBuffer: string = "";
 	private currentStreamingMessageId: string | undefined;
 	private isStreaming: boolean = false;
+	private autoScrollPinned: boolean = true;
+	private lastScrollTop: number = 0;
 	private markdownRenderer: MarkdownRenderer;
 	private welcomeContainer: HTMLElement | undefined;
 	private sendStopButton: HTMLButtonElement | undefined;
 	private proposalsView: ProposalsView;
+	private streamingRenderHandle: number | undefined;
+	private lastRenderedStreamingContent: string = "";
 
 	constructor(
 		options: IViewPaneOptions,
@@ -275,6 +279,20 @@ export class VibeCodingView extends ViewPane {
 			this.chatContainer,
 			$(".alphacode-chat-messages"),
 		);
+		this._register(
+			addDisposableListener(this.messagesContainer, "scroll", () => {
+				if (!this.messagesContainer) {
+					return;
+				}
+				const currentTop = this.messagesContainer.scrollTop;
+				if (currentTop < this.lastScrollTop - 2) {
+					this.autoScrollPinned = false;
+				} else if (this.isNearBottom()) {
+					this.autoScrollPinned = true;
+				}
+				this.lastScrollTop = currentTop;
+			}),
+		);
 		this.renderMessages();
 
 		// Proposals view container
@@ -402,10 +420,11 @@ export class VibeCodingView extends ViewPane {
 			return;
 		}
 
+		const preserveScroll = !this.autoScrollPinned;
+		const distanceFromBottom = preserveScroll ? this.getDistanceFromBottom() : 0;
+
 		clearNode(this.messagesContainer);
-		if (this.currentStreamingMessage) {
-			this.currentStreamingMessage = undefined;
-		}
+		this.currentStreamingMessage = undefined;
 
 		let session = this.chatService.getCurrentSession();
 
@@ -440,78 +459,89 @@ export class VibeCodingView extends ViewPane {
 			return;
 		}
 
-		// Group messages: user messages and assistant messages with their tools
-		const groupedMessages: Array<{
-			type: "user" | "assistant";
-			userMsg?: IChatMessage;
-			assistantMsgs: IChatMessage[];
-			toolMsgs: IChatMessage[];
-		}> = [];
-		let currentGroup: {
-			type: "user" | "assistant";
-			userMsg?: IChatMessage;
-			assistantMsgs: IChatMessage[];
-			toolMsgs: IChatMessage[];
-		} | null = null;
+		// Trier d'abord tous les messages par timestamp pour garantir l'ordre chronologique (tri stable)
+		const sortedMessages = [...session.messages]
+			.map((message, index) => ({ message, index }))
+			.sort((a, b) => {
+				const timeA = a.message.timestamp ?? 0;
+				const timeB = b.message.timestamp ?? 0;
+				if (timeA !== timeB) {
+					return timeA - timeB;
+				}
+				return a.index - b.index;
+			})
+			.map((entry) => entry.message)
+			.filter((message) => !message.hidden);
 
-		for (const message of session.messages) {
-			// Ignorer les messages cachés (système)
-			if (message.hidden) {
+		for (let i = 0; i < sortedMessages.length; ) {
+			const message = sortedMessages[i];
+			if (message.role === "user") {
+				this.renderMessage(message);
+				i++;
 				continue;
 			}
 
-			if (message.role === "user") {
-				if (currentGroup) {
-					groupedMessages.push(currentGroup);
+			if (message.role === "assistant" || message.role === "tool") {
+				const turnMessages: IChatMessage[] = [];
+				while (
+					i < sortedMessages.length &&
+					sortedMessages[i].role !== "user"
+				) {
+					turnMessages.push(sortedMessages[i]);
+					i++;
 				}
-				currentGroup = { type: "user", userMsg: message, assistantMsgs: [], toolMsgs: [] };
-			} else if (message.role === "assistant") {
-				if (currentGroup && currentGroup.type === "user") {
-					groupedMessages.push(currentGroup);
-					currentGroup = { type: "assistant", assistantMsgs: [message], toolMsgs: [] };
-				} else if (currentGroup && currentGroup.type === "assistant") {
-					// Ajouter le message assistant au groupe existant
-					currentGroup.assistantMsgs.push(message);
-				} else {
-					// Créer un nouveau groupe assistant
-					currentGroup = { type: "assistant", assistantMsgs: [message], toolMsgs: [] };
-				}
-			} else if (message.role === "tool") {
-				if (currentGroup && currentGroup.type === "assistant") {
-					currentGroup.toolMsgs.push(message);
-				} else {
-					// Tool message without assistant message, create a group
-					if (currentGroup) {
-						groupedMessages.push(currentGroup);
-					}
-					currentGroup = { type: "assistant", assistantMsgs: [], toolMsgs: [message] };
-				}
+				this.renderAssistantTurn(turnMessages);
+				continue;
 			}
-		}
-		if (currentGroup) {
-			groupedMessages.push(currentGroup);
-		}
 
-		for (const group of groupedMessages) {
-			if (group.type === "user" && group.userMsg) {
-				this.renderMessage(group.userMsg);
-			} else if (group.type === "assistant") {
-				this.renderAssistantMessageGroup(group.assistantMsgs, group.toolMsgs);
-			}
+			i++;
 		}
 
 		if (this.isStreaming || this.currentStreamingBuffer.trim().length > 0) {
 			this.ensureStreamingMessage(this.currentStreamingMessageId);
 		}
 
-		// Scroll to bottom
-		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+		this.scrollIfNeeded(false, preserveScroll, distanceFromBottom);
 	}
 
-	private renderAssistantMessageGroup(
-		assistantMsgs: IChatMessage[],
-		toolMsgs: IChatMessage[],
+	private isNearBottom(): boolean {
+		if (!this.messagesContainer) {
+			return true;
+		}
+		const { scrollTop, scrollHeight, clientHeight } = this.messagesContainer;
+		const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
+		return distanceToBottom <= 64;
+	}
+
+	private scrollIfNeeded(
+		force: boolean = false,
+		skipAuto: boolean = false,
+		distanceFromBottom: number = 0,
 	): void {
+		if (!this.messagesContainer) {
+			return;
+		}
+		const shouldScroll = force || (!skipAuto && (this.autoScrollPinned || this.isNearBottom()));
+		if (shouldScroll) {
+			this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+			this.autoScrollPinned = true;
+		} else if (skipAuto) {
+			this.messagesContainer.scrollTop = Math.max(
+				0,
+				this.messagesContainer.scrollHeight - this.messagesContainer.clientHeight - distanceFromBottom,
+			);
+		}
+	}
+
+	private getDistanceFromBottom(): number {
+		if (!this.messagesContainer) {
+			return 0;
+		}
+		const { scrollTop, scrollHeight, clientHeight } = this.messagesContainer;
+		return scrollHeight - (scrollTop + clientHeight);
+	}
+
+	private renderAssistantTurn(items: IChatMessage[]): void {
 		if (!this.messagesContainer) {
 			return;
 		}
@@ -538,90 +568,73 @@ export class VibeCodingView extends ViewPane {
 			$(".alphacode-chat-message-content"),
 		);
 
-		// Créer un tableau de tous les éléments (messages assistants + tools) avec leurs timestamps
-		const items: Array<{ type: 'assistant' | 'tool'; message: IChatMessage }> = [];
+		const assistantMessages: IChatMessage[] = [];
 
-		// Ajouter tous les messages assistants
-		for (const assistantMsg of assistantMsgs) {
-			items.push({ type: 'assistant', message: assistantMsg });
-		}
-
-		// Ajouter tous les outils
-		for (const toolMsg of toolMsgs) {
-			items.push({ type: 'tool', message: toolMsg });
-		}
-
-		// Trier par timestamp pour afficher dans l'ordre chronologique
-		items.sort((a, b) => a.message.timestamp - b.message.timestamp);
-
-		// Rendre les éléments dans l'ordre chronologique
 		for (const item of items) {
-			if (item.type === 'assistant') {
-				// Render assistant message
-				const assistantMsg = item.message;
-
-				// Add "Thought" section if present
-				const thoughtMatch = assistantMsg.content.match(
-					/^(Thought for \d+s|Analyzing|Planning)/im,
-				);
-				if (thoughtMatch) {
-					const lines = assistantMsg.content.split("\n");
-					let thoughtContent = "";
-					let remainingContent = "";
-					let inThought = true;
-
-					for (const line of lines) {
-						if (inThought && line.trim() === "") {
-							inThought = false;
-							continue;
-						}
-						if (inThought) {
-							thoughtContent += line + "\n";
-						} else {
-							remainingContent += line + "\n";
-						}
-					}
-
-					if (thoughtContent.trim()) {
-						const thoughtSection = append(
-							content,
-							$(".alphacode-thought-section"),
-						);
-						append(
-							thoughtSection,
-							$("div.alphacode-thought-label", undefined, "Thought"),
-						);
-						append(
-							thoughtSection,
-							$(
-								"div.alphacode-thought-content",
-								undefined,
-								thoughtContent.trim(),
-							),
-						);
-					}
-
-					if (remainingContent.trim()) {
-						const textDiv = append(content, $("div"));
-						this.markdownRenderer.render(remainingContent.trim(), textDiv);
-					}
-				} else {
-					this.markdownRenderer.render(assistantMsg.content, content);
-				}
-			} else {
-				// Render tool message
-				this.renderToolMessage(content, item.message);
+			if (item.role === "assistant") {
+				assistantMessages.push(item);
+				this.renderAssistantContent(content, item);
+			} else if (item.role === "tool") {
+				this.renderToolMessage(content, item);
 			}
 		}
 
-		// Render actions if assistant messages exist (use the last one for actions)
-		if (assistantMsgs.length > 0) {
-			const lastAssistantMsg = assistantMsgs[assistantMsgs.length - 1];
+		if (assistantMessages.length > 0) {
+			const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
 			this.renderMessageActions(messageElement, lastAssistantMsg);
 		}
 
-		// Scroll to bottom
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+	}
+
+	private renderAssistantContent(container: HTMLElement, message: IChatMessage): void {
+		const thoughtMatch = message.content.match(
+			/^(Thought for \d+s|Analyzing|Planning)/im,
+		);
+		if (thoughtMatch) {
+			const lines = message.content.split("\n");
+			let thoughtContent = "";
+			let remainingContent = "";
+			let inThought = true;
+
+			for (const line of lines) {
+				if (inThought && line.trim() === "") {
+					inThought = false;
+					continue;
+				}
+				if (inThought) {
+					thoughtContent += line + "\n";
+				} else {
+					remainingContent += line + "\n";
+				}
+			}
+
+			if (thoughtContent.trim()) {
+				const thoughtSection = append(
+					container,
+					$(".alphacode-thought-section"),
+				);
+				append(
+					thoughtSection,
+					$("div.alphacode-thought-label", undefined, "Thought"),
+				);
+				append(
+					thoughtSection,
+					$(
+						"div.alphacode-thought-content",
+						undefined,
+						thoughtContent.trim(),
+					),
+				);
+			}
+
+			if (remainingContent.trim()) {
+				const textDiv = append(container, $("div"));
+				this.markdownRenderer.render(remainingContent.trim(), textDiv);
+			}
+		} else {
+			this.markdownRenderer.render(message.content, container);
+		}
 	}
 
 	private renderMessage(message: IChatMessage): void {
@@ -891,6 +904,8 @@ export class VibeCodingView extends ViewPane {
 		this.chatService.abortCurrentStream();
 
 		this.isStreaming = false;
+		this.cancelStreamingRenderLoop();
+		this.lastRenderedStreamingContent = "";
 		this.currentStreamingBuffer = '';
 		this.currentStreamingMessageId = undefined;
 		this.updateSendStopButton();
@@ -958,6 +973,10 @@ export class VibeCodingView extends ViewPane {
 		done: boolean;
 		messageId?: string;
 	}): void {
+		if (chunk.done) {
+			this.stopStreamingRenderLoop();
+		}
+
 		this.ensureStreamingMessage(chunk.messageId);
 		if (!this.currentStreamingMessage) {
 			return;
@@ -976,6 +995,7 @@ export class VibeCodingView extends ViewPane {
 		if (!chunk.done) {
 			if (chunk.content) {
 				this.currentStreamingBuffer += chunk.content;
+				this.scheduleStreamingRender();
 			}
 			const hasContent = this.currentStreamingBuffer.trim().length > 0;
 			if (hasContent) {
@@ -984,6 +1004,7 @@ export class VibeCodingView extends ViewPane {
 					this.currentStreamingBuffer,
 					this.currentStreamingMessage,
 				);
+				this.lastRenderedStreamingContent = this.currentStreamingBuffer;
 			} else {
 				const spinner = this.currentStreamingMessage.querySelector(
 					".alphacode-chat-loading-spinner",
@@ -1003,9 +1024,7 @@ export class VibeCodingView extends ViewPane {
 					spinner.remove();
 				}
 			}
-			if (this.messagesContainer) {
-				this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-			}
+			this.scrollIfNeeded();
 		} else {
 			this.currentStreamingBuffer = "";
 			this.currentStreamingMessageId = undefined;
@@ -1032,40 +1051,113 @@ export class VibeCodingView extends ViewPane {
 			return;
 		}
 
-		const messageElement = append(
-			this.messagesContainer,
-			$(".alphacode-chat-message.assistant"),
-		);
-		const header = append(messageElement, $(".alphacode-chat-message-header"));
-		append(header, $(".alphacode-chat-message-avatar", undefined, "AI"));
-		append(
-			header,
-			$(
-				"span",
-				undefined,
-				localize("alphacode.chat.assistant", "AlphaCode AI"),
-			),
-		);
-		this.currentStreamingMessage = append(
-			messageElement,
-			$(".alphacode-chat-message-content"),
-		);
-		this.currentStreamingMessage.textContent = "";
+		if (
+			this.currentStreamingMessage &&
+			this.currentStreamingMessage.isConnected &&
+			this.currentStreamingMessageId &&
+			messageId &&
+			this.currentStreamingMessageId !== messageId
+		) {
+			this.currentStreamingMessage = undefined;
+		}
+
+		if (!this.messagesContainer) {
+			return;
+		}
+
+		if (!this.currentStreamingMessage) {
+			const messageElement = append(
+				this.messagesContainer,
+				$(".alphacode-chat-message.assistant.streaming"),
+			);
+			const header = append(messageElement, $(".alphacode-chat-message-header"));
+			append(header, $(".alphacode-chat-message-avatar", undefined, "🤖"));
+			append(
+				header,
+				$(
+					"span",
+					undefined,
+					localize("alphacode.chat.assistant", "AlphaCode AI"),
+				),
+			);
+			this.currentStreamingMessage = append(
+				messageElement,
+				$(".alphacode-chat-message-content"),
+			);
+			this.currentStreamingMessage.textContent = "";
+			this.ensureStreamingSpinner();
+		}
 		if (this.currentStreamingBuffer.trim().length > 0) {
 			this.markdownRenderer.render(
 				this.currentStreamingBuffer,
 				this.currentStreamingMessage,
 			);
+			this.lastRenderedStreamingContent = this.currentStreamingBuffer;
 		} else {
+			this.ensureStreamingSpinner();
+		}
+		if (messageId) {
+			this.currentStreamingMessageId = messageId;
+		}
+		this.scrollIfNeeded();
+	}
+
+	private ensureStreamingSpinner(): void {
+		if (!this.currentStreamingMessage) {
+			return;
+		}
+		const spinner = this.currentStreamingMessage.querySelector(
+			".alphacode-chat-loading-spinner",
+		);
+		if (!spinner) {
 			append(
 				this.currentStreamingMessage,
 				$(".alphacode-chat-loading-spinner"),
 			);
 		}
-		if (messageId) {
-			this.currentStreamingMessageId = messageId;
+	}
+
+	private scheduleStreamingRender(): void {
+		if (this.streamingRenderHandle !== undefined) {
+			return;
 		}
-		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+		this.streamingRenderHandle = requestAnimationFrame(() => {
+			this.streamingRenderHandle = undefined;
+			this.renderStreamingBuffer();
+		});
+	}
+
+	private renderStreamingBuffer(): void {
+		if (!this.currentStreamingMessage) {
+			return;
+		}
+		if (this.currentStreamingBuffer === this.lastRenderedStreamingContent) {
+			return;
+		}
+		clearNode(this.currentStreamingMessage);
+		this.markdownRenderer.render(
+			this.currentStreamingBuffer,
+			this.currentStreamingMessage,
+		);
+		this.lastRenderedStreamingContent = this.currentStreamingBuffer;
+		const spinner = this.currentStreamingMessage.querySelector(
+			".alphacode-chat-loading-spinner",
+		);
+		if (spinner) {
+			spinner.remove();
+		}
+	}
+
+	private stopStreamingRenderLoop(): void {
+		this.renderStreamingBuffer();
+		this.cancelStreamingRenderLoop();
+	}
+
+	private cancelStreamingRenderLoop(): void {
+		if (this.streamingRenderHandle !== undefined) {
+			cancelAnimationFrame(this.streamingRenderHandle);
+			this.streamingRenderHandle = undefined;
+		}
 	}
 
 	private async sendMessage(): Promise<void> {
@@ -1081,6 +1173,8 @@ export class VibeCodingView extends ViewPane {
 		// Clear input
 		this.inputTextArea.value = "";
 		this.isStreaming = true;
+		this.cancelStreamingRenderLoop();
+		this.lastRenderedStreamingContent = "";
 		this.currentStreamingBuffer = "";
 		this.currentStreamingMessageId = undefined;
 		this.updateSendStopButton();
@@ -1092,6 +1186,7 @@ export class VibeCodingView extends ViewPane {
 			content,
 			timestamp: Date.now(),
 		};
+
 		this.renderMessage(userMessage);
 		this.ensureStreamingMessage();
 
@@ -1104,58 +1199,24 @@ export class VibeCodingView extends ViewPane {
 				: undefined,
 		};
 
-		// Prepare assistant message container for streaming
-		if (this.messagesContainer) {
-			const messageElement = append(
-				this.messagesContainer,
-				$(`.alphacode-chat-message.assistant`),
-			);
-			const header = append(
-				messageElement,
-				$(".alphacode-chat-message-header"),
-			);
-			append(header, $(".alphacode-chat-message-avatar", undefined, "AI"));
-			append(
-				header,
-				$(
-					"span",
-					undefined,
-					localize("alphacode.chat.assistant", "AlphaCode AI"),
-				),
-			);
-
-			this.currentStreamingMessage = append(
-				messageElement,
-				$(".alphacode-chat-message-content"),
-			);
-			this.currentStreamingMessage.textContent = "";
-
-			// Add typing indicator
-			append(
-				this.currentStreamingMessage,
-				$(".alphacode-chat-loading-spinner"),
-			);
-
-			// Scroll to bottom
-			this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-
-			// Send message with streaming
-			try {
-				await this.chatService.sendMessage(content, context);
-			} catch (error) {
-				console.error("Failed to send message", error);
-				if (this.currentStreamingMessage) {
-					this.currentStreamingMessage.textContent = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
-				}
-			} finally {
-				this.isStreaming = false;
-				this.currentStreamingMessage = undefined;
-				this.updateSendStopButton();
-
-				// Re-render tous les messages maintenant que le streaming est terminé
-				// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
-				this.renderMessages();
+		try {
+			await this.chatService.sendMessage(content, context);
+		} catch (error) {
+			console.error("Failed to send message", error);
+			if (this.currentStreamingMessage) {
+				this.currentStreamingMessage.textContent = `Error: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`;
+				this.scrollIfNeeded(true);
 			}
+		} finally {
+			this.isStreaming = false;
+			this.currentStreamingMessage = undefined;
+			this.updateSendStopButton();
+
+			// Re-render tous les messages maintenant que le streaming est terminé
+			// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
+			this.renderMessages();
 		}
 	}
 

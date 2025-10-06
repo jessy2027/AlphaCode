@@ -12,11 +12,14 @@ export function calculateLineChanges(
 	originalContent: string,
 	proposedContent: string
 ): IEditProposalChange[] {
-	const originalLines = originalContent.split(/\r?\n/);
-	const proposedLines = proposedContent.split(/\r?\n/);
+	const originalLines = originalContent === '' ? [] : originalContent.split(/\r?\n/);
+	const proposedLines = proposedContent === '' ? [] : proposedContent.split(/\r?\n/);
 	const changes: IEditProposalChange[] = [];
 
-	// Simple line-by-line diff algorithm
+	// Keep track of the original line count to clamp generated line numbers
+	const originalLineCount = originalLines.length;
+
+	// Simple line-by-line diff algorithm with clamped line numbers
 	const maxLines = Math.max(originalLines.length, proposedLines.length);
 
 	for (let i = 0; i < maxLines; i++) {
@@ -24,8 +27,13 @@ export function calculateLineChanges(
 		const newText = proposedLines[i] ?? '';
 
 		if (oldText !== newText) {
+			const clampedLineNumber = Math.max(
+				1,
+				Math.min(i + 1, originalLineCount + 1)
+			);
+
 			changes.push({
-				lineNumber: i + 1,
+				lineNumber: clampedLineNumber,
 				oldText,
 				newText,
 			});
@@ -33,14 +41,15 @@ export function calculateLineChanges(
 	}
 
 	// Group consecutive changes for better visualization
-	return groupConsecutiveChanges(changes);
+	return groupConsecutiveChanges(changes, originalLineCount);
 }
 
 /**
  * Group consecutive line changes into blocks
  */
 function groupConsecutiveChanges(
-	changes: IEditProposalChange[]
+	changes: IEditProposalChange[],
+	originalLineCount: number
 ): IEditProposalChange[] {
 	if (changes.length === 0) {
 		return [];
@@ -50,19 +59,27 @@ function groupConsecutiveChanges(
 	let currentGroup: IEditProposalChange | null = null;
 
 	for (const change of changes) {
-		if (
-			currentGroup &&
-			change.lineNumber === currentGroup.lineNumber + currentGroup.oldText.split('\n').length
-		) {
-			// Merge consecutive changes
-			currentGroup.oldText += '\n' + change.oldText;
-			currentGroup.newText += '\n' + change.newText;
-		} else {
-			if (currentGroup) {
-				grouped.push(currentGroup);
+		if (currentGroup) {
+			const oldSpan = currentGroup.oldText ? currentGroup.oldText.split('\n').length : 0;
+			const newSpan = currentGroup.newText ? currentGroup.newText.split('\n').length : 0;
+			const currentGroupLineSpan = Math.max(1, oldSpan, newSpan);
+			const expectedNextLine = currentGroup.lineNumber + currentGroupLineSpan;
+			const isAppendedInsertion =
+				currentGroup.lineNumber === originalLineCount + 1 &&
+				change.lineNumber === currentGroup.lineNumber;
+
+			if (change.lineNumber === expectedNextLine || isAppendedInsertion) {
+				// Merge consecutive changes
+				currentGroup.oldText = mergeSegmentText(currentGroup.oldText, change.oldText);
+				currentGroup.newText = mergeSegmentText(currentGroup.newText, change.newText);
+				continue;
 			}
-			currentGroup = { ...change };
 		}
+
+		if (currentGroup) {
+			grouped.push(currentGroup);
+		}
+		currentGroup = { ...change };
 	}
 
 	if (currentGroup) {
@@ -70,6 +87,14 @@ function groupConsecutiveChanges(
 	}
 
 	return grouped;
+}
+
+function mergeSegmentText(previous: string, next: string): string {
+	if (!next) {
+		return previous;
+	}
+
+	return previous ? `${previous}\n${next}` : next;
 }
 
 /**
@@ -81,7 +106,6 @@ export function applyChanges(
 	changeIndexes: number[]
 ): string {
 	const lines = originalContent.split(/\r?\n/);
-
 	// Sort change indexes
 	const sortedIndexes = [...changeIndexes].sort((a, b) => a - b);
 
