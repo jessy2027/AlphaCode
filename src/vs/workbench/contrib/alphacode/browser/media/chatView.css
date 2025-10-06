@@ -769,3 +769,68 @@
     max-height: 400px;
     overflow-y: auto;
 }
+
+/* Tool expandable display - Pour les outils de lecture */
+.alphacode-tool-expandable {
+    display: flex;
+    flex-direction: column;
+    margin: 6px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 40%, transparent);
+}
+
+.alphacode-tool-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid transparent;
+}
+
+.alphacode-tool-header:hover {
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 50%, transparent);
+}
+
+.alphacode-tool-expand-icon {
+    font-size: 10px;
+    color: color-mix(in srgb, var(--vscode-foreground) 70%, transparent);
+    transition: transform 0.2s ease;
+    line-height: 1;
+}
+
+.alphacode-tool-title {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--vscode-foreground);
+}
+
+.alphacode-tool-content {
+    border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border) 30%, transparent);
+}
+
+.alphacode-tool-result {
+    margin: 0;
+    padding: 12px;
+    background: var(--vscode-editor-background);
+    font-family: var(--monaco-monospace-font);
+    font-size: 12px;
+    line-height: 1.5;
+    max-height: 400px;
+    overflow: auto;
+    white-space: pre;
+    color: var(--vscode-foreground);
+}
+
+.alphacode-tool-empty {
+    padding: 12px;
+    font-size: 12px;
+    font-style: italic;
+    color: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
+    text-align: center;
+}

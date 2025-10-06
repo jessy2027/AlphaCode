@@ -444,13 +444,13 @@ export class VibeCodingView extends ViewPane {
 		const groupedMessages: Array<{
 			type: "user" | "assistant";
 			userMsg?: IChatMessage;
-			assistantMsg?: IChatMessage;
+			assistantMsgs: IChatMessage[];
 			toolMsgs: IChatMessage[];
 		}> = [];
 		let currentGroup: {
 			type: "user" | "assistant";
 			userMsg?: IChatMessage;
-			assistantMsg?: IChatMessage;
+			assistantMsgs: IChatMessage[];
 			toolMsgs: IChatMessage[];
 		} | null = null;
 
@@ -464,16 +464,18 @@ export class VibeCodingView extends ViewPane {
 				if (currentGroup) {
 					groupedMessages.push(currentGroup);
 				}
-				currentGroup = { type: "user", userMsg: message, toolMsgs: [] };
+				currentGroup = { type: "user", userMsg: message, assistantMsgs: [], toolMsgs: [] };
 			} else if (message.role === "assistant") {
 				if (currentGroup && currentGroup.type === "user") {
 					groupedMessages.push(currentGroup);
+					currentGroup = { type: "assistant", assistantMsgs: [message], toolMsgs: [] };
+				} else if (currentGroup && currentGroup.type === "assistant") {
+					// Ajouter le message assistant au groupe existant
+					currentGroup.assistantMsgs.push(message);
+				} else {
+					// Créer un nouveau groupe assistant
+					currentGroup = { type: "assistant", assistantMsgs: [message], toolMsgs: [] };
 				}
-				currentGroup = {
-					type: "assistant",
-					assistantMsg: message,
-					toolMsgs: [],
-				};
 			} else if (message.role === "tool") {
 				if (currentGroup && currentGroup.type === "assistant") {
 					currentGroup.toolMsgs.push(message);
@@ -482,7 +484,7 @@ export class VibeCodingView extends ViewPane {
 					if (currentGroup) {
 						groupedMessages.push(currentGroup);
 					}
-					currentGroup = { type: "assistant", toolMsgs: [message] };
+					currentGroup = { type: "assistant", assistantMsgs: [], toolMsgs: [message] };
 				}
 			}
 		}
@@ -494,7 +496,7 @@ export class VibeCodingView extends ViewPane {
 			if (group.type === "user" && group.userMsg) {
 				this.renderMessage(group.userMsg);
 			} else if (group.type === "assistant") {
-				this.renderAssistantMessageGroup(group.assistantMsg, group.toolMsgs);
+				this.renderAssistantMessageGroup(group.assistantMsgs, group.toolMsgs);
 			}
 		}
 
@@ -507,7 +509,7 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private renderAssistantMessageGroup(
-		assistantMsg: IChatMessage | undefined,
+		assistantMsgs: IChatMessage[],
 		toolMsgs: IChatMessage[],
 	): void {
 		if (!this.messagesContainer) {
@@ -536,68 +538,86 @@ export class VibeCodingView extends ViewPane {
 			$(".alphacode-chat-message-content"),
 		);
 
-		// Render assistant message if present
-		if (assistantMsg) {
-			// Add "Thought" section if present
-			const thoughtMatch = assistantMsg.content.match(
-				/^(Thought for \d+s|Analyzing|Planning)/im,
-			);
-			if (thoughtMatch) {
-				const lines = assistantMsg.content.split("\n");
-				let thoughtContent = "";
-				let remainingContent = "";
-				let inThought = true;
+		// Créer un tableau de tous les éléments (messages assistants + tools) avec leurs timestamps
+		const items: Array<{ type: 'assistant' | 'tool'; message: IChatMessage }> = [];
 
-				for (const line of lines) {
-					if (inThought && line.trim() === "") {
-						inThought = false;
-						continue;
+		// Ajouter tous les messages assistants
+		for (const assistantMsg of assistantMsgs) {
+			items.push({ type: 'assistant', message: assistantMsg });
+		}
+
+		// Ajouter tous les outils
+		for (const toolMsg of toolMsgs) {
+			items.push({ type: 'tool', message: toolMsg });
+		}
+
+		// Trier par timestamp pour afficher dans l'ordre chronologique
+		items.sort((a, b) => a.message.timestamp - b.message.timestamp);
+
+		// Rendre les éléments dans l'ordre chronologique
+		for (const item of items) {
+			if (item.type === 'assistant') {
+				// Render assistant message
+				const assistantMsg = item.message;
+
+				// Add "Thought" section if present
+				const thoughtMatch = assistantMsg.content.match(
+					/^(Thought for \d+s|Analyzing|Planning)/im,
+				);
+				if (thoughtMatch) {
+					const lines = assistantMsg.content.split("\n");
+					let thoughtContent = "";
+					let remainingContent = "";
+					let inThought = true;
+
+					for (const line of lines) {
+						if (inThought && line.trim() === "") {
+							inThought = false;
+							continue;
+						}
+						if (inThought) {
+							thoughtContent += line + "\n";
+						} else {
+							remainingContent += line + "\n";
+						}
 					}
-					if (inThought) {
-						thoughtContent += line + "\n";
-					} else {
-						remainingContent += line + "\n";
+
+					if (thoughtContent.trim()) {
+						const thoughtSection = append(
+							content,
+							$(".alphacode-thought-section"),
+						);
+						append(
+							thoughtSection,
+							$("div.alphacode-thought-label", undefined, "Thought"),
+						);
+						append(
+							thoughtSection,
+							$(
+								"div.alphacode-thought-content",
+								undefined,
+								thoughtContent.trim(),
+							),
+						);
 					}
-				}
 
-				if (thoughtContent.trim()) {
-					const thoughtSection = append(
-						content,
-						$(".alphacode-thought-section"),
-					);
-					append(
-						thoughtSection,
-						$("div.alphacode-thought-label", undefined, "Thought"),
-					);
-					append(
-						thoughtSection,
-						$(
-							"div.alphacode-thought-content",
-							undefined,
-							thoughtContent.trim(),
-						),
-					);
-				}
-
-				if (remainingContent.trim()) {
-					const textDiv = append(content, $("div"));
-					this.markdownRenderer.render(remainingContent.trim(), textDiv);
+					if (remainingContent.trim()) {
+						const textDiv = append(content, $("div"));
+						this.markdownRenderer.render(remainingContent.trim(), textDiv);
+					}
+				} else {
+					this.markdownRenderer.render(assistantMsg.content, content);
 				}
 			} else {
-				this.markdownRenderer.render(assistantMsg.content, content);
+				// Render tool message
+				this.renderToolMessage(content, item.message);
 			}
 		}
 
-		// Render tool messages inline
-		if (toolMsgs.length > 0) {
-			for (const toolMsg of toolMsgs) {
-				this.renderToolMessage(content, toolMsg);
-			}
-		}
-
-		// Render actions if assistant message exists
-		if (assistantMsg) {
-			this.renderMessageActions(messageElement, assistantMsg);
+		// Render actions if assistant messages exist (use the last one for actions)
+		if (assistantMsgs.length > 0) {
+			const lastAssistantMsg = assistantMsgs[assistantMsgs.length - 1];
+			this.renderMessageActions(messageElement, lastAssistantMsg);
 		}
 
 		// Scroll to bottom
@@ -667,7 +687,7 @@ export class VibeCodingView extends ViewPane {
 		let parameters: any = {};
 		if (metadata.parameters) {
 			try {
-				parameters = typeof metadata.parameters === 'string' 
+				parameters = typeof metadata.parameters === 'string'
 					? JSON.parse(metadata.parameters)
 					: metadata.parameters;
 			} catch {
@@ -677,9 +697,9 @@ export class VibeCodingView extends ViewPane {
 
 		// allow-any-unicode-next-line
 		// Extraire les informations des paramètres
-		if (toolName.toLowerCase().includes("read")) {
-			// Pour read_file - format simple
-			const filePath = parameters.file_path || parameters.path;
+		if (toolName.toLowerCase().includes("read") || toolName.toLowerCase().includes("list") || toolName.toLowerCase().includes("grep") || toolName.toLowerCase().includes("find")) {
+			// Pour les outils de lecture - afficher avec le contenu dépliable
+			const filePath = parameters.file_path || parameters.path || parameters.DirectoryPath || parameters.SearchPath || parameters.SearchDirectory;
 
 			let simplifiedText = "";
 			if (filePath) {
@@ -687,16 +707,62 @@ export class VibeCodingView extends ViewPane {
 				if (parameters.offset !== undefined && parameters.limit !== undefined) {
 					const start = parameters.offset;
 					const end = start + parameters.limit - 1;
-					simplifiedText = `Read ${filename} #L${start}-${end}`;
+					simplifiedText = `📖 Read ${filename} #L${start}-${end}`;
+				} else if (toolName.toLowerCase().includes("list")) {
+					simplifiedText = `📂 List ${filename}`;
+				} else if (toolName.toLowerCase().includes("grep")) {
+					simplifiedText = `🔍 Search "${parameters.Query || parameters.query || ''}" in ${filename}`;
+				} else if (toolName.toLowerCase().includes("find")) {
+					simplifiedText = `🔎 Find "${parameters.Pattern || parameters.pattern || ''}" in ${filename}`;
 				} else {
-					simplifiedText = `Read ${filename}`;
+					simplifiedText = `📖 Read ${filename}`;
 				}
 			} else {
-				simplifiedText = `Read file`;
+				simplifiedText = `📖 ${toolName}`;
 			}
 
-			const toolText = append(contentElement, $("div.alphacode-tool-simple"));
-			toolText.textContent = simplifiedText;
+			try {
+				// Créer un conteneur dépliable
+				const toolContainer = append(contentElement, $("div.alphacode-tool-expandable"));
+
+				const toolHeader = append(toolContainer, $("div.alphacode-tool-header"));
+				const expandIcon = append(toolHeader, $("span.alphacode-tool-expand-icon"));
+				expandIcon.textContent = "▶";
+
+				const toolTitle = append(toolHeader, $("span.alphacode-tool-title"));
+				toolTitle.textContent = simplifiedText;
+
+				const toolContent = append(toolContainer, $("div.alphacode-tool-content"));
+				toolContent.style.display = "none";
+
+				// Afficher le contenu du résultat avec limite de taille
+				if (message.content && message.content.trim()) {
+					const contentPreview = append(toolContent, $("pre.alphacode-tool-result"));
+					// Limiter à 100KB pour éviter les problèmes de performance
+					const MAX_CONTENT_LENGTH = 100000;
+					const content = message.content.length > MAX_CONTENT_LENGTH
+						? message.content.substring(0, MAX_CONTENT_LENGTH) + '\n\n... (content truncated, too large to display)'
+						: message.content;
+					contentPreview.textContent = content;
+				} else {
+					const emptyMsg = append(toolContent, $("div.alphacode-tool-empty"));
+					emptyMsg.textContent = "No output returned";
+				}
+
+				// Gérer l'expansion/réduction au clic
+				this._register(
+					addDisposableListener(toolHeader, "click", () => {
+						const isExpanded = toolContent.style.display !== "none";
+						toolContent.style.display = isExpanded ? "none" : "block";
+						expandIcon.textContent = isExpanded ? "▶" : "▼";
+					})
+				);
+			} catch (error) {
+				// En cas d'erreur, afficher un message simple
+				const toolText = append(contentElement, $("div.alphacode-tool-simple"));
+				toolText.textContent = simplifiedText;
+				console.error('Error rendering tool result:', error);
+			}
 		} else if (
 			toolName.toLowerCase().includes("edit") ||
 			toolName.toLowerCase().includes("write")
@@ -712,7 +778,7 @@ export class VibeCodingView extends ViewPane {
 				// Calculer le nombre de lignes modifiées
 				const summary = metadata.summary || "";
 				const linesMatch = summary.match(/(\d+)\s+lines?\s+changed/i);
-				const linesChanged = linesMatch ? parseInt(linesMatch[1]) : 
+				const linesChanged = linesMatch ? parseInt(linesMatch[1]) :
 					(message.content.split("\n").length - 1);
 
 				const toolCard = append(
@@ -823,7 +889,7 @@ export class VibeCodingView extends ViewPane {
 	private stopStreaming(): void {
 		// Abort the actual stream in the chat service
 		this.chatService.abortCurrentStream();
-		
+
 		this.isStreaming = false;
 		this.currentStreamingBuffer = '';
 		this.currentStreamingMessageId = undefined;
@@ -841,7 +907,7 @@ export class VibeCodingView extends ViewPane {
 			}
 			this.currentStreamingMessage = undefined;
 		}
-		
+
 		// Re-render pour afficher tous les messages qui ont été ajoutés
 		this.renderMessages();
 	}
@@ -945,7 +1011,7 @@ export class VibeCodingView extends ViewPane {
 			this.currentStreamingMessageId = undefined;
 			this.isStreaming = false;
 			this.updateSendStopButton();
-			
+
 			// Re-render tous les messages maintenant que le streaming est terminé
 			// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
 			this.renderMessages();
@@ -1085,7 +1151,7 @@ export class VibeCodingView extends ViewPane {
 				this.isStreaming = false;
 				this.currentStreamingMessage = undefined;
 				this.updateSendStopButton();
-				
+
 				// Re-render tous les messages maintenant que le streaming est terminé
 				// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
 				this.renderMessages();
