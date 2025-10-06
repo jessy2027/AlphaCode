@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'mocha';
-import { testPaths, type ISuiteSpec } from '../../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../../helpers';
 import lsSpec from '../../../completions/upstream/ls';
 
 const allOptions = [
@@ -88,4 +88,6 @@ export const lsTestSuiteSpec: ISuiteSpec = {
 		{ input: 'ls ../sibling|', expectedCompletions: allOptions, expectedResourceRequests: { type: 'both', cwd: testPaths.cwdParent } },
 	]
 };
+
+registerSuiteSpecSanityChecks(lsTestSuiteSpec);
 

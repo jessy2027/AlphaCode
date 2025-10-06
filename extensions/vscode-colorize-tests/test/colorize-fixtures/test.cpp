@@ -5,10 +5,11 @@ using namespace std;
 #define EXTERN_C extern "C"
 
 class Rectangle {
-    int width, height;
+    int width;
+    int height;
   public:
     void set_values (int,int);
-    int area() {return width*height;}
+    int area() const {return width*height;}
 };
 
 void Rectangle::set_values (int x, int y) {

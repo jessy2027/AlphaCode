@@ -5,7 +5,9 @@
 
 import 'mocha';
 import codeCompletionSpec from '../../completions/code';
-import { testPaths, type ISuiteSpec, type ITestSpec } from '../helpers';
+import { testPaths, type ISuiteSpec, type ITestSpec, registerSuiteSpecSanityChecks } from '../helpers';
+export type { ISuiteSpec } from '../helpers';
+export { registerSuiteSpecSanityChecks } from '../helpers';
 import codeInsidersCompletionSpec from '../../completions/code-insiders';
 import codeTunnelCompletionSpec from '../../completions/code-tunnel';
 
@@ -308,3 +310,6 @@ export const codeTunnelTestSuite: ISuiteSpec = {
 	availableCommands: 'code-tunnel',
 	testSpecs: createCodeTunnelTestSpecs('code-tunnel')
 };
+
+registerSuiteSpecSanityChecks(codeTestSuite);
+registerSuiteSpecSanityChecks(codeTunnelTestSuite);

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'mocha';
-import { testPaths, type ISuiteSpec } from '../../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../../helpers';
 import mkdirSpec from '../../../completions/upstream/mkdir';
 
 const allOptions = [
@@ -41,3 +41,5 @@ export const mkdirTestSuiteSpec: ISuiteSpec = {
 		// { input: 'mkdir -Z -m -|', expectedCompletions: removeArrayEntries(allOptions, '-z', '-m') },
 	]
 };
+
+registerSuiteSpecSanityChecks(mkdirTestSuiteSpec);

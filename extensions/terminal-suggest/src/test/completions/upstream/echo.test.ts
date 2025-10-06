@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'mocha';
-import { testPaths, type ISuiteSpec } from '../../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../../helpers';
 import echoSpec from '../../../completions/upstream/echo';
 
 const allOptions = [
@@ -36,3 +36,5 @@ export const echoTestSuiteSpec: ISuiteSpec = {
 		// { input: 'echo -e -E -|', expectedCompletions: removeArrayEntries(allOptions, '-e', '-E') },
 	]
 };
+
+registerSuiteSpecSanityChecks(echoTestSuiteSpec);

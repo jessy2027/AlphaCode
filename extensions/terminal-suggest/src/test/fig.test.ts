@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { testPaths, type ISuiteSpec } from './helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from './helpers';
 const expectedCompletions = [{ label: 'foo', description: 'Foo' }];
 export const figGenericTestSuites: ISuiteSpec[] = [
 	{
@@ -185,4 +185,8 @@ export const figGenericTestSuites: ISuiteSpec[] = [
 		]
 	}
 ];
+
+for (const suiteSpec of figGenericTestSuites) {
+	registerSuiteSpecSanityChecks(suiteSpec);
+}
 

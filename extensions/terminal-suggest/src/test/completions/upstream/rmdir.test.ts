@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'mocha';
-import { testPaths, type ISuiteSpec } from '../../helpers';
+import { testPaths, type ISuiteSpec, registerSuiteSpecSanityChecks } from '../../helpers';
 import rmdirSpec from '../../../completions/upstream/rmdir';
 
 const allOptions = [
@@ -28,3 +28,5 @@ export const rmdirTestSuiteSpec: ISuiteSpec = {
 		{ input: 'rmdir |', expectedCompletions: allOptions, expectedResourceRequests: { type: 'folders', cwd: testPaths.cwd } },
 	]
 };
+
+registerSuiteSpecSanityChecks(rmdirTestSuiteSpec);
