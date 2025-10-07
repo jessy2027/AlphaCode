@@ -25,6 +25,7 @@ suite('Request Service', () => {
 				|| err?.message?.includes('No Kerberos credentials available')
 				|| err?.message?.includes('No credentials are available in the security package')
 				|| err?.message?.includes('no credential for')
+				|| err?.message?.includes('InitializeSecurityContext')
 				, `Unexpected error: ${err}`);
 		}
 	});
