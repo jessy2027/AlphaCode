@@ -46,24 +46,30 @@ import { IAlphaCodeAIService } from "../common/aiService.js";
 import { IEditorService } from "../../../services/editor/common/editorService.js";
 import { ProposalsView } from "./proposalsView.js";
 
+const MAX_CONTENT_LENGTH = 100000;
+const SCROLL_THRESHOLD = 64;
+
 export class VibeCodingView extends ViewPane {
 	private containerElement: HTMLElement | undefined;
 	private chatContainer: HTMLElement | undefined;
 	private messagesContainer: HTMLElement | undefined;
 	private inputTextArea: HTMLTextAreaElement | undefined;
-	private isConfigured: boolean = false;
-	private currentStreamingMessage: HTMLElement | undefined;
-	private currentStreamingBuffer: string = "";
-	private currentStreamingMessageId: string | undefined;
-	private isStreaming: boolean = false;
-	private autoScrollPinned: boolean = true;
-	private lastScrollTop: number = 0;
-	private markdownRenderer: MarkdownRenderer;
-	private welcomeContainer: HTMLElement | undefined;
 	private sendStopButton: HTMLButtonElement | undefined;
-	private proposalsView: ProposalsView;
+	private welcomeContainer: HTMLElement | undefined;
+	
+	private currentStreamingMessage: HTMLElement | undefined;
+	private currentStreamingBuffer = "";
+	private currentStreamingMessageId: string | undefined;
+	private lastRenderedStreamingContent = "";
 	private streamingRenderHandle: number | undefined;
-	private lastRenderedStreamingContent: string = "";
+	
+	private isConfigured = false;
+	private isStreaming = false;
+	private autoScrollPinned = true;
+	private lastScrollTop = 0;
+	
+	private readonly markdownRenderer: MarkdownRenderer;
+	private readonly proposalsView: ProposalsView;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -93,42 +99,26 @@ export class VibeCodingView extends ViewPane {
 			themeService,
 			hoverService,
 		);
+		
 		this.markdownRenderer = new MarkdownRenderer();
 		this.isConfigured = !!this.aiService.getProviderConfig();
 		this.proposalsView = this.instantiationService.createInstance(ProposalsView);
+		
 		this._register(this.proposalsView);
 		this._register(
-			this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk)),
+			this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk))
 		);
 		this._register(
-			this.chatService.onDidAddMessage((message) => {
-				// Ne pas re-render pendant le streaming pour éviter de perdre le message en cours
-				// Les messages seront affichés à la fin du streaming
+			this.chatService.onDidAddMessage(() => {
 				if (!this.isStreaming) {
 					this.renderMessages();
 				}
-			}),
+			})
 		);
-
-		// Listen for AI configuration changes to switch from welcome to chat
 		this._register(
 			this.aiService.onDidChangeConfiguration(() => {
-				const wasConfigured = this.isConfigured;
-				this.isConfigured = !!this.aiService.getProviderConfig();
-				if (!wasConfigured && this.isConfigured && this.containerElement) {
-					// Switch from welcome to chat
-					clearNode(this.containerElement);
-					this.renderChat(this.containerElement);
-				} else if (
-					wasConfigured &&
-					!this.isConfigured &&
-					this.containerElement
-				) {
-					// Switch from chat to welcome
-					clearNode(this.containerElement);
-					this.renderWelcome(this.containerElement);
-				}
-			}),
+				this.handleConfigurationChange();
+			})
 		);
 	}
 
@@ -137,11 +127,7 @@ export class VibeCodingView extends ViewPane {
 		this.containerElement = container;
 		container.classList.add("alphacode-vibe-root");
 
-		if (!this.isConfigured) {
-			this.renderWelcome(container);
-		} else {
-			this.renderChat(container);
-		}
+		this.isConfigured ? this.renderChat(container) : this.renderWelcome(container);
 
 		this.updateBackground(container);
 		this._register(
@@ -149,10 +135,25 @@ export class VibeCodingView extends ViewPane {
 				if (this.containerElement) {
 					this.updateBackground(this.containerElement);
 				}
-			}),
+			})
 		);
 
 		this.layoutWelcome();
+	}
+
+	private handleConfigurationChange(): void {
+		const wasConfigured = this.isConfigured;
+		this.isConfigured = !!this.aiService.getProviderConfig();
+		
+		if (!this.containerElement) return;
+
+		if (!wasConfigured && this.isConfigured) {
+			clearNode(this.containerElement);
+			this.renderChat(this.containerElement);
+		} else if (wasConfigured && !this.isConfigured) {
+			clearNode(this.containerElement);
+			this.renderWelcome(this.containerElement);
+		}
 	}
 
 	private renderWelcome(container: HTMLElement): void {
@@ -160,36 +161,21 @@ export class VibeCodingView extends ViewPane {
 
 		append(
 			this.welcomeContainer,
-			$(
-				"h2",
-				undefined,
-				localize("alphacode.vibe.welcome.title", "Welcome to Vibe Coding"),
-			),
+			$("h2", undefined, localize("alphacode.vibe.welcome.title", "Welcome to Vibe Coding"))
 		);
 
 		append(
 			this.welcomeContainer,
-			$(
-				"p",
-				undefined,
-				localize(
-					"alphacode.vibe.welcome.description",
-					"Connect your favorite AI providers and co-create code directly inside AlphaCodeIDE. Configure your API keys to begin.",
-				),
-			),
+			$("p", undefined, localize(
+				"alphacode.vibe.welcome.description",
+				"Connect your favorite AI providers and co-create code directly inside AlphaCodeIDE. Configure your API keys to begin."
+			))
 		);
 
-		const actionsRow = append(
-			this.welcomeContainer,
-			$(".alphacode-vibe-actions"),
-		);
+		const actionsRow = append(this.welcomeContainer, $(".alphacode-vibe-actions"));
 		const configureButton = append(
 			actionsRow,
-			$(
-				"button.monaco-text-button",
-				undefined,
-				localize("alphacode.vibe.configure", "Open AI Settings"),
-			),
+			$("button.monaco-text-button", undefined, localize("alphacode.vibe.configure", "Open AI Settings"))
 		) as HTMLButtonElement;
 		configureButton.type = "button";
 
@@ -197,53 +183,24 @@ export class VibeCodingView extends ViewPane {
 			addDisposableListener(configureButton, "click", async () => {
 				await this.commandService.executeCommand(
 					"workbench.action.openSettings",
-					"@alphacode ai",
+					"@alphacode ai"
 				);
-			}),
+			})
 		);
 
 		append(
 			this.welcomeContainer,
-			$(
-				"p",
-				undefined,
-				localize("alphacode.vibe.welcome.instructions", "Next steps:"),
-			),
+			$("p", undefined, localize("alphacode.vibe.welcome.instructions", "Next steps:"))
 		);
-		const checklist = append(this.welcomeContainer, $("ul", undefined));
-		append(
-			checklist,
-			$(
-				"li",
-				undefined,
-				localize(
-					"alphacode.vibe.welcome.step.context",
-					"Enable workspace indexing for deeper context awareness.",
-				),
-			),
-		);
-		append(
-			checklist,
-			$(
-				"li",
-				undefined,
-				localize(
-					"alphacode.vibe.welcome.step.agents",
-					"Choose agents for generation, refactors, debugging, and documentation.",
-				),
-			),
-		);
-		append(
-			checklist,
-			$(
-				"li",
-				undefined,
-				localize(
-					"alphacode.vibe.welcome.step.live",
-					"Invite collaborators to start live pair programming sessions.",
-				),
-			),
-		);
+		
+		const checklist = append(this.welcomeContainer, $("ul"));
+		const steps = [
+			localize("alphacode.vibe.welcome.step.context", "Enable workspace indexing for deeper context awareness."),
+			localize("alphacode.vibe.welcome.step.agents", "Choose agents for generation, refactors, debugging, and documentation."),
+			localize("alphacode.vibe.welcome.step.live", "Invite collaborators to start live pair programming sessions.")
+		];
+		
+		steps.forEach(step => append(checklist, $("li", undefined, step)));
 	}
 
 	private renderChat(container: HTMLElement): void {
@@ -252,8 +209,8 @@ export class VibeCodingView extends ViewPane {
 		renderChatHeader({
 			parent: this.chatContainer,
 			register: (disposable) => this._register(disposable),
-			onClear: () => {
-				this.chatService.clearCurrentSession();
+			onClear: async () => {
+				await this.chatService.clearCurrentSession();
 				this.renderMessages();
 			},
 		});
@@ -261,25 +218,11 @@ export class VibeCodingView extends ViewPane {
 		this.messagesContainer = renderChatMessageList({
 			parent: this.chatContainer,
 			register: (disposable) => this._register(disposable),
-			onScroll: (scrollTop) => {
-				if (!this.messagesContainer) {
-					return;
-				}
-				if (scrollTop < this.lastScrollTop - 2) {
-					this.autoScrollPinned = false;
-				} else if (this.isNearBottom()) {
-					this.autoScrollPinned = true;
-				}
-				this.lastScrollTop = scrollTop;
-			},
+			onScroll: (scrollTop) => this.handleScroll(scrollTop),
 		});
 		this.renderMessages();
 
-		// Proposals view container
-		const proposalsContainer = append(
-			this.chatContainer,
-			$(".alphacode-proposals-container"),
-		);
+		const proposalsContainer = append(this.chatContainer, $(".alphacode-proposals-container"));
 		this.proposalsView.renderIn(proposalsContainer);
 
 		const providerConfig = this.aiService.getProviderConfig();
@@ -287,25 +230,29 @@ export class VibeCodingView extends ViewPane {
 		const inputArea = renderChatInputArea({
 			parent: this.chatContainer,
 			register: <T extends IDisposable>(disposable: T) => this._register(disposable) as T,
-			onToggleSend: () => {
-				if (this.isStreaming) {
-					this.stopStreaming();
-				} else {
-					this.sendMessage();
-				}
-			},
+			onToggleSend: () => this.isStreaming ? this.stopStreaming() : this.sendMessage(),
 			onEnterSend: () => this.sendMessage(),
 			providerLabel: modelName,
 		});
+		
 		this.inputTextArea = inputArea.input;
 		this.sendStopButton = inputArea.sendStopButton;
 		this.updateSendStopButton();
 	}
 
-	private renderMessages(): void {
-		if (!this.messagesContainer) {
-			return;
+	private handleScroll(scrollTop: number): void {
+		if (!this.messagesContainer) return;
+
+		if (scrollTop < this.lastScrollTop - 2) {
+			this.autoScrollPinned = false;
+		} else if (this.isNearBottom()) {
+			this.autoScrollPinned = true;
 		}
+		this.lastScrollTop = scrollTop;
+	}
+
+	private renderMessages(): void {
+		if (!this.messagesContainer) return;
 
 		const preserveScroll = !this.autoScrollPinned;
 		const distanceFromBottom = preserveScroll ? this.getDistanceFromBottom() : 0;
@@ -332,60 +279,36 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private ensureSession(): IChatSession {
-		let session = this.chatService.getCurrentSession();
-		if (!session) {
-			session = this.chatService.createSession();
-		}
-		return session;
+		return this.chatService.getCurrentSession() || this.chatService.createSession();
 	}
 
 	private renderEmptySessionState(): void {
-		if (!this.messagesContainer) {
-			return;
-		}
+		if (!this.messagesContainer) return;
 
 		const empty = append(this.messagesContainer, $(".alphacode-chat-empty"));
-		// allow-any-unicode-next-line
 		append(empty, $(".alphacode-chat-empty-icon", undefined, "💬"));
-		append(
-			empty,
-			$(
-				".alphacode-chat-empty-title",
-				undefined,
-				localize("alphacode.chat.empty.title", "Start a Conversation"),
-			),
-		);
-		append(
-			empty,
-			$(
-				".alphacode-chat-empty-description",
-				undefined,
-				localize(
-					"alphacode.chat.empty.description",
-					"Ask questions, generate code, refactor, debug, or get documentation help.",
-				),
-			),
-		);
+		append(empty, $(".alphacode-chat-empty-title", undefined, 
+			localize("alphacode.chat.empty.title", "Start a Conversation")));
+		append(empty, $(".alphacode-chat-empty-description", undefined,
+			localize("alphacode.chat.empty.description", 
+				"Ask questions, generate code, refactor, debug, or get documentation help.")));
 	}
 
 	private getVisibleMessages(session: IChatSession): IChatMessage[] {
 		return session.messages
 			.map((message, index) => ({ message, index }))
 			.sort((a, b) => {
-				const timeA = a.message.timestamp ?? 0;
-				const timeB = b.message.timestamp ?? 0;
-				if (timeA !== timeB) {
-					return timeA - timeB;
-				}
-				return a.index - b.index;
+				const timeDiff = (a.message.timestamp ?? 0) - (b.message.timestamp ?? 0);
+				return timeDiff !== 0 ? timeDiff : a.index - b.index;
 			})
-			.map((entry) => entry.message)
-			.filter((message) => !message.hidden);
+			.map(entry => entry.message)
+			.filter(message => !message.hidden);
 	}
 
 	private renderMessageSequence(messages: IChatMessage[]): void {
 		for (let i = 0; i < messages.length;) {
 			const message = messages[i];
+			
 			if (message.role === "user") {
 				this.renderMessage(message);
 				i++;
@@ -407,92 +330,192 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private isNearBottom(): boolean {
-		if (!this.messagesContainer) {
-			return true;
-		}
+		if (!this.messagesContainer) return true;
+		
 		const { scrollTop, scrollHeight, clientHeight } = this.messagesContainer;
-		const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
-		return distanceToBottom <= 64;
+		return scrollHeight - (scrollTop + clientHeight) <= SCROLL_THRESHOLD;
 	}
 
 	private scrollIfNeeded(
-		force: boolean = false,
-		skipAuto: boolean = false,
-		distanceFromBottom: number = 0,
+		force = false,
+		skipAuto = false,
+		distanceFromBottom = 0
 	): void {
-		if (!this.messagesContainer) {
-			return;
-		}
+		if (!this.messagesContainer) return;
+
 		const shouldScroll = force || (!skipAuto && (this.autoScrollPinned || this.isNearBottom()));
+		
 		if (shouldScroll) {
 			this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 			this.autoScrollPinned = true;
 		} else if (skipAuto) {
 			this.messagesContainer.scrollTop = Math.max(
 				0,
-				this.messagesContainer.scrollHeight - this.messagesContainer.clientHeight - distanceFromBottom,
+				this.messagesContainer.scrollHeight - this.messagesContainer.clientHeight - distanceFromBottom
 			);
 		}
 	}
 
 	private getDistanceFromBottom(): number {
-		if (!this.messagesContainer) {
-			return 0;
-		}
+		if (!this.messagesContainer) return 0;
 		const { scrollTop, scrollHeight, clientHeight } = this.messagesContainer;
 		return scrollHeight - (scrollTop + clientHeight);
 	}
 
 	private renderAssistantTurn(items: IChatMessage[]): void {
-		if (!this.messagesContainer) {
-			return;
-		}
+		if (!this.messagesContainer) return;
 
-		const messageElement = append(
-			this.messagesContainer,
-			$(".alphacode-chat-message.assistant"),
-		);
-
+		const messageElement = append(this.messagesContainer, $(".alphacode-chat-message.assistant"));
 		const header = append(messageElement, $(".alphacode-chat-message-header"));
-		// allow-any-unicode-next-line
 		append(header, $(".alphacode-chat-message-avatar", undefined, "🤖"));
-		append(
-			header,
-			$(
-				"span",
-				undefined,
-				localize("alphacode.chat.assistant", "AlphaCode AI"),
-			),
-		);
-
-		const content = append(
-			messageElement,
-			$(".alphacode-chat-message-content"),
-		);
+		append(header, $("span", undefined, localize("alphacode.chat.assistant", "AlphaCode AI")));
 
 		const assistantMessages: IChatMessage[] = [];
 
-		for (const item of items) {
-			if (item.role === "assistant") {
+		// Trier les items par timestamp pour garantir l'ordre chronologique
+		const sortedItems = [...items].sort((a, b) => {
+			const timeA = a.timestamp ?? 0;
+			const timeB = b.timestamp ?? 0;
+			return timeA - timeB;
+		});
+
+		// Grouper les messages assistant et leurs outils associés
+		const toolsByMessage = new Map<string, IChatMessage[]>();
+		for (const item of sortedItems) {
+			if (item.role === "tool") {
+				// Trouver le message assistant correspondant (le dernier avant cet outil)
+				const lastAssistant = assistantMessages[assistantMessages.length - 1];
+				if (lastAssistant) {
+					if (!toolsByMessage.has(lastAssistant.id)) {
+						toolsByMessage.set(lastAssistant.id, []);
+					}
+					toolsByMessage.get(lastAssistant.id)!.push(item);
+				}
+			} else if (item.role === "assistant") {
 				assistantMessages.push(item);
-				this.renderAssistantContent(content, item);
-			} else if (item.role === "tool") {
-				this.renderToolMessage(content, item);
 			}
 		}
 
+		// Rendre chaque message assistant avec ses outils inline
+		for (const assistantMsg of assistantMessages) {
+			const tools = toolsByMessage.get(assistantMsg.id) || [];
+			this.renderAssistantContentWithInlineTools(messageElement, assistantMsg, tools);
+		}
+
 		if (assistantMessages.length > 0) {
-			const lastAssistantMsg = assistantMessages[assistantMessages.length - 1];
-			this.renderMessageActions(messageElement, lastAssistantMsg);
+			this.renderMessageActions(messageElement, assistantMessages[assistantMessages.length - 1]);
 		}
 
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 	}
 
+	private renderAssistantContentWithInlineTools(
+		messageElement: HTMLElement,
+		message: IChatMessage,
+		tools: IChatMessage[]
+	): void {
+
+		// Créer une map des outils par leur ID pour un accès rapide
+		const toolsMap = new Map<string, IChatMessage>();
+		for (const tool of tools) {
+			if (tool.toolCallId) {
+				toolsMap.set(tool.toolCallId, tool);
+			}
+		}
+
+		// Chercher les blocs ```tool...``` dans le contenu
+		const toolBlockRegex = /```tool\s*\n([\s\S]*?)\n```/g;
+		const content = message.content;
+		let lastIndex = 0;
+		const segments: Array<{ type: 'text' | 'tool'; content: string; toolData?: any }> = [];
+		const foundToolIds = new Set<string>();
+
+		let match;
+		while ((match = toolBlockRegex.exec(content)) !== null) {
+			// Ajouter le texte avant le bloc tool
+			if (match.index > lastIndex) {
+				segments.push({
+					type: 'text',
+					content: content.substring(lastIndex, match.index)
+				});
+			}
+
+			// Parser le JSON de l'outil
+			try {
+				const toolJson = JSON.parse(match[1]);
+				segments.push({
+					type: 'tool',
+					content: match[0],
+					toolData: toolJson
+				});
+				foundToolIds.add(toolJson.id);
+			} catch (e) {
+				// Si le parsing échoue, traiter comme du texte
+				segments.push({
+					type: 'text',
+					content: match[0]
+				});
+			}
+
+			lastIndex = match.index + match[0].length;
+		}
+
+		// Ajouter le texte restant
+		if (lastIndex < content.length) {
+			segments.push({
+				type: 'text',
+				content: content.substring(lastIndex)
+			});
+		}
+
+		// Si aucun bloc tool n'a été trouvé mais qu'il y a des outils, les ajouter à la fin
+		if (segments.filter(s => s.type === 'tool').length === 0 && tools.length > 0) {
+
+			// Fallback: afficher le texte puis tous les outils
+			if (content.trim()) {
+				const textContent = append(messageElement, $(".alphacode-chat-message-content"));
+				this.renderAssistantContent(textContent, message);
+			}
+
+			for (const tool of tools) {
+				const toolContent = append(messageElement, $(".alphacode-chat-message-content.tool-content"));
+				this.renderToolMessage(toolContent, tool);
+			}
+			return;
+		}
+
+		// Rendre tous les segments dans l'ordre
+		let toolIndex = 0;
+		for (const segment of segments) {
+			if (segment.type === 'text' && segment.content.trim()) {
+				const textContent = append(messageElement, $(".alphacode-chat-message-content"));
+				this.renderAssistantContent(textContent, { ...message, content: segment.content });
+			} else if (segment.type === 'tool') {
+				// Chercher le message tool correspondant par ID ou par index
+				let toolMsg = segment.toolData ? toolsMap.get(segment.toolData.id) : undefined;
+
+				// Si pas trouvé par ID, utiliser l'index dans l'ordre
+				if (!toolMsg && toolIndex < tools.length) {
+					toolMsg = tools[toolIndex];
+				}
+
+				if (toolMsg) {
+					const toolContent = append(messageElement, $(".alphacode-chat-message-content.tool-content"));
+					this.renderToolMessage(toolContent, toolMsg);
+					toolIndex++;
+				} else {
+					// Debug: afficher un placeholder si l'outil n'est pas trouvé
+					const toolContent = append(messageElement, $(".alphacode-chat-message-content.tool-content"));
+					const placeholder = append(toolContent, $("div.alphacode-tool-simple"));
+					placeholder.textContent = `🔧 Tool execution (${segment.toolData?.name || 'unknown'})`;
+				}
+			}
+		}
+	}
+
 	private renderAssistantContent(container: HTMLElement, message: IChatMessage): void {
-		const thoughtMatch = message.content.match(
-			/^(Thought for \d+s|Analyzing|Planning)/im,
-		);
+		const thoughtMatch = message.content.match(/^(Thought for \d+s|Analyzing|Planning)/im);
+
 		if (thoughtMatch) {
 			const lines = message.content.split("\n");
 			let thoughtContent = "";
@@ -512,22 +535,9 @@ export class VibeCodingView extends ViewPane {
 			}
 
 			if (thoughtContent.trim()) {
-				const thoughtSection = append(
-					container,
-					$(".alphacode-thought-section"),
-				);
-				append(
-					thoughtSection,
-					$("div.alphacode-thought-label", undefined, "Thought"),
-				);
-				append(
-					thoughtSection,
-					$(
-						"div.alphacode-thought-content",
-						undefined,
-						thoughtContent.trim(),
-					),
-				);
+				const thoughtSection = append(container, $(".alphacode-thought-section"));
+				append(thoughtSection, $("div.alphacode-thought-label", undefined, "Thought"));
+				append(thoughtSection, $("div.alphacode-thought-content", undefined, thoughtContent.trim()));
 			}
 
 			if (remainingContent.trim()) {
@@ -540,65 +550,41 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private renderMessage(message: IChatMessage): void {
-		if (!this.messagesContainer) {
-			return;
-		}
+		if (!this.messagesContainer) return;
 
-		const messageElement = append(
-			this.messagesContainer,
-			$(`.alphacode-chat-message.${message.role}`),
-		);
-
+		const messageElement = append(this.messagesContainer, $(`.alphacode-chat-message.${message.role}`));
 		const header = append(messageElement, $(".alphacode-chat-message-header"));
-		let avatarSymbol: string;
-		let labelText: string;
-		switch (message.role) {
-			case "user":
-				// allow-any-unicode-next-line
-				avatarSymbol = "👤";
-				labelText = localize("alphacode.chat.you", "You");
-				break;
-			case "assistant":
-				// allow-any-unicode-next-line
-				avatarSymbol = "🤖";
-				labelText = localize("alphacode.chat.assistant", "AlphaCode AI");
-				break;
-			case "tool":
-				// allow-any-unicode-next-line
-				avatarSymbol = "🛠️";
-				labelText = localize("alphacode.chat.tool", "Tool");
-				break;
-			default:
-				// allow-any-unicode-next-line
-				avatarSymbol = "💬";
-				labelText = "";
-		}
+		
+		const avatars: Record<string, string> = { 
+			user: "👤", 
+			assistant: "🤖", 
+			tool: "🛠️",
+			system: "💬"
+		};
+		const labels: Record<string, string> = {
+			user: localize("alphacode.chat.you", "You"),
+			assistant: localize("alphacode.chat.assistant", "AlphaCode AI"),
+			tool: localize("alphacode.chat.tool", "Tool"),
+			system: ""
+		};
 
-		append(
-			header,
-			$(".alphacode-chat-message-avatar", undefined, avatarSymbol),
-		);
-		append(header, $("span", undefined, labelText));
+		const avatar = avatars[message.role] || "💬";
+		const label = labels[message.role] || "";
 
-		const content = append(
-			messageElement,
-			$(".alphacode-chat-message-content"),
-		);
+		append(header, $(".alphacode-chat-message-avatar", undefined, avatar));
+		append(header, $("span", undefined, label));
 
+		const content = append(messageElement, $(".alphacode-chat-message-content"));
 		content.textContent = message.content;
 
-		// Scroll to bottom
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 	}
 
-	private renderToolMessage(
-		contentElement: HTMLElement,
-		message: IChatMessage,
-	): void {
+	private renderToolMessage(contentElement: HTMLElement, message: IChatMessage): void {
 		const metadata = message.metadata ?? {};
 		const toolName = metadata.name || "Tool";
+		const status = metadata.status || "success";
 
-		// Extraire les paramètres depuis metadata.parameters
 		let parameters: any = {};
 		if (metadata.parameters) {
 			try {
@@ -606,203 +592,258 @@ export class VibeCodingView extends ViewPane {
 					? JSON.parse(metadata.parameters)
 					: metadata.parameters;
 			} catch {
-				// Si le parsing échoue, on utilise un objet vide
+				parameters = {};
 			}
 		}
 
-		// allow-any-unicode-next-line
-		// Extraire les informations des paramètres
-		if (toolName.toLowerCase().includes("read") || toolName.toLowerCase().includes("list") || toolName.toLowerCase().includes("grep") || toolName.toLowerCase().includes("find")) {
-			// Pour les outils de lecture - afficher avec le contenu dépliable
-			const filePath = parameters.file_path || parameters.path || parameters.DirectoryPath || parameters.SearchPath || parameters.SearchDirectory;
+		// Ajouter une classe d'erreur si nécessaire
+		if (status === "error") {
+			contentElement.classList.add("error");
+		}
 
-			let simplifiedText = "";
-			if (filePath) {
-				const filename = filePath.split(/[/\\]/).pop();
-				if (parameters.offset !== undefined && parameters.limit !== undefined) {
-					const start = parameters.offset;
-					const end = start + parameters.limit - 1;
-					simplifiedText = `📖 Read ${filename} #L${start}-${end}`;
-				} else if (toolName.toLowerCase().includes("list")) {
-					simplifiedText = `📂 List ${filename}`;
-				} else if (toolName.toLowerCase().includes("grep")) {
-					simplifiedText = `🔍 Search "${parameters.Query || parameters.query || ''}" in ${filename}`;
-				} else if (toolName.toLowerCase().includes("find")) {
-					simplifiedText = `🔎 Find "${parameters.Pattern || parameters.pattern || ''}" in ${filename}`;
-				} else {
-					simplifiedText = `📖 Read ${filename}`;
-				}
-			} else {
-				simplifiedText = `📖 ${toolName}`;
-			}
-
-			try {
-				// Créer un conteneur dépliable
-				const toolContainer = append(contentElement, $("div.alphacode-tool-expandable"));
-
-				const toolHeader = append(toolContainer, $("div.alphacode-tool-header"));
-				const expandIcon = append(toolHeader, $("span.alphacode-tool-expand-icon"));
-				expandIcon.textContent = "▶";
-
-				const toolTitle = append(toolHeader, $("span.alphacode-tool-title"));
-				toolTitle.textContent = simplifiedText;
-
-				const toolContent = append(toolContainer, $("div.alphacode-tool-content"));
-				toolContent.style.display = "none";
-
-				// Afficher le contenu du résultat avec limite de taille
-				if (message.content && message.content.trim()) {
-					const contentPreview = append(toolContent, $("pre.alphacode-tool-result"));
-					// Limiter à 100KB pour éviter les problèmes de performance
-					const MAX_CONTENT_LENGTH = 100000;
-					const content = message.content.length > MAX_CONTENT_LENGTH
-						? message.content.substring(0, MAX_CONTENT_LENGTH) + '\n\n... (content truncated, too large to display)'
-						: message.content;
-					contentPreview.textContent = content;
-				} else {
-					const emptyMsg = append(toolContent, $("div.alphacode-tool-empty"));
-					emptyMsg.textContent = "No output returned";
-				}
-
-				// Gérer l'expansion/réduction au clic
-				this._register(
-					addDisposableListener(toolHeader, "click", () => {
-						const isExpanded = toolContent.style.display !== "none";
-						toolContent.style.display = isExpanded ? "none" : "block";
-						expandIcon.textContent = isExpanded ? "▶" : "▼";
-					})
-				);
-			} catch (error) {
-				// En cas d'erreur, afficher un message simple
-				const toolText = append(contentElement, $("div.alphacode-tool-simple"));
-				toolText.textContent = simplifiedText;
-				console.error('Error rendering tool result:', error);
-			}
-		} else if (
-			toolName.toLowerCase().includes("edit") ||
-			toolName.toLowerCase().includes("write")
-		) {
-			// Pour edit/write - format structuré avec badge
-			const filePath = parameters.file_path || parameters.path || metadata.path;
-
-			if (filePath) {
-				const filename = filePath.split(/[/\\]/).pop() || "file";
-				const ext = filename.split(".").pop()?.toUpperCase() || "";
-
-				// allow-any-unicode-next-line
-				// Calculer le nombre de lignes modifiées
-				const summary = metadata.summary || "";
-				const linesMatch = summary.match(/(\d+)\s+lines?\s+changed/i);
-				const linesChanged = linesMatch ? parseInt(linesMatch[1]) :
-					(message.content.split("\n").length - 1);
-
-				const toolCard = append(
-					contentElement,
-					$("div.alphacode-tool-file-card"),
-				);
-
-				// Badge du langage
-				const badge = append(toolCard, $("span.alphacode-tool-file-badge"));
-				badge.textContent = ext;
-
-				// Nom du fichier
-				const nameSpan = append(toolCard, $("span.alphacode-tool-file-name"));
-				nameSpan.textContent = filename;
-
-				// Indicateur de lignes
-				const linesSpan = append(toolCard, $("span.alphacode-tool-file-lines"));
-				linesSpan.textContent = `±${linesChanged}`;
-			} else {
-				const toolText = append(contentElement, $("div.alphacode-tool-simple"));
-				toolText.textContent = "Edit file";
-			}
+		// Rendre directement dans le conteneur sans wrapper supplémentaire
+		if (this.isReadTool(toolName)) {
+			this.renderReadToolMessage(contentElement, message, toolName, parameters);
+		} else if (this.isWriteTool(toolName)) {
+			this.renderWriteToolMessage(contentElement, parameters, metadata);
 		} else {
-			// Autres outils - afficher un résumé si disponible
-			const toolText = append(contentElement, $("div.alphacode-tool-simple"));
-			toolText.textContent = metadata.summary || metadata.description || toolName;
+			this.renderGenericToolMessage(contentElement, toolName, metadata);
 		}
 	}
 
-	private renderMessageActions(
-		messageElement: HTMLElement,
+	private isReadTool(toolName: string): boolean {
+		const readTools = ["read", "list", "grep", "find"];
+		return readTools.some(tool => toolName.toLowerCase().includes(tool));
+	}
+
+	private isWriteTool(toolName: string): boolean {
+		return toolName.toLowerCase().includes("edit") || toolName.toLowerCase().includes("write");
+	}
+
+	private renderReadToolMessage(
+		contentElement: HTMLElement,
 		message: IChatMessage,
+		toolName: string,
+		parameters: any
 	): void {
+		const filePath = parameters.file_path || parameters.path || parameters.DirectoryPath ||
+			parameters.SearchPath || parameters.SearchDirectory;
+
+		let simplifiedText = this.getReadToolLabel(filePath, toolName, parameters);
+
+		try {
+			const toolContainer = append(contentElement, $("div.alphacode-tool-expandable"));
+			const toolHeader = append(toolContainer, $("div.alphacode-tool-header.clickable"));
+			const expandIcon = append(toolHeader, $("span.alphacode-tool-expand-icon"));
+			expandIcon.textContent = "▶";
+
+			const toolTitle = append(toolHeader, $("span.alphacode-tool-title"));
+			toolTitle.textContent = simplifiedText;
+
+			const toolContent = append(toolContainer, $("div.alphacode-tool-content.collapsed"));
+			toolContent.style.display = "none";
+
+			if (message.content?.trim()) {
+				const contentPreview = append(toolContent, $("pre.alphacode-tool-result"));
+				const content = message.content.length > MAX_CONTENT_LENGTH
+					? message.content.substring(0, MAX_CONTENT_LENGTH) + '\n\n... (content truncated, too large to display)'
+					: message.content;
+				contentPreview.textContent = content;
+			} else {
+				const emptyMsg = append(toolContent, $("div.alphacode-tool-empty"));
+				emptyMsg.textContent = "No output returned";
+			}
+
+			this._register(
+				addDisposableListener(toolHeader, "click", () => {
+					const isExpanded = !toolContent.classList.contains("collapsed");
+					toolContent.classList.toggle("collapsed");
+					toolContent.style.display = isExpanded ? "none" : "block";
+					expandIcon.textContent = isExpanded ? "▶" : "▼";
+					toolHeader.classList.toggle("expanded", !isExpanded);
+				})
+			);
+		} catch (error) {
+			const toolText = append(contentElement, $("div.alphacode-tool-simple"));
+			toolText.textContent = simplifiedText;
+			console.error('Error rendering tool result:', error);
+		}
+	}
+
+	private getReadToolLabel(filePath: string | undefined, toolName: string, parameters: any): string {
+		if (!filePath) return `📖 ${toolName}`;
+
+		const filename = filePath.split(/[/\\]/).pop();
+		
+		if (parameters.offset !== undefined && parameters.limit !== undefined) {
+			const start = parameters.offset;
+			const end = start + parameters.limit - 1;
+			return `📖 Read ${filename} #L${start}-${end}`;
+		}
+		
+		if (toolName.toLowerCase().includes("list")) {
+			return `📂 List ${filename}`;
+		}
+		
+		if (toolName.toLowerCase().includes("grep")) {
+			return `🔍 Search "${parameters.Query || parameters.query || ''}" in ${filename}`;
+		}
+		
+		if (toolName.toLowerCase().includes("find")) {
+			return `🔎 Find "${parameters.Pattern || parameters.pattern || ''}" in ${filename}`;
+		}
+		
+		return `📖 Read ${filename}`;
+	}
+
+	private renderWriteToolMessage(
+		contentElement: HTMLElement,
+		parameters: any,
+		metadata: any
+	): void {
+		const filePath = parameters.file_path || parameters.path || metadata.path;
+
+		if (filePath) {
+			const filename = filePath.split(/[/\\]/).pop() || "file";
+			const ext = filename.split(".").pop()?.toUpperCase() || "";
+
+			const summary = metadata.summary || "";
+			const linesMatch = summary.match(/(\d+)\s+lines?\s+changed/i);
+			const linesChanged = linesMatch ? parseInt(linesMatch[1]) : 0;
+
+			const toolCard = append(contentElement, $("div.alphacode-tool-file-card"));
+
+			const iconSpan = append(toolCard, $("span.alphacode-tool-file-icon"));
+			iconSpan.textContent = "✏️";
+
+			const badge = append(toolCard, $("span.alphacode-tool-file-badge"));
+			badge.textContent = ext;
+
+			const nameSpan = append(toolCard, $("span.alphacode-tool-file-name"));
+			nameSpan.textContent = filename;
+
+			if (linesChanged > 0) {
+				const linesSpan = append(toolCard, $("span.alphacode-tool-file-lines"));
+				linesSpan.textContent = `±${linesChanged}`;
+			}
+
+			// Ajouter un bouton pour voir les changements si une proposition existe
+			if (metadata.proposalId) {
+				const viewButton = append(toolCard, $("button.alphacode-tool-view-changes")) as HTMLButtonElement;
+				viewButton.textContent = "View Changes";
+				viewButton.type = "button";
+				this._register(
+					addDisposableListener(viewButton, "click", () => {
+						// Ouvrir la vue des propositions ou le diff
+						if (metadata.proposalId) {
+							this.commandService.executeCommand('alphacode.openProposal', metadata.proposalId);
+						}
+					})
+				);
+			}
+		} else {
+			const toolText = append(contentElement, $("div.alphacode-tool-simple"));
+			toolText.textContent = "✏️ Edit file";
+		}
+	}
+
+	private renderGenericToolMessage(
+		contentElement: HTMLElement,
+		toolName: string,
+		metadata: any
+	): void {
+		const toolCard = append(contentElement, $("div.alphacode-tool-simple"));
+
+		// Ajouter une icône appropriée basée sur le type d'outil
+		const icon = this.getToolIcon(toolName);
+		const displayText = metadata.summary || metadata.description || toolName;
+
+		toolCard.textContent = `${icon} ${displayText}`;
+
+		// Ajouter une classe d'erreur si nécessaire
+		if (metadata.error) {
+			toolCard.classList.add("error");
+			const errorDetails = append(contentElement, $("div.alphacode-tool-error-details"));
+			errorDetails.textContent = metadata.error;
+		}
+	}
+
+	private getToolIcon(toolName: string): string {
+		const toolIcons: Record<string, string> = {
+			'accept_edit_proposal': '✓',
+			'reject_edit_proposal': '✗',
+			'list_edit_proposals': '📋',
+			'execute': '⚙️',
+			'search': '🔍',
+			'analyze': '🔬',
+		};
+
+		const lowerName = toolName.toLowerCase();
+		for (const [key, icon] of Object.entries(toolIcons)) {
+			if (lowerName.includes(key)) {
+				return icon;
+			}
+		}
+
+		return '🛠️'; // Default tool icon
+	}
+
+	private renderMessageActions(messageElement: HTMLElement, message: IChatMessage): void {
 		const actions = append(messageElement, $(".alphacode-message-actions"));
 
-		// Copy button
-		// allow-any-unicode-next-line
 		const copyButton = append(
 			actions,
-			$("button.alphacode-message-action", undefined, "📋 Copy"),
+			$("button.alphacode-message-action", undefined, "📋 Copy")
 		) as HTMLButtonElement;
+		
 		this._register(
 			addDisposableListener(copyButton, "click", () => {
 				navigator.clipboard.writeText(message.content);
-				// allow-any-unicode-next-line
 				copyButton.textContent = "✓ Copied!";
-				setTimeout(() => {
-					// allow-any-unicode-next-line
-					copyButton.textContent = "📋 Copy";
-				}, 2000);
-			}),
+				setTimeout(() => { copyButton.textContent = "📋 Copy"; }, 2000);
+			})
 		);
 
-		// Apply code button (if contains code)
 		const codeBlocks = this.markdownRenderer.extractCodeBlocks(message.content);
 		if (codeBlocks.length > 0) {
 			const applyButton = append(
 				actions,
-				$(
-					"button.alphacode-message-action.primary",
-					undefined,
-					"✨ Apply Code",
-				),
+				$("button.alphacode-message-action.primary", undefined, "✨ Apply Code")
 			) as HTMLButtonElement;
+			
 			this._register(
 				addDisposableListener(applyButton, "click", () =>
-					this.applyCode(codeBlocks[0].code),
-				),
+					this.applyCode(codeBlocks[0].code))
 			);
 		}
 
-		// Regenerate button
 		const regenerateButton = append(
 			actions,
-			$("button.alphacode-message-action", undefined, "Regenerate"),
+			$("button.alphacode-message-action", undefined, "Regenerate")
 		) as HTMLButtonElement;
 		regenerateButton.type = "button";
+		
 		this._register(
 			addDisposableListener(regenerateButton, "click", () =>
-				this.regenerateLastResponse(),
-			),
+				this.regenerateLastResponse())
 		);
 	}
 
 	private updateSendStopButton(): void {
-		if (!this.sendStopButton) {
-			return;
-		}
+		if (!this.sendStopButton) return;
 
 		if (this.isStreaming) {
-			// allow-any-unicode-next-line
 			this.sendStopButton.textContent = "⏸";
-			this.sendStopButton.title = localize(
-				"alphacode.chat.stopGenerating",
-				"Stop generating",
-			);
+			this.sendStopButton.title = localize("alphacode.chat.stopGenerating", "Stop generating");
 			this.sendStopButton.classList.add("stop-mode");
 		} else {
 			this.sendStopButton.textContent = "↑";
-			this.sendStopButton.title = localize(
-				"alphacode.chat.send",
-				"Send message",
-			);
+			this.sendStopButton.title = localize("alphacode.chat.send", "Send message");
 			this.sendStopButton.classList.remove("stop-mode");
 		}
 	}
 
 	private stopStreaming(): void {
-		// Abort the actual stream in the chat service
 		this.chatService.abortCurrentStream();
 
 		this.isStreaming = false;
@@ -812,10 +853,8 @@ export class VibeCodingView extends ViewPane {
 		this.currentStreamingMessageId = undefined;
 		this.updateSendStopButton();
 
-		// Clear current streaming message if exists
 		if (this.currentStreamingMessage) {
-			const existingContent = this.currentStreamingBuffer.trim();
-			if (!existingContent) {
+			if (!this.currentStreamingBuffer.trim()) {
 				clearNode(this.currentStreamingMessage);
 				this.currentStreamingMessage.textContent = localize(
 					'alphacode.chat.stopped',
@@ -825,43 +864,26 @@ export class VibeCodingView extends ViewPane {
 			this.currentStreamingMessage = undefined;
 		}
 
-		// Re-render pour afficher tous les messages qui ont été ajoutés
 		this.renderMessages();
 	}
 
 	private async applyCode(code: string): Promise<void> {
-		// Get active editor
 		const activeEditor = this.editorService.activeTextEditorControl;
-		if (!activeEditor) {
-			return;
-		}
+		if (!activeEditor) return;
 
-		// Check if it's a code editor
-		if (
-			"executeEdits" in activeEditor &&
-			typeof activeEditor.executeEdits === "function"
-		) {
-			// Insert code at cursor position or replace selection
+		if ("executeEdits" in activeEditor && typeof activeEditor.executeEdits === "function") {
 			const selection = activeEditor.getSelection?.();
 			if (selection) {
-				const edit = {
-					range: selection,
-					text: code,
-				};
-				activeEditor.executeEdits("alphacode", [edit]);
+				activeEditor.executeEdits("alphacode", [{ range: selection, text: code }]);
 			}
 		}
 	}
 
 	private async regenerateLastResponse(): Promise<void> {
 		const session = this.chatService.getCurrentSession();
-		if (!session || session.messages.length < 2) {
-			return;
-		}
+		if (!session || session.messages.length < 2) return;
 
-		// Get the last user message
-		const messages = session.messages;
-		const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+		const lastUserMessage = session.messages.filter(m => m.role === "user").pop();
 
 		if (lastUserMessage && this.inputTextArea) {
 			this.inputTextArea.value = lastUserMessage.content;
@@ -869,27 +891,19 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
-
-	private onStreamChunk(chunk: {
-		content: string;
-		done: boolean;
-		messageId?: string;
-	}): void {
+	private onStreamChunk(chunk: { content: string; done: boolean; messageId?: string }): void {
 		if (chunk.done) {
 			this.stopStreamingRenderLoop();
 		}
 
 		this.ensureStreamingMessage(chunk.messageId);
-		if (!this.currentStreamingMessage) {
+		if (!this.currentStreamingMessage) return;
+		
+		if (chunk.messageId && this.currentStreamingMessageId && 
+			chunk.messageId !== this.currentStreamingMessageId) {
 			return;
 		}
-		if (
-			chunk.messageId &&
-			this.currentStreamingMessageId &&
-			chunk.messageId !== this.currentStreamingMessageId
-		) {
-			return;
-		}
+		
 		if (chunk.messageId && !this.currentStreamingMessageId) {
 			this.currentStreamingMessageId = chunk.messageId;
 		}
@@ -899,105 +913,70 @@ export class VibeCodingView extends ViewPane {
 				this.currentStreamingBuffer += chunk.content;
 				this.scheduleStreamingRender();
 			}
-			const hasContent = this.currentStreamingBuffer.trim().length > 0;
+
+			// Nettoyer les blocs tool pour le streaming (ils seront affichés proprement après)
+			const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
+			const hasContent = cleanContent.trim().length > 0;
+
 			if (hasContent) {
 				clearNode(this.currentStreamingMessage);
-				this.markdownRenderer.render(
-					this.currentStreamingBuffer,
-					this.currentStreamingMessage,
-				);
-				this.lastRenderedStreamingContent = this.currentStreamingBuffer;
+				this.markdownRenderer.render(cleanContent, this.currentStreamingMessage);
+				this.lastRenderedStreamingContent = cleanContent;
 			} else {
-				const spinner = this.currentStreamingMessage.querySelector(
-					".alphacode-chat-loading-spinner",
-				);
-				if (!spinner) {
-					append(
-						this.currentStreamingMessage,
-						$(".alphacode-chat-loading-spinner"),
-					);
-				}
+				this.ensureStreamingSpinner();
 			}
+			
 			if (hasContent) {
-				const spinner = this.currentStreamingMessage.querySelector(
-					".alphacode-chat-loading-spinner",
-				);
-				if (spinner) {
-					spinner.remove();
-				}
+				this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")?.remove();
 			}
+			
 			this.scrollIfNeeded();
 		} else {
 			this.currentStreamingBuffer = "";
 			this.currentStreamingMessageId = undefined;
 			this.isStreaming = false;
 			this.updateSendStopButton();
-
-			// Re-render tous les messages maintenant que le streaming est terminé
-			// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
 			this.renderMessages();
 		}
 	}
 
 	private ensureStreamingMessage(messageId?: string): void {
-		if (!this.messagesContainer) {
-			return;
-		}
-		if (
-			this.currentStreamingMessage &&
-			this.currentStreamingMessage.isConnected
-		) {
+		if (!this.messagesContainer) return;
+		
+		if (this.currentStreamingMessage?.isConnected) {
 			if (messageId && !this.currentStreamingMessageId) {
 				this.currentStreamingMessageId = messageId;
 			}
 			return;
 		}
 
-		if (
-			this.currentStreamingMessage &&
-			this.currentStreamingMessage.isConnected &&
-			this.currentStreamingMessageId &&
-			messageId &&
-			this.currentStreamingMessageId !== messageId
-		) {
+		if (this.currentStreamingMessage?.isConnected && 
+			this.currentStreamingMessageId && messageId && 
+			this.currentStreamingMessageId !== messageId) {
 			this.currentStreamingMessage = undefined;
-		}
-
-		if (!this.messagesContainer) {
-			return;
 		}
 
 		if (!this.currentStreamingMessage) {
 			const messageElement = append(
 				this.messagesContainer,
-				$(".alphacode-chat-message.assistant.streaming"),
+				$(".alphacode-chat-message.assistant.streaming")
 			);
 			const header = append(messageElement, $(".alphacode-chat-message-header"));
 			append(header, $(".alphacode-chat-message-avatar", undefined, "🤖"));
-			append(
-				header,
-				$(
-					"span",
-					undefined,
-					localize("alphacode.chat.assistant", "AlphaCode AI"),
-				),
-			);
-			this.currentStreamingMessage = append(
-				messageElement,
-				$(".alphacode-chat-message-content"),
-			);
+			append(header, $("span", undefined, localize("alphacode.chat.assistant", "AlphaCode AI")));
+			
+			this.currentStreamingMessage = append(messageElement, $(".alphacode-chat-message-content"));
 			this.currentStreamingMessage.textContent = "";
 			this.ensureStreamingSpinner();
 		}
+		
 		if (this.currentStreamingBuffer.trim().length > 0) {
-			this.markdownRenderer.render(
-				this.currentStreamingBuffer,
-				this.currentStreamingMessage,
-			);
+			this.markdownRenderer.render(this.currentStreamingBuffer, this.currentStreamingMessage);
 			this.lastRenderedStreamingContent = this.currentStreamingBuffer;
 		} else {
 			this.ensureStreamingSpinner();
 		}
+		
 		if (messageId) {
 			this.currentStreamingMessageId = messageId;
 		}
@@ -1005,49 +984,39 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private ensureStreamingSpinner(): void {
-		if (!this.currentStreamingMessage) {
-			return;
-		}
-		const spinner = this.currentStreamingMessage.querySelector(
-			".alphacode-chat-loading-spinner",
-		);
-		if (!spinner) {
-			append(
-				this.currentStreamingMessage,
-				$(".alphacode-chat-loading-spinner"),
-			);
+		if (!this.currentStreamingMessage) return;
+		
+		if (!this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")) {
+			append(this.currentStreamingMessage, $(".alphacode-chat-loading-spinner"));
 		}
 	}
 
 	private scheduleStreamingRender(): void {
-		if (this.streamingRenderHandle !== undefined) {
-			return;
-		}
+		if (this.streamingRenderHandle !== undefined) return;
+		
 		this.streamingRenderHandle = requestAnimationFrame(() => {
 			this.streamingRenderHandle = undefined;
 			this.renderStreamingBuffer();
 		});
 	}
 
+	private removeToolBlocksForStreaming(content: string): string {
+		// Remplacer les blocs tool par un indicateur visuel pendant le streaming
+		return content.replace(/```tool\s*\n[\s\S]*?\n```/g, '🔧 _[Tool execution]_');
+	}
+
 	private renderStreamingBuffer(): void {
-		if (!this.currentStreamingMessage) {
-			return;
-		}
-		if (this.currentStreamingBuffer === this.lastRenderedStreamingContent) {
-			return;
-		}
+		if (!this.currentStreamingMessage) return;
+
+		// Nettoyer le contenu pour l'affichage
+		const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
+		if (cleanContent === this.lastRenderedStreamingContent) return;
+
 		clearNode(this.currentStreamingMessage);
-		this.markdownRenderer.render(
-			this.currentStreamingBuffer,
-			this.currentStreamingMessage,
-		);
-		this.lastRenderedStreamingContent = this.currentStreamingBuffer;
-		const spinner = this.currentStreamingMessage.querySelector(
-			".alphacode-chat-loading-spinner",
-		);
-		if (spinner) {
-			spinner.remove();
-		}
+		this.markdownRenderer.render(cleanContent, this.currentStreamingMessage);
+		this.lastRenderedStreamingContent = cleanContent;
+
+		this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")?.remove();
 	}
 
 	private stopStreamingRenderLoop(): void {
@@ -1063,16 +1032,11 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private async sendMessage(): Promise<void> {
-		if (!this.inputTextArea || this.isStreaming) {
-			return;
-		}
+		if (!this.inputTextArea || this.isStreaming) return;
 
 		const content = this.inputTextArea.value.trim();
-		if (!content) {
-			return;
-		}
+		if (!content) return;
 
-		// Clear input
 		this.inputTextArea.value = "";
 		this.isStreaming = true;
 		this.cancelStreamingRenderLoop();
@@ -1081,7 +1045,6 @@ export class VibeCodingView extends ViewPane {
 		this.currentStreamingMessageId = undefined;
 		this.updateSendStopButton();
 
-		// Add user message immediately
 		const userMessage: IChatMessage = {
 			id: generateUuid(),
 			role: "user",
@@ -1092,13 +1055,10 @@ export class VibeCodingView extends ViewPane {
 		this.renderMessage(userMessage);
 		this.ensureStreamingMessage();
 
-		// Get context from active editor
 		const activeEditor = this.editorService.activeTextEditorControl;
 		const context = {
 			activeFile: this.editorService.activeEditor?.resource?.path,
-			selectedCode: activeEditor
-				? this.getSelectedText(activeEditor)
-				: undefined,
+			selectedCode: activeEditor ? this.getSelectedText(activeEditor) : undefined,
 		};
 
 		try {
@@ -1106,37 +1066,27 @@ export class VibeCodingView extends ViewPane {
 		} catch (error) {
 			console.error("Failed to send message", error);
 			if (this.currentStreamingMessage) {
-				this.currentStreamingMessage.textContent = `Error: ${error instanceof Error ? error.message : "Unknown error"
-					}`;
+				this.currentStreamingMessage.textContent = `Error: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`;
 				this.scrollIfNeeded(true);
 			}
 		} finally {
 			this.isStreaming = false;
 			this.currentStreamingMessage = undefined;
 			this.updateSendStopButton();
-
-			// Re-render tous les messages maintenant que le streaming est terminé
-			// Cela affichera les tool messages qui ont été ajoutés pendant le streaming
 			this.renderMessages();
 		}
 	}
 
 	private getSelectedText(editor: any): string | undefined {
-		if (!editor.getSelection) {
-			return undefined;
-		}
+		if (!editor.getSelection) return undefined;
 
 		const selection = editor.getSelection();
-		if (!selection || selection.isEmpty()) {
-			return undefined;
-		}
+		if (!selection || selection.isEmpty()) return undefined;
 
 		const model = editor.getModel();
-		if (!model) {
-			return undefined;
-		}
-
-		return model.getValueInRange(selection);
+		return model ? model.getValueInRange(selection) : undefined;
 	}
 
 	protected override layoutBody(height: number, width: number): void {
@@ -1145,14 +1095,10 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private layoutWelcome(): void {
-		if (!this.containerElement) {
-			return;
-		}
-		const viewLocation = this.viewDescriptorService.getViewLocationById(
-			this.id,
-		);
-		const isSidebar =
-			viewLocation === ViewContainerLocation.Sidebar ||
+		if (!this.containerElement) return;
+
+		const viewLocation = this.viewDescriptorService.getViewLocationById(this.id);
+		const isSidebar = viewLocation === ViewContainerLocation.Sidebar ||
 			viewLocation === ViewContainerLocation.AuxiliaryBar;
 		const isNarrow = isSidebar && this.containerElement.clientWidth < 320;
 		this.containerElement.classList.toggle("alphacode-vibe-narrow", isNarrow);
@@ -1162,17 +1108,12 @@ export class VibeCodingView extends ViewPane {
 		const theme = this.themeService.getColorTheme();
 		const background = theme.getColor(SIDE_BAR_BACKGROUND);
 		const foreground = theme.getColor(SIDE_BAR_FOREGROUND);
+		
 		if (background) {
-			container.style.setProperty(
-				"--alphacode-vibe-background",
-				background.toString(),
-			);
+			container.style.setProperty("--alphacode-vibe-background", background.toString());
 		}
 		if (foreground) {
-			container.style.setProperty(
-				"--alphacode-vibe-foreground",
-				foreground.toString(),
-			);
+			container.style.setProperty("--alphacode-vibe-foreground", foreground.toString());
 		}
 	}
 }

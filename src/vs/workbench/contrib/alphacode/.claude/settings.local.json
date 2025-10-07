@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rev-parse:*)",
+      "Read(//c/Users/jessy/AlphaCode/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

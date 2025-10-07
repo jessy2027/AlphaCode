@@ -121,6 +121,22 @@
     margin-right: 0;
 }
 
+.alphacode-chat-message.assistant .alphacode-chat-message-content.tool-content {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    margin-left: 28px;
+}
+
+.alphacode-chat-message.assistant .alphacode-chat-message-content.tool-content.error {
+    background: color-mix(in srgb, var(--vscode-errorForeground) 5%, transparent);
+    border-left: 2px solid var(--vscode-errorForeground);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
 .alphacode-chat-message.tool .alphacode-chat-message-content {
     background: color-mix(in srgb, var(--vscode-editorWidget-background) 85%, transparent);
     border-color: color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
@@ -485,7 +501,7 @@
     box-shadow: none;
     position: relative;
     overflow: hidden;
-    margin: 6px 0;
+    margin: 2px 0;
 }
 
 .alphacode-tool-card.success {
@@ -649,7 +665,7 @@
 .alphacode-tool-simple {
     display: block;
     padding: 6px 10px;
-    margin: 4px 0;
+    margin: 2px 0;
     font-size: 12px;
     font-family: var(--vscode-editor-font-family);
     color: color-mix(in srgb, var(--vscode-foreground) 75%, transparent);
@@ -658,13 +674,30 @@
     border-radius: 4px;
 }
 
+.alphacode-tool-simple.error {
+    border-left-color: var(--vscode-errorForeground);
+    background: color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent);
+}
+
+.alphacode-tool-error-details {
+    padding: 6px 10px;
+    margin: 2px 0 4px 0;
+    font-size: 11px;
+    font-family: var(--monaco-monospace-font);
+    color: var(--vscode-errorForeground);
+    background: color-mix(in srgb, var(--vscode-errorForeground) 8%, transparent);
+    border-left: 2px solid var(--vscode-errorForeground);
+    border-radius: 4px;
+    font-style: italic;
+}
+
 /* Tool file card - Format structuré pour Edit/Write */
 .alphacode-tool-file-card {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 8px 12px;
-    margin: 4px 0;
+    margin: 2px 0;
     background: color-mix(in srgb, var(--vscode-editorWidget-background) 25%, transparent);
     border-left: 2px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
     border-radius: 4px;
@@ -751,7 +784,7 @@
 .alphacode-tool-expandable {
     display: flex;
     flex-direction: column;
-    margin: 6px 0;
+    margin: 2px 0;
     border-radius: 6px;
     overflow: hidden;
     background: color-mix(in srgb, var(--vscode-editorWidget-background) 25%, transparent);
@@ -810,4 +843,58 @@
     font-style: italic;
     color: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
     text-align: center;
+}
+
+/* Tool inline wrapper - Plus utilisé mais gardé pour compatibilité */
+
+/* Improved tool file card for inline display */
+.alphacode-tool-file-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.alphacode-tool-view-changes {
+    padding: 4px 10px;
+    font-size: 11px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--vscode-button-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s, background 0.2s;
+    white-space: nowrap;
+}
+
+.alphacode-tool-view-changes:hover {
+    opacity: 0.85;
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Improved tool header with clickable state */
+.alphacode-tool-header.clickable {
+    cursor: pointer;
+}
+
+.alphacode-tool-header.clickable:active {
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 60%, transparent);
+}
+
+.alphacode-tool-header.expanded {
+    border-bottom-color: color-mix(in srgb, var(--vscode-panel-border) 30%, transparent);
+}
+
+.alphacode-tool-header.expanded .alphacode-tool-expand-icon {
+    transform: rotate(90deg);
+}
+
+/* Better collapsed state for tool content */
+.alphacode-tool-content.collapsed {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* Smooth transition for expanding/collapsing */
+.alphacode-tool-expandable {
+    transition: all 0.2s ease;
 }
