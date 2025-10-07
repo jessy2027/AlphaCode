@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 // @ts-check
-import path from 'path';
+import path from 'node:path';
 import { run } from '../esbuild-webview-common.mjs';
 
 const srcDir = path.join(import.meta.dirname, 'chat-webview-src');

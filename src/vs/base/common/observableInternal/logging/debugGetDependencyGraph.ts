@@ -33,15 +33,17 @@ function formatObservableInfo(info: Info, indentLevel: number, alreadyListed: Se
 
 	alreadyListed.add(info.sourceObj);
 
-	lines.push(`${indent}* ${info.type} ${info.name}:`);
-	lines.push(`${indent}  value: ${formatValue(info.value, 50)}`);
-	lines.push(`${indent}  state: ${info.state}`);
+	lines.push(
+		`${indent}* ${info.type} ${info.name}:`,
+		`${indent}  value: ${formatValue(info.value, 50)}`,
+		`${indent}  state: ${info.state}`
+	);
 
 	if (info.dependencies.length > 0) {
-		lines.push(`${indent}  dependencies:`);
-		for (const dep of info.dependencies) {
-			lines.push(formatObservableInfo(dep, indentLevel + 1, alreadyListed));
-		}
+		lines.push(
+			`${indent}  dependencies:`,
+			...info.dependencies.map(dep => formatObservableInfo(dep, indentLevel + 1, alreadyListed))
+		);
 	}
 
 	return lines.join('\n');

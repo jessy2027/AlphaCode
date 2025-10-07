@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+// eslint-disable-next-line local/code-import-patterns
+import assert from 'node:assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { AbstractCommonMcpManagementService } from '../../common/mcpManagementService.js';
 import { IGalleryMcpServerConfiguration, RegistryType, TransportType } from '../../common/mcpManagement.js';

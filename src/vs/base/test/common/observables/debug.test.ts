@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+// eslint-disable-next-line local/code-import-patterns
+import assert from 'node:assert';
 import { observableValue, derived, autorun } from '../../../common/observable.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../utils.js';
 // eslint-disable-next-line local/code-no-deep-import-of-internal

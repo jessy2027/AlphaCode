@@ -169,10 +169,11 @@ export class OmegaCompletionService extends Disposable implements IOmegaCompleti
 	}
 
 	private composeInlinePrompt(request: OmegaCompletionRequest): string {
-		const lines: string[] = [];
-		lines.push('Continue le bloc suivant en restant coherent.');
-		lines.push('');
-		lines.push('Type: inline');
+		const lines: string[] = [
+			'Continue le bloc suivant en restant coherent.',
+			'',
+			'Type: inline',
+		];
 		if (request.languageId) {
 			lines.push(`Langage: ${request.languageId}`);
 		}
@@ -182,17 +183,19 @@ export class OmegaCompletionService extends Disposable implements IOmegaCompleti
 		if (request.metadata && Object.keys(request.metadata).length) {
 			lines.push(`Contexte additionnel: ${JSON.stringify(request.metadata)}`);
 		}
-		lines.push('');
-		lines.push('---');
-		lines.push('BEFORE CURSOR:');
-		lines.push(request.prefix);
-		lines.push('---');
-		lines.push('AFTER CURSOR:');
-		lines.push(request.suffix ?? '');
-		lines.push('---');
-		lines.push('Livraison:');
-		lines.push('- Reponds uniquement par le code a ajouter.');
-		lines.push('- Aucun commentaire explicatif ni texte libre.');
+		lines.push(
+			'',
+			'---',
+			'BEFORE CURSOR:',
+			request.prefix,
+			'---',
+			'AFTER CURSOR:',
+			request.suffix ?? '',
+			'---',
+			'Livraison:',
+			'- Reponds uniquement par le code a ajouter.',
+			'- Aucun commentaire explicatif ni texte libre.'
+		);
 
 		return lines.join('\n');
 	}
@@ -203,26 +206,29 @@ export class OmegaCompletionService extends Disposable implements IOmegaCompleti
 			: 'shell inconnu';
 		const history = request.metadata?.history;
 
-		const lines: string[] = [];
-		lines.push('Complete la commande ou le script terminal en cours.');
-		lines.push('');
-		lines.push('Type: terminal');
-		lines.push(`Environnement: ${shell}`);
+		const lines: string[] = [
+			'Complete la commande ou le script terminal en cours.',
+			'',
+			'Type: terminal',
+			`Environnement: ${shell}`,
+		];
 		if (history) {
 			lines.push(`Historique pertinent: ${JSON.stringify(history)}`);
 		}
-		lines.push('');
-		lines.push('---');
-		lines.push('BEFORE CURSOR:');
-		lines.push(request.prefix);
-		lines.push('---');
-		lines.push('AFTER CURSOR:');
-		lines.push(request.suffix ?? '');
-		lines.push('---');
-		lines.push('Contraintes:');
-		lines.push('- Retourne uniquement les caracteres a injecter dans le terminal.');
-		lines.push('- Respecte la syntaxe du shell concerne.');
-		lines.push('- N\'ajoute pas de commentaires ni de sorties fictives.');
+		lines.push(
+			'',
+			'---',
+			'BEFORE CURSOR:',
+			request.prefix,
+			'---',
+			'AFTER CURSOR:',
+			request.suffix ?? '',
+			'---',
+			'Contraintes:',
+			'- Retourne uniquement les caracteres a injecter dans le terminal.',
+			'- Respecte la syntaxe du shell concerne.',
+			'- N\'ajoute pas de commentaires ni de sorties fictives.'
+		);
 
 		return lines.join('\n');
 	}
