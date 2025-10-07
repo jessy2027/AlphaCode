@@ -14,11 +14,10 @@ export interface IStreamState {
 	displayContent: string;
 	assistantMessage: IChatMessage | undefined;
 	detectedToolCalls: Map<string, IToolCall>;
-	writeToolPromises: Promise<void>[];
-	readToolCalls: IToolCall[];
 	toolExtractionState: { lastIndex: number };
 	writeToolDetected: boolean;
-	initialTimestamp: number; // Timestamp de début pour maintenir l'ordre chronologique
+	initialTimestamp: number;
+	detectionCounter: number;
 }
 
 /**
@@ -42,11 +41,10 @@ export class StreamHandler {
 			displayContent: "",
 			assistantMessage: undefined,
 			detectedToolCalls: new Map<string, IToolCall>(),
-			writeToolPromises: [],
-			readToolCalls: [],
 			toolExtractionState: { lastIndex: 0 },
 			writeToolDetected: false,
-			initialTimestamp: Date.now(), // Capturer le timestamp au début
+			initialTimestamp: Date.now(),
+			detectionCounter: 0,
 		};
 	}
 
@@ -60,7 +58,8 @@ export class StreamHandler {
 		state: IStreamState
 	): Promise<void> {
 		state.fullContent += chunk.content;
-		state.displayContent = this.toolParser.removeToolBlocks(state.fullContent);
+		// Garder le contenu complet avec les blocs tool pour un affichage inline
+		state.displayContent = state.fullContent;
 
 		// Detect write tools
 		if (!state.writeToolDetected && this.hasWriteToolPattern(state.fullContent)) {
@@ -86,13 +85,11 @@ export class StreamHandler {
 	finalizeMessage(session: IChatSession, messageId: string, state: IStreamState): void {
 		if (!state.assistantMessage && state.displayContent.trim()) {
 			state.assistantMessage = this.onCreateMessage(session, messageId, state.displayContent);
-			// Utiliser le timestamp initial pour maintenir l'ordre chronologique
 			state.assistantMessage.timestamp = state.initialTimestamp;
 		}
 
 		if (state.assistantMessage) {
 			state.assistantMessage.content = state.displayContent;
-			// Ne pas mettre à jour le timestamp ici pour garder l'ordre chronologique
 			if (state.detectedToolCalls.size > 0) {
 				state.assistantMessage.toolCalls = Array.from(state.detectedToolCalls.values());
 			}
@@ -100,16 +97,11 @@ export class StreamHandler {
 	}
 
 	/**
-	 * Execute all pending tools
+	 * Execute all pending tools (kept for compatibility but tools are now executed immediately)
 	 */
 	async executePendingTools(session: IChatSession, state: IStreamState): Promise<void> {
-		// Execute write tools
-		await Promise.all(state.writeToolPromises);
-
-		// Execute read tools sequentially
-		for (const toolCall of state.readToolCalls) {
-			await this.onExecuteTool(session, toolCall);
-		}
+		// Les outils sont maintenant exécutés immédiatement lors de leur détection
+		// Cette méthode est conservée pour la compatibilité mais ne fait plus rien
 	}
 
 	private hasWriteToolPattern(content: string): boolean {
@@ -123,30 +115,30 @@ export class StreamHandler {
 	): Promise<void> {
 		if (!state.assistantMessage && state.displayContent.trim()) {
 			state.assistantMessage = this.onCreateMessage(session, messageId, state.displayContent);
-			// Utiliser le timestamp initial pour maintenir l'ordre chronologique
 			state.assistantMessage.timestamp = state.initialTimestamp;
 			await this.onEnsureView();
 		} else if (state.assistantMessage) {
 			state.assistantMessage.content = state.displayContent;
-			// Ne pas mettre à jour le timestamp pendant le streaming
 		}
 	}
 
 	private async extractAndQueueTools(session: IChatSession, state: IStreamState): Promise<void> {
 		const toolCalls = this.toolParser.extractToolCalls(state.fullContent, state.toolExtractionState);
-		
+
 		for (const toolCall of toolCalls) {
 			const key = this.toolParser.getToolCallKey(toolCall);
 			if (!state.detectedToolCalls.has(key)) {
-				// Assigner le timestamp au moment de la détection
-				toolCall.detectedAt = Date.now();
+				// Utiliser le timestamp initial + compteur pour garantir l'ordre exact
+				toolCall.detectedAt = state.initialTimestamp + (++state.detectionCounter);
 				state.detectedToolCalls.set(key, toolCall);
-				
+
+				// Marquer les outils d'écriture pour le streaming
 				if (this.toolParser.isWriteTool(toolCall.name)) {
-					state.writeToolPromises.push(this.onExecuteTool(session, toolCall));
-				} else {
-					state.readToolCalls.push(toolCall);
+					state.writeToolDetected = true;
 				}
+
+				// Exécuter l'outil immédiatement pour une meilleure réactivité
+				await this.onExecuteTool(session, toolCall);
 			}
 		}
 	}

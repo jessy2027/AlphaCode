@@ -156,12 +156,12 @@ export interface IAlphaCodeChatService {
 	/**
 	 * Delete a session
 	 */
-	deleteSession(sessionId: string): void;
+	deleteSession(sessionId: string): Promise<void>;
 
 	/**
 	 * Clear the current session
 	 */
-	clearCurrentSession(): void;
+	clearCurrentSession(): Promise<void>;
 
 	/**
 	 * Export session to JSON
