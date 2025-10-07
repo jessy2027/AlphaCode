@@ -28,17 +28,8 @@ export function renderChatInputArea(options: ChatInputAreaOptions): ChatInputAre
   input.placeholder = localize("alphacode.chat.placeholder", "Ask anything (Ctrl+L)");
 
   const toolbar = append(inputWrapper, $(".alphacode-chat-input-toolbar"));
-
   const left = append(toolbar, $(".alphacode-chat-toolbar-left"));
-  const attachButton = append(
-    left,
-    $("button.alphacode-chat-icon-button", { title: localize("alphacode.chat.attach", "Attach files") }, "+"),
-  ) as HTMLButtonElement;
-  options.register(
-    addDisposableListener(attachButton, "click", () => {
-      // TODO: Implement file attachment
-    }),
-  );
+  append(left, $("button.alphacode-chat-icon-button", { title: localize("alphacode.chat.attach", "Attach files") }, "+"));
 
   const center = append(toolbar, $(".alphacode-chat-toolbar-center"));
   append(center, $("span", undefined, options.providerLabel));
@@ -49,11 +40,6 @@ export function renderChatInputArea(options: ChatInputAreaOptions): ChatInputAre
     $("button.alphacode-chat-icon-button", { title: localize("alphacode.chat.voice", "Voice input") }, "🎤"),
   ) as HTMLButtonElement;
   micButton.disabled = true;
-  options.register(
-    addDisposableListener(micButton, "click", () => {
-      // TODO: Implement voice input
-    }),
-  );
 
   const sendStopButton = append(
     right,
