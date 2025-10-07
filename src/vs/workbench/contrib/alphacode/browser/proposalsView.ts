@@ -18,7 +18,6 @@ import { getChangeSummary } from './diffUtils.js';
 export class ProposalsView extends Disposable {
 	private proposalsList: HTMLElement | undefined;
 	private rootContainer: HTMLElement | undefined;
-	private globalActionsContainer: HTMLElement | undefined;
 	private acceptAllBtn: HTMLButtonElement | undefined;
 	private rejectAllBtn: HTMLButtonElement | undefined;
 
@@ -48,13 +47,13 @@ export class ProposalsView extends Disposable {
 		);
 
 		// Global actions
-		this.globalActionsContainer = append(container, $('.proposals-global-actions'));
+		const globalActionsContainer = append(container, $('.proposals-global-actions'));
 		this.acceptAllBtn = append(
-			this.globalActionsContainer,
+			globalActionsContainer,
 			$('button.monaco-button.monaco-text-button', undefined, localize('alphacode.proposals.acceptAll', 'Accept All'))
 		) as HTMLButtonElement;
 		this.rejectAllBtn = append(
-			this.globalActionsContainer,
+			globalActionsContainer,
 			$('button.monaco-button.monaco-text-button.secondary', undefined, localize('alphacode.proposals.rejectAll', 'Reject All'))
 		) as HTMLButtonElement;
 
@@ -205,23 +204,32 @@ export class ProposalsView extends Disposable {
 				changesHeader,
 				$('button.monaco-button.monaco-text-button.small', undefined, 'Show Details')
 			) as HTMLButtonElement;
-
 			const changesList = append(changesSection, $('.changes-list'));
 			changesList.style.display = 'none';
+			const applySelectedBtn = append(
+				changesSection,
+				$('button.monaco-button.monaco-text-button.small', undefined, 'Apply Selected Changes')
+			) as HTMLButtonElement;
+			applySelectedBtn.style.display = 'none';
 
 			let expanded = false;
+			const updateToggleState = () => {
+				changesList.style.display = expanded ? 'block' : 'none';
+				toggleBtn.textContent = expanded ? 'Hide Details' : 'Show Details';
+				applySelectedBtn.style.display = expanded ? 'block' : 'none';
+			};
+			updateToggleState();
+
 			this._register(
 				addDisposableListener(toggleBtn, 'click', () => {
 					expanded = !expanded;
-					changesList.style.display = expanded ? 'block' : 'none';
-					toggleBtn.textContent = expanded ? 'Hide Details' : 'Show Details';
+					updateToggleState();
 				})
 			);
 
 			// Render each change
 			proposal.changes.forEach((change, index) => {
 				const changeItem = append(changesList, $('.change-item'));
-				
 				const changeHeader = append(changeItem, $('.change-header'));
 				const checkbox = append(
 					changeHeader,
@@ -249,19 +257,6 @@ export class ProposalsView extends Disposable {
 					);
 				}
 			});
-
-			// Apply selected changes button
-			const applySelectedBtn = append(
-				changesSection,
-				$('button.monaco-button.monaco-text-button.small', undefined, 'Apply Selected Changes')
-			) as HTMLButtonElement;
-			applySelectedBtn.style.display = 'none';
-			
-			this._register(
-				addDisposableListener(toggleBtn, 'click', () => {
-					applySelectedBtn.style.display = expanded ? 'block' : 'none';
-				})
-			);
 
 			this._register(
 				addDisposableListener(applySelectedBtn, 'click', async () => {
@@ -293,7 +288,6 @@ export class ProposalsView extends Disposable {
 			this.render();
 		} catch (error) {
 			console.error('Failed to apply proposal decision', error);
-			// TODO: Show error notification
 		}
 	}
 

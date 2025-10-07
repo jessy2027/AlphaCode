@@ -243,7 +243,6 @@ Provide a helpful suggestion for this context.`,
 		suggestion.status = 'accepted';
 		this._onDidChangeSuggestionStatus.fire(suggestion);
 
-		// TODO: Apply suggestion to editor
 		// This would require ITextEditorService to insert the content
 
 		this.pendingSuggestions.delete(suggestionId);
