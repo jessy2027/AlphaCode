@@ -152,14 +152,6 @@
     background: transparent;
 }
 
-.alphacode-chat-context-info {
-    display: none;
-}
-
-.alphacode-chat-context-label {
-    opacity: 0.85;
-}
-
 .alphacode-chat-input-wrapper {
     display: flex;
     flex-direction: column;
@@ -545,21 +537,6 @@
     font-size: 11px;
     line-height: 1.5;
     opacity: 0.75;
-}
-
-.alphacode-tool-card-meta {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    font-size: 11px;
-    opacity: 0.75;
-}
-
-.alphacode-tool-card-meta-item {
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--vscode-editorWidget-background) 70%, transparent);
-    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 70%, transparent);
 }
 
 .alphacode-tool-card-body {
