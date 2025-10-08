@@ -5,7 +5,7 @@
 import { getWindow, h } from '../../../../base/browser/dom.js';
 import { IBoundarySashes } from '../../../../base/browser/ui/sash/sash.js';
 import { findLast } from '../../../../base/common/arraysFind.js';
-import { BugIndicatingError, onUnexpectedError } from '../../../../base/common/errors.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Event } from '../../../../base/common/event.js';
 import { readHotReloadableExport } from '../../../../base/common/hotReloadHelpers.js';
 import { toDisposable } from '../../../../base/common/lifecycle.js';
@@ -400,8 +400,10 @@ export class DiffEditorWidget extends DelegatingEditor implements IDiffEditor {
 			if (!model) { return; }
 			for (const m of [model.model.original, model.model.modified]) {
 				store.add(m.onWillDispose(e => {
-					onUnexpectedError(new BugIndicatingError('TextModel got disposed before DiffEditorWidget model got reset'));
-					this.setModel(null);
+					// Safely reset model when text model is disposed
+					if (this._diffModel.get() !== null) {
+						this.setModel(null);
+					}
 				}));
 			}
 		}));

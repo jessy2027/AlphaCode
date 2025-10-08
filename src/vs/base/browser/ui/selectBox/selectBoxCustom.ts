@@ -239,7 +239,7 @@ export class SelectBoxList extends Disposable implements ISelectBoxDelegate, ILi
 		let listIsVisibleOnTouchStart: boolean;
 		this._register(dom.addDisposableListener(this.selectElement, 'touchstart', (e) => {
 			listIsVisibleOnTouchStart = this._isVisible;
-		}));
+		}, { passive: true }));
 		this._register(dom.addDisposableListener(this.selectElement, 'touchend', (e) => {
 			dom.EventHelper.stop(e);
 
@@ -248,7 +248,7 @@ export class SelectBoxList extends Disposable implements ISelectBoxDelegate, ILi
 			} else {
 				this.showSelectDropDown();
 			}
-		}));
+		}, { passive: false }));
 
 		// Intercept keyboard handling
 

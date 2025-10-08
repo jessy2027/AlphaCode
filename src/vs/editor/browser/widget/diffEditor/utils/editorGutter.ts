@@ -121,16 +121,21 @@ export class EditorGutter<T extends IGutterItemInfo = IGutterItemInfo> extends D
 							view.item.set(gutterItem, tx);
 						}
 
+						const model = this._editor.getModel();
+						const lineCount = model?.getLineCount() ?? 0;
+
 						const top =
-							gutterItem.range.startLineNumber <= this._editor.getModel()!.getLineCount()
+							gutterItem.range.startLineNumber <= lineCount
 								? this._editor.getTopForLineNumber(gutterItem.range.startLineNumber, true) - scrollTop
-								: gutterItem.range.startLineNumber > 1
+								: gutterItem.range.startLineNumber > 1 && gutterItem.range.startLineNumber - 1 <= lineCount
 									? this._editor.getBottomForLineNumber(gutterItem.range.startLineNumber - 1, false) - scrollTop
 									: 0;
 						const bottom =
 							gutterItem.range.endLineNumberExclusive === 1 ?
 								Math.max(top, this._editor.getTopForLineNumber(gutterItem.range.startLineNumber, false) - scrollTop)
-								: Math.max(top, this._editor.getBottomForLineNumber(gutterItem.range.endLineNumberExclusive - 1, true) - scrollTop);
+								: gutterItem.range.endLineNumberExclusive - 1 <= lineCount
+									? Math.max(top, this._editor.getBottomForLineNumber(gutterItem.range.endLineNumberExclusive - 1, true) - scrollTop)
+									: top;
 
 						const height = bottom - top;
 						view.domNode.style.top = `${top}px`;

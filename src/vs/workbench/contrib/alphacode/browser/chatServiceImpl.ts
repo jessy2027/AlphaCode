@@ -168,7 +168,7 @@ export class AlphaCodeChatService
 	createSession(title?: string): IChatSession {
 		const session: IChatSession = {
 			id: generateUuid(),
-			title: title || `Session ${this.sessions.size + 1}`,
+			title: title || localize('alphacode.chat.sessionTitle', 'Session {0}', this.sessions.size + 1),
 			messages: [],
 			created: Date.now(),
 			updated: Date.now(),
@@ -236,7 +236,7 @@ export class AlphaCodeChatService
 	exportSession(sessionId: string): string {
 		const session = this.sessions.get(sessionId);
 		if (!session) {
-			throw new Error("Session not found");
+			throw new Error(localize('alphacode.chat.sessionNotFound', 'Session not found'));
 		}
 		return JSON.stringify(session, null, 2);
 	}
@@ -256,7 +256,7 @@ export class AlphaCodeChatService
 	private async sendMessageInternal(content: string, context?: IChatContext, hidden: boolean = false): Promise<void> {
 		const session = this.getCurrentSession();
 		if (!session) {
-			throw new Error("No active chat session");
+			throw new Error(localize('alphacode.chat.noActiveSession', 'No active chat session'));
 		}
 
 		this.addUserMessage(session, content, hidden);
@@ -289,11 +289,11 @@ export class AlphaCodeChatService
 
 		session.messages.push(userMessage);
 		session.updated = Date.now();
-		
+
 		if (!hidden) {
 			this._onDidAddMessage.fire(userMessage);
 		}
-		
+
 		this.saveSessions();
 	}
 
@@ -301,7 +301,7 @@ export class AlphaCodeChatService
 		const errorMessage: IChatMessage = {
 			id: generateUuid(),
 			role: "assistant",
-			content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+			content: localize('alphacode.chat.error', 'Error: {0}', error instanceof Error ? error.message : localize('alphacode.chat.unknownError', 'Unknown error')),
 			timestamp: Date.now(),
 		};
 
@@ -342,7 +342,7 @@ export class AlphaCodeChatService
 		session.updated = Date.now();
 		this._onDidAddMessage.fire(message);
 		this.saveSessions();
-		
+
 		return message;
 	}
 
@@ -385,10 +385,8 @@ export class AlphaCodeChatService
 			? `${file.content.slice(0, MAX_SNIPPET_LENGTH)}\n…`
 			: file.content;
 
-		return `File: ${file.path}\n${trimmed}`;
+		return localize('alphacode.chat.fileSnippet', 'File: {0}\n{1}', file.path, trimmed);
 	}
-
-	// ============================================================================
 	// Streaming
 	// ============================================================================
 
@@ -404,9 +402,8 @@ export class AlphaCodeChatService
 
 			if (!chunk.done) {
 				await this.streamHandler.processChunk(session, messageId, chunk, streamState);
-			} else if (!streamState.writeToolDetected) {
-				this._onDidStreamChunk.fire({ content: "", done: true, messageId });
 			}
+			// Ne pas envoyer done: true ici - attendre que tous les outils soient exécutés
 		});
 
 		this.currentStreamAbortController = undefined;
@@ -414,16 +411,18 @@ export class AlphaCodeChatService
 		await this.streamHandler.executePendingTools(session, streamState);
 		this.streamHandler.finalizeMessage(session, messageId, streamState);
 
-		// Continue conversation if tools were executed (for read operations that return data)
-		if (streamState.detectedToolCalls.size > 0) {
-			// Check if there are any read tools (non-write tools)
-			const hasReadTools = Array.from(streamState.detectedToolCalls.values())
+		// Vérifier s'il faut continuer la conversation AVANT d'envoyer done: true
+		const hasReadTools = streamState.detectedToolCalls.size > 0 &&
+			Array.from(streamState.detectedToolCalls.values())
 				.some(tool => !tool.name.toLowerCase().includes('write') && !tool.name.toLowerCase().includes('edit'));
 
-			if (hasReadTools) {
-				const updatedMessages = this.buildAIMessages(session);
-				await this.handleStreamingResponse(session, updatedMessages);
-			}
+		if (hasReadTools) {
+			// Ne PAS envoyer done: true, on continue le streaming avec la réponse de l'outil
+			const updatedMessages = this.buildAIMessages(session);
+			await this.handleStreamingResponse(session, updatedMessages);
+		} else {
+			// Envoyer done: true seulement si on ne continue pas
+			this._onDidStreamChunk.fire({ content: "", done: true, messageId });
 		}
 	}
 
@@ -460,7 +459,7 @@ export class AlphaCodeChatService
 			return {
 				toolCallId: toolCall.id,
 				result: "",
-				error: error instanceof Error ? error.message : "Unknown error executing tool",
+				error: error instanceof Error ? error.message : localize('alphacode.chat.unknownToolError', 'Unknown error executing tool'),
 			};
 		}
 	}
@@ -541,7 +540,7 @@ export class AlphaCodeChatService
 
 	private findProposalForTool(toolCall: IToolCall): IEditProposalWithChanges | undefined {
 		const candidateIds = Array.from(this.pendingProposals.keys());
-		
+
 		for (let i = candidateIds.length - 1; i >= 0; i--) {
 			const proposal = this.pendingProposals.get(candidateIds[i]);
 			if (!proposal) {
@@ -589,7 +588,7 @@ export class AlphaCodeChatService
 		await this.openDiffForProposal(enhancedProposal);
 
 		const summary = getChangeSummary(changes);
-		return `Edit proposal ${id} created for ${proposal.path}. ${summary}. The diff editor is now open for review. Use accept_edit_proposal or reject_edit_proposal to finalize.`;
+		return localize('alphacode.chat.proposalCreated', 'Edit proposal {0} created for {1}. {2}. The diff editor is now open for review. Use accept_edit_proposal or reject_edit_proposal to finalize.', id, proposal.path, summary);
 	}
 
 	private async openDiffForProposal(proposal: IEditProposalWithChanges): Promise<void> {
@@ -597,7 +596,8 @@ export class AlphaCodeChatService
 			// Close any existing diff editor for this proposal
 			await this.closeDiffForProposal(proposal.id);
 
-			const label = `${proposal.kind === "write" ? "Create" : "Edit"}: ${proposal.path}`;
+			const actionLabel = proposal.kind === "write" ? localize('alphacode.chat.create', 'Create') : localize('alphacode.chat.edit', 'Edit');
+			const label = `${actionLabel}: ${proposal.path}`;
 			const fileName = proposal.path.split(/[/]/).pop() ?? "file";
 
 			const originalResource = URI.from({
@@ -615,20 +615,25 @@ export class AlphaCodeChatService
 				modifiedUri: modifiedResource,
 			});
 
+			const changeLabel = proposal.changes.length > 1
+				? localize('alphacode.chat.changes', 'changes')
+				: localize('alphacode.chat.change', 'change');
+			const description = `${proposal.path} (${proposal.changes.length} ${changeLabel})`;
+
 			const diffInput: ITextResourceDiffEditorInput = {
 				label,
-				description: `${proposal.path} (${proposal.changes.length} change${proposal.changes.length > 1 ? 's' : ''})`,
+				description,
 				original: {
 					resource: originalResource,
 					forceUntitled: true,
 					contents: proposal.originalContent ?? "",
-					label: proposal.kind === "write" ? "Empty File" : "Original",
+					label: proposal.kind === "write" ? localize('alphacode.chat.emptyFile', 'Empty File') : localize('alphacode.chat.original', 'Original'),
 				},
 				modified: {
 					resource: modifiedResource,
 					forceUntitled: true,
 					contents: proposal.proposedContent ?? "",
-					label: "Proposed Changes",
+					label: localize('alphacode.chat.proposedChanges', 'Proposed Changes'),
 				},
 				options: {
 					pinned: true,
@@ -681,7 +686,6 @@ export class AlphaCodeChatService
 	getProposal(proposalId: string): IEditProposalWithChanges | undefined {
 		return this.pendingProposals.get(proposalId);
 	}
-
 	hasPendingProposal(proposalId: string): boolean {
 		return this.pendingProposals.has(proposalId);
 	}
@@ -689,7 +693,7 @@ export class AlphaCodeChatService
 	async acceptProposal(proposalId: string): Promise<void> {
 		const proposal = this.pendingProposals.get(proposalId);
 		if (!proposal) {
-			throw new Error(`Unknown proposal: ${proposalId}`);
+			throw new Error(localize('alphacode.chat.unknownProposal', 'Unknown proposal: {0}', proposalId));
 		}
 		const message = await this.acceptEditProposal(proposalId);
 		this.appendSystemMessage(message);
@@ -698,7 +702,7 @@ export class AlphaCodeChatService
 	async rejectProposal(proposalId: string): Promise<void> {
 		const proposal = this.pendingProposals.get(proposalId);
 		if (!proposal) {
-			throw new Error(`Unknown proposal: ${proposalId}`);
+			throw new Error(localize('alphacode.chat.unknownProposal', 'Unknown proposal: {0}', proposalId));
 		}
 		const message = await this.rejectEditProposal(proposalId);
 		this.appendSystemMessage(message);
@@ -707,7 +711,7 @@ export class AlphaCodeChatService
 	private async acceptEditProposal(id: string): Promise<string> {
 		const proposal = this.pendingProposals.get(id);
 		if (!proposal) {
-			throw new Error(`Unknown proposal: ${id}`);
+			throw new Error(localize('alphacode.chat.unknownProposal', 'Unknown proposal: {0}', id));
 		}
 
 		const uri = URI.file(proposal.filePath);
@@ -723,13 +727,13 @@ export class AlphaCodeChatService
 		this.backupContents.delete(id);
 		this.logDecision(proposal, "accepted");
 
-		return `✓ Applied proposal ${id} to ${proposal.path}.`;
+		return localize('alphacode.chat.proposalApplied', '✓ Applied proposal {0} to {1}.', id, proposal.path);
 	}
 
 	private async rejectEditProposal(id: string): Promise<string> {
 		const proposal = this.pendingProposals.get(id);
 		if (!proposal) {
-			throw new Error(`Unknown proposal: ${id}`);
+			throw new Error(localize('alphacode.chat.unknownProposal', 'Unknown proposal: {0}', id));
 		}
 
 		// Rollback to original content if file was modified
@@ -758,7 +762,7 @@ export class AlphaCodeChatService
 		this.backupContents.delete(id);
 		this.logDecision(proposal, "rejected");
 
-		return `✗ Rejected proposal ${id} for ${proposal.path}. Changes have been rolled back.`;
+		return localize('alphacode.chat.proposalRejected', '✗ Rejected proposal {0} for {1}. Changes have been rolled back.', id, proposal.path);
 	}
 
 
@@ -766,7 +770,7 @@ export class AlphaCodeChatService
 	async applyProposalDecision(decision: IProposalDecision): Promise<void> {
 		const proposal = this.pendingProposals.get(decision.proposalId);
 		if (!proposal) {
-			throw new Error(`Proposal ${decision.proposalId} not found`);
+			throw new Error(localize('alphacode.chat.proposalNotFound', 'Proposal {0} not found', decision.proposalId));
 		}
 
 		switch (decision.action) {
@@ -780,14 +784,14 @@ export class AlphaCodeChatService
 
 			case 'accept-changes':
 				if (!decision.changeIndexes?.length) {
-					throw new Error('No change indexes provided for accept-changes action');
+					throw new Error(localize('alphacode.chat.noChangeIndexes', 'No change indexes provided for accept-changes action'));
 				}
 				await this.applyPartialChanges(proposal, decision.changeIndexes, true);
 				break;
 
 			case 'reject-changes':
 				if (!decision.changeIndexes?.length) {
-					throw new Error('No change indexes provided for reject-changes action');
+					throw new Error(localize('alphacode.chat.noChangeIndexesReject', 'No change indexes provided for reject-changes action'));
 				}
 				await this.applyPartialChanges(proposal, decision.changeIndexes, false);
 				break;
@@ -810,7 +814,7 @@ export class AlphaCodeChatService
 			this.logDecision(proposal, 'partially-accepted');
 
 			this.appendSystemMessage(
-				`Partially applied proposal ${proposal.id} to ${proposal.path} (${changeIndexes.length} changes).`
+				localize('alphacode.chat.proposalPartiallyApplied', 'Partially applied proposal {0} to {1} ({2} changes).', proposal.id, proposal.path, changeIndexes.length)
 			);
 		} else {
 			const remainingChanges = proposal.changes.filter((_: any, index: number) =>
@@ -823,7 +827,7 @@ export class AlphaCodeChatService
 				proposal.changes = remainingChanges;
 				this._onDidChangeProposalStatus.fire(proposal);
 				this.appendSystemMessage(
-					`Rejected ${changeIndexes.length} changes from proposal ${proposal.id}.`
+					localize('alphacode.chat.changesRejected', 'Rejected {0} changes from proposal {1}.', changeIndexes.length, proposal.id)
 				);
 			}
 		}
@@ -836,13 +840,13 @@ export class AlphaCodeChatService
 		for (const proposal of pending) {
 			try {
 				await this.acceptEditProposal(proposal.id);
-				results.push(`✓ ${proposal.path}`);
+				results.push(localize('alphacode.chat.proposalSuccess', '✓ {0}', proposal.path));
 			} catch (error) {
-				results.push(`✗ ${proposal.path}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+				results.push(localize('alphacode.chat.proposalError', '✗ {0}: {1}', proposal.path, error instanceof Error ? error.message : localize('alphacode.chat.unknownError', 'Unknown error')));
 			}
 		}
 
-		this.appendSystemMessage(`Accepted all proposals:\n${results.join('\n')}`);
+		this.appendSystemMessage(localize('alphacode.chat.acceptedAllProposals', 'Accepted all proposals:\n{0}', results.join('\n')));
 	}
 
 	async rejectAllProposals(): Promise<void> {
@@ -852,13 +856,13 @@ export class AlphaCodeChatService
 		for (const proposal of pending) {
 			try {
 				await this.rejectEditProposal(proposal.id);
-				results.push(`✓ ${proposal.path}`);
+				results.push(localize('alphacode.chat.proposalSuccess', '✓ {0}', proposal.path));
 			} catch (error) {
-				results.push(`✗ ${proposal.path}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+				results.push(localize('alphacode.chat.proposalError', '✗ {0}: {1}', proposal.path, error instanceof Error ? error.message : localize('alphacode.chat.unknownError', 'Unknown error')));
 			}
 		}
 
-		this.appendSystemMessage(`Rejected all proposals:\n${results.join('\n')}`);
+		this.appendSystemMessage(localize('alphacode.chat.rejectedAllProposals', 'Rejected all proposals:\n{0}', results.join('\n')));
 	}
 
 	getProposalAuditLog(): Array<{
