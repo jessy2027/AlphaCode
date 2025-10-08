@@ -17,7 +17,6 @@ import {
 } from "../../../../base/browser/dom.js";
 import { IDisposable } from "../../../../base/common/lifecycle.js";
 import { localize } from "../../../../nls.js";
-import { generateUuid } from "../../../../base/common/uuid.js";
 import { ICommandService } from "../../../../platform/commands/common/commands.js";
 import { MarkdownRenderer } from "./markdownRenderer.js";
 import { IConfigurationService } from "../../../../platform/configuration/common/configuration.js";
@@ -58,10 +57,12 @@ export class VibeCodingView extends ViewPane {
 	private welcomeContainer: HTMLElement | undefined;
 	
 	private currentStreamingMessage: HTMLElement | undefined;
+	private currentStreamingMessageElement: HTMLElement | undefined;
 	private currentStreamingBuffer = "";
 	private currentStreamingMessageId: string | undefined;
 	private lastRenderedStreamingContent = "";
 	private streamingRenderHandle: number | undefined;
+	private isCreatingStreamingMessage = false;
 	
 	private isConfigured = false;
 	private isStreaming = false;
@@ -240,15 +241,25 @@ export class VibeCodingView extends ViewPane {
 		this.updateSendStopButton();
 	}
 
+	private scrollDebounceTimeout: number | undefined;
+
 	private handleScroll(scrollTop: number): void {
 		if (!this.messagesContainer) return;
 
-		if (scrollTop < this.lastScrollTop - 2) {
-			this.autoScrollPinned = false;
-		} else if (this.isNearBottom()) {
-			this.autoScrollPinned = true;
+		// Optimisation: debounce pour éviter les calculs trop fréquents
+		if (this.scrollDebounceTimeout !== undefined) {
+			clearTimeout(this.scrollDebounceTimeout);
 		}
-		this.lastScrollTop = scrollTop;
+
+		this.scrollDebounceTimeout = setTimeout(() => {
+			if (scrollTop < this.lastScrollTop - 2) {
+				this.autoScrollPinned = false;
+			} else if (this.isNearBottom()) {
+				this.autoScrollPinned = true;
+			}
+			this.lastScrollTop = scrollTop;
+			this.scrollDebounceTimeout = undefined;
+		}, 50) as unknown as number;
 	}
 
 	private renderMessages(): void {
@@ -257,21 +268,34 @@ export class VibeCodingView extends ViewPane {
 		const preserveScroll = !this.autoScrollPinned;
 		const distanceFromBottom = preserveScroll ? this.getDistanceFromBottom() : 0;
 
+		// Clear ALL messages from DOM
 		clearNode(this.messagesContainer);
+
+		// Clear streaming message references (they're no longer in DOM)
 		this.currentStreamingMessage = undefined;
+		this.currentStreamingMessageElement = undefined;
 
 		const session = this.ensureSession();
 
 		if (session.messages.length === 0) {
 			this.renderEmptySessionState();
+
+			// If streaming is active but no messages yet, create streaming message
+			if (this.isStreaming) {
+				this.ensureStreamingMessage(this.currentStreamingMessageId);
+			}
+
 			this.scrollIfNeeded(false, preserveScroll, distanceFromBottom);
 			return;
 		}
 
+		// Render all messages from session
 		const visibleMessages = this.getVisibleMessages(session);
 		this.renderMessageSequence(visibleMessages);
 
-		if (this.isStreaming || this.currentStreamingBuffer.trim().length > 0) {
+		// If streaming is STILL active (shouldn't happen normally since renderMessages
+		// is protected by isStreaming check, but handle it for safety)
+		if (this.isStreaming && this.currentStreamingBuffer.trim().length > 0) {
 			this.ensureStreamingMessage(this.currentStreamingMessageId);
 		}
 
@@ -553,11 +577,15 @@ export class VibeCodingView extends ViewPane {
 		if (!this.messagesContainer) return;
 
 		const messageElement = append(this.messagesContainer, $(`.alphacode-chat-message.${message.role}`));
+
+		// Optimisation: marquer l'élément comme en cours d'animation
+		messageElement.classList.add('animating');
+
 		const header = append(messageElement, $(".alphacode-chat-message-header"));
-		
-		const avatars: Record<string, string> = { 
-			user: "👤", 
-			assistant: "🤖", 
+
+		const avatars: Record<string, string> = {
+			user: "👤",
+			assistant: "🤖",
 			tool: "🛠️",
 			system: "💬"
 		};
@@ -576,6 +604,11 @@ export class VibeCodingView extends ViewPane {
 
 		const content = append(messageElement, $(".alphacode-chat-message-content"));
 		content.textContent = message.content;
+
+		// Optimisation: retirer la classe animating après l'animation
+		setTimeout(() => {
+			messageElement.classList.remove('animating');
+		}, 300);
 
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 	}
@@ -640,6 +673,15 @@ export class VibeCodingView extends ViewPane {
 			const toolTitle = append(toolHeader, $("span.alphacode-tool-title"));
 			toolTitle.textContent = simplifiedText;
 
+			// Add status badge if there's an error
+			if (message.metadata?.status === 'error') {
+				const statusBadge = append(toolHeader, $("span.alphacode-tool-status-badge.error"));
+				statusBadge.textContent = "Error";
+			} else {
+				const statusBadge = append(toolHeader, $("span.alphacode-tool-status-badge.success"));
+				statusBadge.textContent = "Done";
+			}
+
 			const toolContent = append(toolContainer, $("div.alphacode-tool-content.collapsed"));
 			toolContent.style.display = "none";
 
@@ -671,29 +713,31 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private getReadToolLabel(filePath: string | undefined, toolName: string, parameters: any): string {
-		if (!filePath) return `📖 ${toolName}`;
+		if (!filePath) return `📄 ${toolName}`;
 
 		const filename = filePath.split(/[/\\]/).pop();
-		
+
 		if (parameters.offset !== undefined && parameters.limit !== undefined) {
 			const start = parameters.offset;
 			const end = start + parameters.limit - 1;
-			return `📖 Read ${filename} #L${start}-${end}`;
+			return `📄 Read ${filename} • Lines ${start}-${end}`;
 		}
-		
+
 		if (toolName.toLowerCase().includes("list")) {
-			return `📂 List ${filename}`;
+			return `📂 List files in ${filename}`;
 		}
-		
+
 		if (toolName.toLowerCase().includes("grep")) {
-			return `🔍 Search "${parameters.Query || parameters.query || ''}" in ${filename}`;
+			const query = parameters.Query || parameters.query || '';
+			return `🔍 Search "${query}" in ${filename}`;
 		}
-		
+
 		if (toolName.toLowerCase().includes("find")) {
-			return `🔎 Find "${parameters.Pattern || parameters.pattern || ''}" in ${filename}`;
+			const pattern = parameters.Pattern || parameters.pattern || '';
+			return `🔎 Find "${pattern}" in ${filename}`;
 		}
-		
-		return `📖 Read ${filename}`;
+
+		return `📄 Read ${filename}`;
 	}
 
 	private renderWriteToolMessage(
@@ -705,7 +749,7 @@ export class VibeCodingView extends ViewPane {
 
 		if (filePath) {
 			const filename = filePath.split(/[/\\]/).pop() || "file";
-			const ext = filename.split(".").pop()?.toUpperCase() || "";
+			const ext = filename.split(".").pop()?.toUpperCase() || "FILE";
 
 			const summary = metadata.summary || "";
 			const linesMatch = summary.match(/(\d+)\s+lines?\s+changed/i);
@@ -714,7 +758,12 @@ export class VibeCodingView extends ViewPane {
 			const toolCard = append(contentElement, $("div.alphacode-tool-file-card"));
 
 			const iconSpan = append(toolCard, $("span.alphacode-tool-file-icon"));
-			iconSpan.textContent = "✏️";
+			// Use different icons based on operation type
+			if (parameters.file_path && metadata.kind === 'write') {
+				iconSpan.textContent = "📝"; // New file
+			} else {
+				iconSpan.textContent = "✏️"; // Edit file
+			}
 
 			const badge = append(toolCard, $("span.alphacode-tool-file-badge"));
 			badge.textContent = ext;
@@ -724,7 +773,7 @@ export class VibeCodingView extends ViewPane {
 
 			if (linesChanged > 0) {
 				const linesSpan = append(toolCard, $("span.alphacode-tool-file-lines"));
-				linesSpan.textContent = `±${linesChanged}`;
+				linesSpan.textContent = `±${linesChanged} lines`;
 			}
 
 			// Ajouter un bouton pour voir les changements si une proposition existe
@@ -752,17 +801,31 @@ export class VibeCodingView extends ViewPane {
 		toolName: string,
 		metadata: any
 	): void {
-		const toolCard = append(contentElement, $("div.alphacode-tool-simple"));
+		const status = metadata.status || 'success';
+		const toolCard = append(contentElement, $(
+			`div.alphacode-tool-simple${status === 'error' ? '.error' : status === 'success' ? '.success' : ''}`
+		));
 
 		// Ajouter une icône appropriée basée sur le type d'outil
 		const icon = this.getToolIcon(toolName);
+		const iconSpan = append(toolCard, $("span.alphacode-tool-icon"));
+		iconSpan.textContent = icon;
+
 		const displayText = metadata.summary || metadata.description || toolName;
+		const textSpan = append(toolCard, $("span"));
+		textSpan.textContent = displayText;
 
-		toolCard.textContent = `${icon} ${displayText}`;
+		// Ajouter un badge de statut
+		if (status === 'error') {
+			const statusBadge = append(toolCard, $("span.alphacode-tool-status-badge.error"));
+			statusBadge.textContent = "Failed";
+		} else if (status === 'success') {
+			const statusBadge = append(toolCard, $("span.alphacode-tool-status-badge.success"));
+			statusBadge.textContent = "Done";
+		}
 
-		// Ajouter une classe d'erreur si nécessaire
+		// Ajouter les détails d'erreur si nécessaire
 		if (metadata.error) {
-			toolCard.classList.add("error");
 			const errorDetails = append(contentElement, $("div.alphacode-tool-error-details"));
 			errorDetails.textContent = metadata.error;
 		}
@@ -770,12 +833,20 @@ export class VibeCodingView extends ViewPane {
 
 	private getToolIcon(toolName: string): string {
 		const toolIcons: Record<string, string> = {
-			'accept_edit_proposal': '✓',
-			'reject_edit_proposal': '✗',
+			'accept_edit_proposal': '✅',
+			'reject_edit_proposal': '❌',
 			'list_edit_proposals': '📋',
-			'execute': '⚙️',
+			'execute': '▶️',
+			'bash': '💻',
+			'terminal': '⌨️',
 			'search': '🔍',
+			'web_search': '🌐',
 			'analyze': '🔬',
+			'test': '🧪',
+			'debug': '🐛',
+			'build': '🔨',
+			'deploy': '🚀',
+			'refactor': '♻️',
 		};
 
 		const lowerName = toolName.toLowerCase();
@@ -785,7 +856,7 @@ export class VibeCodingView extends ViewPane {
 			}
 		}
 
-		return '🛠️'; // Default tool icon
+		return '🔧'; // Default tool icon
 	}
 
 	private renderMessageActions(messageElement: HTMLElement, message: IChatMessage): void {
@@ -830,16 +901,21 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private updateSendStopButton(): void {
-		if (!this.sendStopButton) return;
+		if (!this.sendStopButton) {
+			console.warn('[VibeCoding] Send/Stop button not found');
+			return;
+		}
 
 		if (this.isStreaming) {
 			this.sendStopButton.textContent = "⏸";
 			this.sendStopButton.title = localize("alphacode.chat.stopGenerating", "Stop generating");
 			this.sendStopButton.classList.add("stop-mode");
+			console.log('[VibeCoding] Button changed to STOP mode');
 		} else {
 			this.sendStopButton.textContent = "↑";
 			this.sendStopButton.title = localize("alphacode.chat.send", "Send message");
 			this.sendStopButton.classList.remove("stop-mode");
+			console.log('[VibeCoding] Button changed to SEND mode');
 		}
 	}
 
@@ -847,6 +923,7 @@ export class VibeCodingView extends ViewPane {
 		this.chatService.abortCurrentStream();
 
 		this.isStreaming = false;
+		this.isCreatingStreamingMessage = false;
 		this.cancelStreamingRenderLoop();
 		this.lastRenderedStreamingContent = "";
 		this.currentStreamingBuffer = '';
@@ -862,6 +939,7 @@ export class VibeCodingView extends ViewPane {
 				);
 			}
 			this.currentStreamingMessage = undefined;
+			this.currentStreamingMessageElement = undefined;
 		}
 
 		this.renderMessages();
@@ -892,94 +970,148 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private onStreamChunk(chunk: { content: string; done: boolean; messageId?: string }): void {
+		// Stop render loop when streaming is complete
 		if (chunk.done) {
 			this.stopStreamingRenderLoop();
-		}
-
-		this.ensureStreamingMessage(chunk.messageId);
-		if (!this.currentStreamingMessage) return;
-		
-		if (chunk.messageId && this.currentStreamingMessageId && 
-			chunk.messageId !== this.currentStreamingMessageId) {
-			return;
-		}
-		
-		if (chunk.messageId && !this.currentStreamingMessageId) {
-			this.currentStreamingMessageId = chunk.messageId;
-		}
-
-		if (!chunk.done) {
-			if (chunk.content) {
-				this.currentStreamingBuffer += chunk.content;
-				this.scheduleStreamingRender();
-			}
-
-			// Nettoyer les blocs tool pour le streaming (ils seront affichés proprement après)
-			const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
-			const hasContent = cleanContent.trim().length > 0;
-
-			if (hasContent) {
-				clearNode(this.currentStreamingMessage);
-				this.markdownRenderer.render(cleanContent, this.currentStreamingMessage);
-				this.lastRenderedStreamingContent = cleanContent;
-			} else {
-				this.ensureStreamingSpinner();
-			}
-			
-			if (hasContent) {
-				this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")?.remove();
-			}
-			
-			this.scrollIfNeeded();
-		} else {
+			this.isStreaming = false;
+			this.isCreatingStreamingMessage = false;
 			this.currentStreamingBuffer = "";
 			this.currentStreamingMessageId = undefined;
-			this.isStreaming = false;
+			this.currentStreamingMessageElement = undefined;
 			this.updateSendStopButton();
 			this.renderMessages();
+			return;
 		}
+
+		// Ensure we have a streaming message to write to
+		this.ensureStreamingMessage(chunk.messageId);
+		if (!this.currentStreamingMessage?.isConnected) {
+			// If for some reason we can't create/find the message, skip this chunk
+			return;
+		}
+
+		// Check for message ID mismatch (shouldn't happen, but safety check)
+		if (chunk.messageId && this.currentStreamingMessageId &&
+			chunk.messageId !== this.currentStreamingMessageId) {
+			// Different message, ignore this chunk
+			return;
+		}
+
+		// Accumulate content
+		if (chunk.content) {
+			this.currentStreamingBuffer += chunk.content;
+			this.scheduleStreamingRender();
+		}
+
+		// Clean content for display (remove tool blocks during streaming)
+		const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
+		const hasContent = cleanContent.trim().length > 0;
+
+		// Update the streaming message content
+		if (hasContent) {
+			clearNode(this.currentStreamingMessage);
+			this.markdownRenderer.render(cleanContent, this.currentStreamingMessage);
+			this.lastRenderedStreamingContent = cleanContent;
+			// Remove spinner once we have content
+			this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")?.remove();
+		} else {
+			// No content yet, show spinner
+			this.ensureStreamingSpinner();
+		}
+
+		this.scrollIfNeeded();
 	}
 
 	private ensureStreamingMessage(messageId?: string): void {
 		if (!this.messagesContainer) return;
-		
-		if (this.currentStreamingMessage?.isConnected) {
-			if (messageId && !this.currentStreamingMessageId) {
-				this.currentStreamingMessageId = messageId;
-			}
+
+		// Critical: Prevent concurrent message creation
+		if (this.isCreatingStreamingMessage) {
 			return;
 		}
 
-		if (this.currentStreamingMessage?.isConnected && 
-			this.currentStreamingMessageId && messageId && 
-			this.currentStreamingMessageId !== messageId) {
-			this.currentStreamingMessage = undefined;
+		// If we already have a valid streaming message in the DOM, reuse it
+		if (this.currentStreamingMessageElement?.isConnected &&
+			this.currentStreamingMessage?.isConnected) {
+
+			// Update message ID if needed
+			if (messageId && !this.currentStreamingMessageId) {
+				this.currentStreamingMessageId = messageId;
+			}
+
+			// Update content if buffer has data
+			if (this.currentStreamingBuffer.trim().length > 0) {
+				const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
+				if (cleanContent !== this.lastRenderedStreamingContent) {
+					clearNode(this.currentStreamingMessage);
+					this.markdownRenderer.render(cleanContent, this.currentStreamingMessage);
+					this.lastRenderedStreamingContent = cleanContent;
+					this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")?.remove();
+				}
+			} else {
+				this.ensureStreamingSpinner();
+			}
+
+			this.scrollIfNeeded();
+			return;
 		}
 
-		if (!this.currentStreamingMessage) {
-			const messageElement = append(
-				this.messagesContainer,
-				$(".alphacode-chat-message.assistant.streaming")
-			);
-			const header = append(messageElement, $(".alphacode-chat-message-header"));
-			append(header, $(".alphacode-chat-message-avatar", undefined, "🤖"));
-			append(header, $("span", undefined, localize("alphacode.chat.assistant", "AlphaCode AI")));
-			
-			this.currentStreamingMessage = append(messageElement, $(".alphacode-chat-message-content"));
-			this.currentStreamingMessage.textContent = "";
-			this.ensureStreamingSpinner();
+		// Check for message ID mismatch (new streaming response started)
+		if (this.currentStreamingMessage?.isConnected &&
+			this.currentStreamingMessageId && messageId &&
+			this.currentStreamingMessageId !== messageId) {
+
+			// Different message ID = new response, cleanup old one
+			this.currentStreamingMessage = undefined;
+			this.currentStreamingMessageElement = undefined;
+			this.currentStreamingMessageId = undefined;
 		}
-		
-		if (this.currentStreamingBuffer.trim().length > 0) {
-			this.markdownRenderer.render(this.currentStreamingBuffer, this.currentStreamingMessage);
-			this.lastRenderedStreamingContent = this.currentStreamingBuffer;
-		} else {
-			this.ensureStreamingSpinner();
+
+		// Double-check: if message element exists in DOM, don't create a new one
+		const existingStreamingMessage = this.messagesContainer.querySelector('.alphacode-chat-message.assistant.streaming');
+		if (existingStreamingMessage) {
+			// Reuse existing message instead of creating new one
+			this.currentStreamingMessageElement = existingStreamingMessage as HTMLElement;
+			this.currentStreamingMessage = existingStreamingMessage.querySelector('.alphacode-chat-message-content') as HTMLElement;
+
+			if (messageId) {
+				this.currentStreamingMessageId = messageId;
+			}
+
+			this.scrollIfNeeded();
+			return;
 		}
-		
-		if (messageId) {
-			this.currentStreamingMessageId = messageId;
+
+		// Create new streaming message ONLY if it truly doesn't exist
+		if (!this.currentStreamingMessage || !this.currentStreamingMessage.isConnected) {
+			// Set flag to prevent concurrent creation
+			this.isCreatingStreamingMessage = true;
+
+			try {
+				const messageElement = append(
+					this.messagesContainer,
+					$(".alphacode-chat-message.assistant.streaming")
+				);
+
+				const header = append(messageElement, $(".alphacode-chat-message-header"));
+				append(header, $(".alphacode-chat-message-avatar", undefined, "🤖"));
+				append(header, $("span", undefined, localize("alphacode.chat.assistant", "AlphaCode AI")));
+
+				this.currentStreamingMessage = append(messageElement, $(".alphacode-chat-message-content"));
+				this.currentStreamingMessageElement = messageElement;
+				this.currentStreamingMessage.textContent = "";
+
+				if (messageId) {
+					this.currentStreamingMessageId = messageId;
+				}
+
+				this.ensureStreamingSpinner();
+			} finally {
+				// Always clear the flag, even if error
+				this.isCreatingStreamingMessage = false;
+			}
 		}
+
 		this.scrollIfNeeded();
 	}
 
@@ -993,7 +1125,8 @@ export class VibeCodingView extends ViewPane {
 
 	private scheduleStreamingRender(): void {
 		if (this.streamingRenderHandle !== undefined) return;
-		
+
+		// Optimisation: utiliser requestAnimationFrame pour 60fps
 		this.streamingRenderHandle = requestAnimationFrame(() => {
 			this.streamingRenderHandle = undefined;
 			this.renderStreamingBuffer();
@@ -1037,24 +1170,35 @@ export class VibeCodingView extends ViewPane {
 		const content = this.inputTextArea.value.trim();
 		if (!content) return;
 
+		// Clear input immediately
 		this.inputTextArea.value = "";
+
+		// Set streaming state BEFORE any async operation
 		this.isStreaming = true;
 		this.cancelStreamingRenderLoop();
 		this.lastRenderedStreamingContent = "";
 		this.currentStreamingBuffer = "";
 		this.currentStreamingMessageId = undefined;
+		this.currentStreamingMessage = undefined;
+		this.currentStreamingMessageElement = undefined;
+		this.isCreatingStreamingMessage = false;
+
+		// Update button immediately (critical for UI feedback)
 		this.updateSendStopButton();
 
-		const userMessage: IChatMessage = {
-			id: generateUuid(),
-			role: "user",
-			content,
-			timestamp: Date.now(),
-		};
+		// Render user message immediately for UX feedback
+		// Note: The service will also add it to the session, but we show it now
+		if (this.messagesContainer) {
+			const userMessageElement = append(this.messagesContainer, $(`.alphacode-chat-message.user`));
+			const header = append(userMessageElement, $(".alphacode-chat-message-header"));
+			append(header, $(".alphacode-chat-message-avatar", undefined, "👤"));
+			append(header, $("span", undefined, localize("alphacode.chat.you", "You")));
+			const messageContent = append(userMessageElement, $(".alphacode-chat-message-content"));
+			messageContent.textContent = content;
+			this.scrollIfNeeded(true);
+		}
 
-		this.renderMessage(userMessage);
-		this.ensureStreamingMessage();
-
+		// Prepare context before calling service
 		const activeEditor = this.editorService.activeTextEditorControl;
 		const context = {
 			activeFile: this.editorService.activeEditor?.resource?.path,
@@ -1062,19 +1206,33 @@ export class VibeCodingView extends ViewPane {
 		};
 
 		try {
+			// The service will add the user message to the session
+			// First chunk will trigger ensureStreamingMessage() which creates the assistant message
 			await this.chatService.sendMessage(content, context);
 		} catch (error) {
 			console.error("Failed to send message", error);
-			if (this.currentStreamingMessage) {
-				this.currentStreamingMessage.textContent = `Error: ${
+
+			// Show error in streaming message if it exists
+			const errorMessage = this.currentStreamingMessage as HTMLElement | undefined;
+			if (errorMessage?.isConnected) {
+				errorMessage.textContent = `Error: ${
 					error instanceof Error ? error.message : "Unknown error"
 				}`;
 				this.scrollIfNeeded(true);
 			}
 		} finally {
+			// Clean up streaming state
 			this.isStreaming = false;
+			this.isCreatingStreamingMessage = false;
 			this.currentStreamingMessage = undefined;
+			this.currentStreamingMessageElement = undefined;
+			this.currentStreamingBuffer = "";
+			this.currentStreamingMessageId = undefined;
+
+			// Update button
 			this.updateSendStopButton();
+
+			// Refresh all messages from session
 			this.renderMessages();
 		}
 	}

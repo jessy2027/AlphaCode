@@ -15,15 +15,17 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 12px;
-	padding-bottom: 8px;
-	border-bottom: 1px solid var(--vscode-panel-border);
+	margin-bottom: 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border) 50%, transparent);
 }
 
 .proposals-header h3 {
 	margin: 0;
 	font-size: 14px;
 	font-weight: 600;
+	color: var(--vscode-foreground);
+	letter-spacing: -0.02em;
 }
 
 .proposals-global-actions {
@@ -34,8 +36,22 @@
 
 .proposals-global-actions button {
 	flex: 1;
-	padding: 6px 12px;
+	padding: 8px 16px;
 	font-size: 12px;
+	font-weight: 500;
+	border-radius: 6px;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	overflow: hidden;
+}
+
+.proposals-global-actions button:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.proposals-global-actions button:active:not(:disabled) {
+	transform: translateY(0);
 }
 
 .proposals-list {
@@ -53,16 +69,65 @@
 	font-style: italic;
 }
 
+/* Animations d'apparition */
+@keyframes slideInUp {
+	from {
+		opacity: 0;
+		transform: translateY(16px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes slideOutDown {
+	from {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(8px) scale(0.98);
+	}
+}
+
 .proposal-card {
-	border: 1px solid var(--vscode-panel-border);
-	border-radius: 4px;
-	padding: 12px;
-	background: var(--vscode-editor-background);
-	transition: border-color 0.2s;
+	border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
+	border-radius: 8px;
+	padding: 16px;
+	background: color-mix(in srgb, var(--vscode-editor-background) 95%, var(--vscode-foreground) 5%);
+	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	overflow: hidden;
+	animation: slideInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.proposal-card::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--vscode-focusBorder), transparent);
+	opacity: 0;
+	transition: opacity 0.25s;
 }
 
 .proposal-card:hover {
 	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+	transform: translateY(-2px);
+}
+
+.proposal-card:hover::before {
+	opacity: 1;
+}
+
+.proposal-card.removing {
+	animation: slideOutDown 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .proposal-header {
@@ -79,12 +144,20 @@
 }
 
 .proposal-kind {
-	font-size: 12px;
-	padding: 2px 6px;
+	font-size: 11px;
+	padding: 4px 10px;
 	background: var(--vscode-badge-background);
 	color: var(--vscode-badge-foreground);
-	border-radius: 3px;
-	font-weight: 500;
+	border-radius: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	transition: all 0.2s;
+}
+
+.proposal-kind:hover {
+	transform: scale(1.05);
 }
 
 .proposal-path {
@@ -95,22 +168,57 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	transition: color 0.2s;
+}
+
+.proposal-card:hover .proposal-path {
+	color: var(--vscode-focusBorder);
 }
 
 .proposal-summary {
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
+	line-height: 1.5;
 }
 
 .proposal-actions {
 	display: flex;
-	gap: 6px;
+	gap: 8px;
 	flex-wrap: wrap;
+	margin-top: 4px;
 }
 
 .proposal-actions button.small {
-	padding: 4px 10px;
+	padding: 6px 14px;
 	font-size: 11px;
+	font-weight: 500;
+	border-radius: 6px;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	overflow: hidden;
+}
+
+.proposal-actions button.small::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 0;
+	height: 0;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.2);
+	transform: translate(-50%, -50%);
+	transition: width 0.4s, height 0.4s;
+}
+
+.proposal-actions button.small:active::before {
+	width: 200px;
+	height: 200px;
+}
+
+.proposal-actions button.small:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
 }
 
 .proposal-changes {
@@ -123,70 +231,223 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 8px;
+	margin-bottom: 10px;
 	font-size: 12px;
 	font-weight: 600;
+	padding: 4px 0;
+}
+
+.changes-header button {
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.changes-header button:hover {
+	transform: translateX(3px);
 }
 
 .changes-list {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	margin-top: 8px;
+	gap: 10px;
+	margin-top: 10px;
 	padding-left: 8px;
+	animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDown {
+	from {
+		opacity: 0;
+		max-height: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		max-height: 1000px;
+		transform: translateY(0);
+	}
 }
 
 .change-item {
-	padding: 8px;
-	background: var(--vscode-input-background);
-	border: 1px solid var(--vscode-input-border);
-	border-radius: 3px;
+	padding: 10px;
+	background: color-mix(in srgb, var(--vscode-input-background) 90%, transparent);
+	border: 1px solid color-mix(in srgb, var(--vscode-input-border) 50%, transparent);
+	border-radius: 6px;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+}
+
+.change-item::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 3px;
+	background: var(--vscode-focusBorder);
+	opacity: 0;
+	border-radius: 6px 0 0 6px;
+	transition: opacity 0.2s;
+}
+
+.change-item:hover {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.change-item:hover::before {
+	opacity: 1;
 }
 
 .change-header {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	margin-bottom: 6px;
+	gap: 10px;
+	margin-bottom: 8px;
 }
 
 .change-header input[type="checkbox"] {
 	cursor: pointer;
+	width: 16px;
+	height: 16px;
+	transition: transform 0.2s;
+}
+
+.change-header input[type="checkbox"]:hover {
+	transform: scale(1.15);
 }
 
 .line-number {
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
 	font-family: var(--monaco-monospace-font);
+	background: color-mix(in srgb, var(--vscode-badge-background) 30%, transparent);
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-weight: 500;
 }
 
 .diff-preview {
 	font-family: var(--monaco-monospace-font);
 	font-size: 11px;
-	line-height: 16px;
+	line-height: 18px;
 	overflow-x: auto;
+	border-radius: 4px;
+	background: var(--vscode-editor-background);
+	padding: 6px;
 }
 
 .diff-old {
-	color: var(--vscode-diffEditor-removedTextBackground);
-	background: rgba(255, 0, 0, 0.1);
-	padding: 2px 4px;
-	margin: 1px 0;
+	color: #ff6b6b;
+	background: rgba(255, 107, 107, 0.15);
+	padding: 3px 6px;
+	margin: 2px 0;
+	border-radius: 3px;
+	display: block;
+	position: relative;
+	padding-left: 20px;
+}
+
+.diff-old::before {
+	content: '−';
+	position: absolute;
+	left: 6px;
+	font-weight: bold;
 }
 
 .diff-new {
-	color: var(--vscode-diffEditor-insertedTextBackground);
-	background: rgba(0, 255, 0, 0.1);
-	padding: 2px 4px;
-	margin: 1px 0;
+	color: #51cf66;
+	background: rgba(81, 207, 102, 0.15);
+	padding: 3px 6px;
+	margin: 2px 0;
+	border-radius: 3px;
+	display: block;
+	position: relative;
+	padding-left: 20px;
+}
+
+.diff-new::before {
+	content: '+';
+	position: absolute;
+	left: 6px;
+	font-weight: bold;
 }
 
 button.secondary {
 	background: transparent;
 	border: 1px solid var(--vscode-button-border);
 	color: var(--vscode-button-foreground);
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	overflow: hidden;
 }
 
-button.secondary:hover {
+button.secondary::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+button.secondary:hover:not(:disabled)::before {
+	opacity: 1;
+}
+
+button.secondary:hover:not(:disabled) {
 	background: var(--vscode-button-hoverBackground);
+	transform: translateY(-1px);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Success/Error feedback animations */
+@keyframes successPulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(81, 207, 102, 0.7);
+	}
+	70% {
+		box-shadow: 0 0 0 10px rgba(81, 207, 102, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(81, 207, 102, 0);
+	}
+}
+
+@keyframes errorPulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+	}
+	70% {
+		box-shadow: 0 0 0 10px rgba(255, 107, 107, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+	}
+}
+
+.proposal-card.success {
+	animation: successPulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.proposal-card.error {
+	animation: errorPulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth scrollbar for proposals */
+.alphacode-proposals-view::-webkit-scrollbar {
+	width: 8px;
+}
+
+.alphacode-proposals-view::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.alphacode-proposals-view::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--vscode-scrollbarSlider-background) 70%, transparent);
+	border-radius: 4px;
+	transition: background 0.2s;
+}
+
+.alphacode-proposals-view::-webkit-scrollbar-thumb:hover {
+	background: var(--vscode-scrollbarSlider-hoverBackground);
 }
