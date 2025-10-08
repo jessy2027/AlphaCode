@@ -1130,14 +1130,24 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private removeToolBlocksForStreaming(content: string): string {
-		// Remplacer les blocs tool par un indicateur visuel pendant le streaming
-		return content.replace(/```tool\s*\n[\s\S]*?\n```/g, '🔧 _[Tool execution]_');
+		// Remplacer les blocs tool par un message de chargement pendant l'exécution
+		// Le vrai contenu sera affiché une fois le tool terminé
+		return content.replace(/```tool\s*\n([\s\S]*?)\n```/g, (match, toolJson) => {
+			try {
+				const tool = JSON.parse(toolJson);
+				const toolName = tool.name || 'Tool';
+				// Message de chargement simple et discret
+				return `_Executing ${toolName}..._`;
+			} catch {
+				return '_Loading..._';
+			}
+		});
 	}
 
 	private renderStreamingBuffer(): void {
 		if (!this.currentStreamingMessage) return;
 
-		// Nettoyer le contenu pour l'affichage
+		// Nettoyer le contenu pour l'affichage en streaming
 		const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
 		if (cleanContent === this.lastRenderedStreamingContent) return;
 
