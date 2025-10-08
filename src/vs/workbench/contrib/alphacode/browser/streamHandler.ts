@@ -61,19 +61,17 @@ export class StreamHandler {
 		// Garder le contenu complet avec les blocs tool pour un affichage inline
 		state.displayContent = state.fullContent;
 
-		// Detect write tools
+		// Detect write tools (but don't stop streaming!)
 		if (!state.writeToolDetected && this.hasWriteToolPattern(state.fullContent)) {
 			state.writeToolDetected = true;
-			this.onStreamChunk({ content: "", done: true, messageId });
+			// Note: We continue streaming to UI even with write tools
 		}
 
 		// Create or update assistant message
 		await this.updateAssistantMessage(session, messageId, state);
 
-		// Stream to UI if no write tool
-		if (!state.writeToolDetected) {
-			this.onStreamChunk({ content: chunk.content, done: false, messageId });
-		}
+		// Always stream to UI (removed the writeToolDetected check)
+		this.onStreamChunk({ content: chunk.content, done: false, messageId });
 
 		// Extract and queue tools
 		await this.extractAndQueueTools(session, state);
