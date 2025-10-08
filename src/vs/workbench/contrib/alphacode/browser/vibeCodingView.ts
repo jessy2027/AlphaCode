@@ -713,31 +713,31 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private getReadToolLabel(filePath: string | undefined, toolName: string, parameters: any): string {
-		if (!filePath) return `📄 ${toolName}`;
+		if (!filePath) return `${toolName}`;
 
 		const filename = filePath.split(/[/\\]/).pop();
 
 		if (parameters.offset !== undefined && parameters.limit !== undefined) {
 			const start = parameters.offset;
 			const end = start + parameters.limit - 1;
-			return `📄 Read ${filename} • Lines ${start}-${end}`;
+			return `Read ${filename} #L${start}-${end}`;
 		}
 
 		if (toolName.toLowerCase().includes("list")) {
-			return `📂 List files in ${filename}`;
+			return `List files in ${filename}`;
 		}
 
 		if (toolName.toLowerCase().includes("grep")) {
 			const query = parameters.Query || parameters.query || '';
-			return `🔍 Search "${query}" in ${filename}`;
+			return `Searched ${query} in ${filename}`;
 		}
 
 		if (toolName.toLowerCase().includes("find")) {
 			const pattern = parameters.Pattern || parameters.pattern || '';
-			return `🔎 Find "${pattern}" in ${filename}`;
+			return `Find ${pattern} in ${filename}`;
 		}
 
-		return `📄 Read ${filename}`;
+		return `Read ${filename}`;
 	}
 
 	private renderWriteToolMessage(
@@ -751,48 +751,44 @@ export class VibeCodingView extends ViewPane {
 			const filename = filePath.split(/[/\\]/).pop() || "file";
 			const ext = filename.split(".").pop()?.toUpperCase() || "FILE";
 
-			const summary = metadata.summary || "";
-			const linesMatch = summary.match(/(\d+)\s+lines?\s+changed/i);
-			const linesChanged = linesMatch ? parseInt(linesMatch[1]) : 0;
+			// Style minimaliste : TS vibeCodingView.ts +428 -425
+			const toolCard = append(contentElement, $("div.alphacode-tool-simple"));
 
-			const toolCard = append(contentElement, $("div.alphacode-tool-file-card"));
-
-			const iconSpan = append(toolCard, $("span.alphacode-tool-file-icon"));
-			// Use different icons based on operation type
-			if (parameters.file_path && metadata.kind === 'write') {
-				iconSpan.textContent = "📝"; // New file
-			} else {
-				iconSpan.textContent = "✏️"; // Edit file
-			}
-
+			// Badge de type de fichier (TS, JS, etc.) en bleu
 			const badge = append(toolCard, $("span.alphacode-tool-file-badge"));
-			badge.textContent = ext;
+			badge.textContent = ext + " ";
 
+			// Nom du fichier
 			const nameSpan = append(toolCard, $("span.alphacode-tool-file-name"));
 			nameSpan.textContent = filename;
 
-			if (linesChanged > 0) {
-				const linesSpan = append(toolCard, $("span.alphacode-tool-file-lines"));
-				linesSpan.textContent = `±${linesChanged} lines`;
-			}
+			// Stats de diff si disponibles
+			const summary = metadata.summary || "";
+			// Support both "insertion/deletion" and "added/removed" formats
+			const addedMatch = summary.match(/(\d+)\s+(?:insertion|line[s]?\s+added)/i);
+			const removedMatch = summary.match(/(\d+)\s+(?:deletion|line[s]?\s+removed)/i);
 
-			// Ajouter un bouton pour voir les changements si une proposition existe
-			if (metadata.proposalId) {
-				const viewButton = append(toolCard, $("button.alphacode-tool-view-changes")) as HTMLButtonElement;
-				viewButton.textContent = "View Changes";
-				viewButton.type = "button";
-				this._register(
-					addDisposableListener(viewButton, "click", () => {
-						// Ouvrir la vue des propositions ou le diff
-						if (metadata.proposalId) {
-							this.commandService.executeCommand('alphacode.openProposal', metadata.proposalId);
-						}
-					})
-				);
+			if (addedMatch || removedMatch) {
+				const statsSpan = append(toolCard, $("span.alphacode-diff-stats"));
+				statsSpan.textContent = " ";
+
+				if (addedMatch) {
+					const addedSpan = append(statsSpan, $("span.added"));
+					addedSpan.textContent = `+${addedMatch[1]}`;
+				}
+
+				if (addedMatch && removedMatch) {
+					statsSpan.appendChild(document.createTextNode(" "));
+				}
+
+				if (removedMatch) {
+					const removedSpan = append(statsSpan, $("span.removed"));
+					removedSpan.textContent = `-${removedMatch[1]}`;
+				}
 			}
 		} else {
 			const toolText = append(contentElement, $("div.alphacode-tool-simple"));
-			toolText.textContent = "✏️ Edit file";
+			toolText.textContent = "Edit file";
 		}
 	}
 

@@ -174,6 +174,24 @@ export class MarkdownRenderer {
 			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;');
 
+		// Détecter les références de fichier avec numéro de ligne (ex: filename.ts:42)
+		// et les styliser en bleu comme dans l'image
+		result = result.replace(
+			/\b([a-zA-Z_][\w./-]*\.(ts|js|tsx|jsx|py|java|cpp|c|h|cs|go|rs|rb|php|html|css|json|xml|yaml|yml|md|txt))(:(\d+))?/g,
+			(match, filepath, ext, colonAndLine, lineNumber) => {
+				if (colonAndLine) {
+					return `<code class='alphacode-inline-code'>${filepath}</code><code class='alphacode-inline-code'>:${lineNumber}</code>`;
+				}
+				return `<code class='alphacode-inline-code'>${filepath}</code>`;
+			}
+		);
+
+		// Détecter les badges de langage en début de ligne (ex: TS renderAssistantTurn)
+		result = result.replace(
+			/\b(TS|JS|PY|JAVA|CPP|CS|GO|RS|RB|PHP|HTML|CSS)\b(?=\s+\w)/g,
+			`<code class='alphacode-language-badge'>$1</code>`
+		);
+
 		result = result.replace(
 			/`([^`]+)`/g,
 			`<code class='alphacode-inline-code'>$1</code>`,
