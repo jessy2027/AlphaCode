@@ -1,11 +1,12 @@
 {
-  "name": "code-oss-dev",
-  "version": "1.105.0",
+  "name": "alphacode-ide",
+  "version": "1.0.0",
   "distro": "35091a9a52c6140fcbee98e0829b9713aed0f6a0",
   "author": {
-    "name": "Microsoft Corporation"
+    "name": "AlphaCode Team"
   },
   "license": "MIT",
+  "description": "AlphaCode IDE - Modern Code Editor with AI Integration",
   "main": "./out/main.js",
   "type": "module",
   "private": true,
@@ -234,10 +235,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/microsoft/vscode.git"
+    "url": "https://github.com/jessy2027/AlphaCodeIDE.git"
   },
   "bugs": {
-    "url": "https://github.com/microsoft/vscode/issues"
+    "url": "https://github.com/jessy2027/AlphaCodeIDE/issues"
   },
   "optionalDependencies": {
     "windows-foreground-love": "0.5.0"
