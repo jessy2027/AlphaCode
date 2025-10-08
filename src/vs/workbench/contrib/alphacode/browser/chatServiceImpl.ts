@@ -40,10 +40,11 @@ import { MessageFormatter } from "./messageFormatter.js";
 import { StreamHandler } from "./streamHandler.js";
 import { PromptBuilder } from "./promptBuilder.js";
 import { ProposalManager } from "./proposalManager.js";
+import { ProposalEditorService } from "./proposalEditorService.js";
 import { IFileService } from "../../../../platform/files/common/files.js";
 import { IWorkspaceContextService } from "../../../../platform/workspace/common/workspace.js";
 import { IEditorService } from "../../../../workbench/services/editor/common/editorService.js";
-import type { ITextResourceDiffEditorInput } from "../../../../workbench/common/editor.js";
+import { ITextModelService } from "../../../../editor/common/services/resolverService.js";
 import { URI } from "../../../../base/common/uri.js";
 
 // Storage keys
@@ -94,7 +95,7 @@ export class AlphaCodeChatService
 	private auditLog: IToolEditDecisionRecord[] = [];
 	private proposalSequence = 0;
 	private currentStreamAbortController: AbortController | undefined;
-	private openDiffEditors: Map<string, { originalUri: URI; modifiedUri: URI }> = new Map();
+
 
 	// Tools and utilities
 	private readonly toolsRegistry: ChatToolsRegistry;
@@ -103,6 +104,7 @@ export class AlphaCodeChatService
 	private readonly streamHandler: StreamHandler;
 	private readonly promptBuilder: PromptBuilder;
 	private readonly proposalManager: ProposalManager;
+	private readonly proposalEditorService: ProposalEditorService;
 
 	constructor(
 		@IAlphaCodeAIService private readonly aiService: IAlphaCodeAIService,
@@ -112,6 +114,7 @@ export class AlphaCodeChatService
 		@IFileService private readonly fileService: IFileService,
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
 		@IEditorService private readonly editorService: IEditorService,
+		@ITextModelService textModelService: ITextModelService,
 		@IChatEditingService private readonly chatEditingService: IChatEditingService,
 	) {
 		super();
@@ -119,6 +122,7 @@ export class AlphaCodeChatService
 		// Initialize utilities
 		this.promptBuilder = new PromptBuilder(securityService);
 		this.proposalManager = this._register(new ProposalManager(fileService, editorService));
+		this.proposalEditorService = this._register(new ProposalEditorService(textModelService));
 
 		// Forward proposal events
 		this._register(this.proposalManager.onDidCreateProposal(p => this._onDidCreateProposal.fire(p)));
@@ -147,11 +151,9 @@ export class AlphaCodeChatService
 		// Cleanup on disposal
 		this._register({
 			dispose: () => {
-				// Close all open diff editors
-				for (const proposalId of this.openDiffEditors.keys()) {
-					this.closeDiffForProposal(proposalId).catch(err =>
-						console.error('Error closing diff editor on disposal:', err)
-					);
+				// Clear all proposal decorations
+				for (const proposalId of this.pendingProposals.keys()) {
+					this.proposalEditorService.clearProposal(proposalId);
 				}
 			}
 		});
@@ -194,12 +196,12 @@ export class AlphaCodeChatService
 	}
 
 	async deleteSession(sessionId: string): Promise<void> {
-		// Close any diff editors associated with this session's proposals
+		// Clear decorations for proposals associated with this session
 		const proposalsToClose = Array.from(this.pendingProposals.values())
 			.filter(p => this.sessions.get(sessionId)?.messages.some(m => m.metadata?.proposalId === p.id));
 
 		for (const proposal of proposalsToClose) {
-			await this.closeDiffForProposal(proposal.id);
+			this.proposalEditorService.clearProposal(proposal.id);
 		}
 
 		this.sessions.delete(sessionId);
@@ -219,12 +221,12 @@ export class AlphaCodeChatService
 	async clearCurrentSession(): Promise<void> {
 		const session = this.getCurrentSession();
 		if (session) {
-			// Close all diff editors associated with this session's proposals
+			// Clear decorations for proposals associated with this session
 			const proposalsToClose = Array.from(this.pendingProposals.values())
 				.filter(p => session.messages.some(m => m.metadata?.proposalId === p.id));
 
 			for (const proposal of proposalsToClose) {
-				await this.closeDiffForProposal(proposal.id);
+				this.proposalEditorService.clearProposal(proposal.id);
 			}
 
 			session.messages = [];
@@ -585,96 +587,36 @@ export class AlphaCodeChatService
 		this.pendingProposals.set(id, enhancedProposal);
 		this._onDidCreateProposal.fire(enhancedProposal);
 
-		await this.openDiffForProposal(enhancedProposal);
+		// Apply changes immediately to the file
+		await this.applyProposalChanges(enhancedProposal);
+
+		// Open file with inline decorations
+		await this.openProposalFile(enhancedProposal);
 
 		const summary = getChangeSummary(changes);
-		return localize('alphacode.chat.proposalCreated', 'Edit proposal {0} created for {1}. {2}. The diff editor is now open for review. Use accept_edit_proposal or reject_edit_proposal to finalize.', id, proposal.path, summary);
+		return localize('alphacode.chat.proposalCreated', 'Edit proposal {0} created for {1}. {2}. The file is now open with inline decorations for review. Use accept_edit_proposal or reject_edit_proposal to finalize.', id, proposal.path, summary);
 	}
 
-	private async openDiffForProposal(proposal: IEditProposalWithChanges): Promise<void> {
-		try {
-			// Close any existing diff editor for this proposal
-			await this.closeDiffForProposal(proposal.id);
-
-			const actionLabel = proposal.kind === "write" ? localize('alphacode.chat.create', 'Create') : localize('alphacode.chat.edit', 'Edit');
-			const label = `${actionLabel}: ${proposal.path}`;
-			const fileName = proposal.path.split(/[/]/).pop() ?? "file";
-
-			const originalResource = URI.from({
-				scheme: "untitled",
-				path: `/alphacode/original/${proposal.id}/${fileName}`,
-			});
-			const modifiedResource = URI.from({
-				scheme: "untitled",
-				path: `/alphacode/modified/${proposal.id}/${fileName}`,
-			});
-
-			// Track the URIs for cleanup
-			this.openDiffEditors.set(proposal.id, {
-				originalUri: originalResource,
-				modifiedUri: modifiedResource,
-			});
-
-			const changeLabel = proposal.changes.length > 1
-				? localize('alphacode.chat.changes', 'changes')
-				: localize('alphacode.chat.change', 'change');
-			const description = `${proposal.path} (${proposal.changes.length} ${changeLabel})`;
-
-			const diffInput: ITextResourceDiffEditorInput = {
-				label,
-				description,
-				original: {
-					resource: originalResource,
-					forceUntitled: true,
-					contents: proposal.originalContent ?? "",
-					label: proposal.kind === "write" ? localize('alphacode.chat.emptyFile', 'Empty File') : localize('alphacode.chat.original', 'Original'),
-				},
-				modified: {
-					resource: modifiedResource,
-					forceUntitled: true,
-					contents: proposal.proposedContent ?? "",
-					label: localize('alphacode.chat.proposedChanges', 'Proposed Changes'),
-				},
-				options: {
-					pinned: true,
-					preserveFocus: false,
-					revealIfVisible: true,
-					activation: 1, // EditorActivation.ACTIVATE
-				},
-			};
-
-			await this.editorService.openEditor(diffInput);
-		} catch (error) {
-			console.error("Failed to open diff for proposal:", error);
-			throw error;
-		}
+	private async applyProposalChanges(proposal: IEditProposalWithChanges): Promise<void> {
+		// Apply changes immediately to the file
+		const uri = URI.file(proposal.filePath);
+		await this.fileService.writeFile(uri, VSBuffer.fromString(proposal.proposedContent));
 	}
 
-	private async closeDiffForProposal(proposalId: string): Promise<void> {
-		const diffEditor = this.openDiffEditors.get(proposalId);
-		if (!diffEditor) {
-			return;
-		}
+	private async openProposalFile(proposal: IEditProposalWithChanges): Promise<void> {
+		const uri = URI.file(proposal.filePath);
 
-		try {
-			// Find and close all editors with these URIs
-			const editors = this.editorService.editors;
-			for (const editor of editors) {
-				const resource = editor.resource;
-				if (resource &&
-					(resource.toString() === diffEditor.originalUri.toString() ||
-					 resource.toString() === diffEditor.modifiedUri.toString())) {
-					const groupId = this.editorService.activeEditorPane?.group.id;
-					if (groupId !== undefined) {
-						await this.editorService.closeEditor({ editor, groupId });
-					}
-				}
+		// Open the file in the editor
+		await this.editorService.openEditor({
+			resource: uri,
+			options: {
+				preserveFocus: false,
+				revealIfOpened: true
 			}
+		});
 
-			this.openDiffEditors.delete(proposalId);
-		} catch (error) {
-			console.error("Failed to close diff editor for proposal:", error);
-		}
+		// Show inline decorations
+		await this.proposalEditorService.showProposal(proposal);
 	}
 
 	getPendingProposals(): IEditProposalWithChanges[] {
@@ -720,8 +662,8 @@ export class AlphaCodeChatService
 		proposal.status = 'accepted';
 		this._onDidChangeProposalStatus.fire(proposal);
 
-		// Close the diff editor
-		await this.closeDiffForProposal(id);
+		// Clear decorations
+		this.proposalEditorService.clearProposal(id);
 
 		this.pendingProposals.delete(id);
 		this.backupContents.delete(id);
@@ -755,8 +697,8 @@ export class AlphaCodeChatService
 		proposal.status = 'rejected';
 		this._onDidChangeProposalStatus.fire(proposal);
 
-		// Close the diff editor
-		await this.closeDiffForProposal(id);
+		// Clear decorations
+		this.proposalEditorService.clearProposal(id);
 
 		this.pendingProposals.delete(id);
 		this.backupContents.delete(id);

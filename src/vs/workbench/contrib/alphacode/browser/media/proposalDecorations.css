@@ -1,0 +1,66 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Inline diff decorations for AI proposals */
+
+.alphacode-proposal-line-added {
+	background-color: rgba(0, 255, 0, 0.1);
+	border-left: 3px solid rgba(0, 255, 0, 0.6);
+}
+
+.alphacode-proposal-line-removed {
+	background-color: rgba(255, 0, 0, 0.1);
+	border-left: 3px solid rgba(255, 0, 0, 0.6);
+	text-decoration: line-through;
+	opacity: 0.7;
+}
+
+.alphacode-proposal-line-modified {
+	background-color: rgba(255, 165, 0, 0.1);
+	border-left: 3px solid rgba(255, 165, 0, 0.6);
+}
+
+.alphacode-proposal-line-gutter {
+	background-color: rgba(255, 165, 0, 0.2);
+}
+
+.alphacode-proposal-glyph {
+	cursor: pointer;
+}
+
+/* Dark theme adjustments */
+.vs-dark .alphacode-proposal-line-added {
+	background-color: rgba(0, 255, 0, 0.15);
+	border-left-color: rgba(0, 255, 0, 0.7);
+}
+
+.vs-dark .alphacode-proposal-line-removed {
+	background-color: rgba(255, 0, 0, 0.15);
+	border-left-color: rgba(255, 0, 0, 0.7);
+}
+
+.vs-dark .alphacode-proposal-line-modified {
+	background-color: rgba(255, 165, 0, 0.15);
+	border-left-color: rgba(255, 165, 0, 0.7);
+}
+
+/* High contrast theme */
+.hc-black .alphacode-proposal-line-added,
+.hc-light .alphacode-proposal-line-added {
+	background-color: transparent;
+	border-left: 4px solid #00ff00;
+}
+
+.hc-black .alphacode-proposal-line-removed,
+.hc-light .alphacode-proposal-line-removed {
+	background-color: transparent;
+	border-left: 4px solid #ff0000;
+}
+
+.hc-black .alphacode-proposal-line-modified,
+.hc-light .alphacode-proposal-line-modified {
+	background-color: transparent;
+	border-left: 4px solid #ffa500;
+}

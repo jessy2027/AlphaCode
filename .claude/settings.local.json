@@ -5,7 +5,9 @@
       "Bash(dir:*)",
       "Bash(git commit:*)",
       "Bash(git add:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git checkout:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
