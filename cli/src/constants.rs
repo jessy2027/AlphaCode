@@ -55,14 +55,14 @@ pub const APPLICATION_NAME: &str = match option_env!("VSCODE_CLI_APPLICATION_NAM
 /// Full name of the product with its version.
 pub const PRODUCT_NAME_LONG: &str = match option_env!("VSCODE_CLI_NAME_LONG") {
 	Some(n) => n,
-	None => "Code - OSS",
+	None => "AlphaCode IDE",
 };
 
 /// Name of the application without quality information.
 pub const QUALITYLESS_PRODUCT_NAME: &str = match option_env!("VSCODE_CLI_QUALITYLESS_PRODUCT_NAME")
 {
 	Some(n) => n,
-	None => "Code",
+	None => "AlphaCode",
 };
 
 /// Name of the application without quality information.
@@ -70,7 +70,7 @@ pub const QUALITYLESS_SERVER_NAME: &str = concatcp!(QUALITYLESS_PRODUCT_NAME, " 
 
 pub const QUALITY: &str = match VSCODE_CLI_QUALITY {
 	Some(q) => q,
-	_ => "oss",
+	_ => "IDE",
 };
 
 /// Web URL the editor is hosted at. For VS Code, this is vscode.dev.
