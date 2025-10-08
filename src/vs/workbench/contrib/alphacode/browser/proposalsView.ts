@@ -12,14 +12,17 @@ import {
 } from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
-import { IAlphaCodeChatService, IEditProposalWithChanges, IProposalDecision } from '../common/chatService.js';
-import { getChangeSummary } from './diffUtils.js';
+import { IAlphaCodeChatService, IEditProposalWithChanges } from '../common/chatService.js';
 
 export class ProposalsView extends Disposable {
 	private proposalsList: HTMLElement | undefined;
 	private rootContainer: HTMLElement | undefined;
 	private acceptAllBtn: HTMLButtonElement | undefined;
 	private rejectAllBtn: HTMLButtonElement | undefined;
+	private headerElement: HTMLElement | undefined;
+	private toggleBtn: HTMLElement | undefined;
+	private viewAllLink: HTMLElement | undefined;
+	private isExpanded: boolean = false;
 
 	constructor(
 		@IAlphaCodeChatService private readonly chatService: IAlphaCodeChatService
@@ -39,22 +42,30 @@ export class ProposalsView extends Disposable {
 		this.rootContainer = container;
 		container.classList.add('alphacode-proposals-view');
 
-		// Header
-		const header = append(container, $('.proposals-header'));
-		append(
-			header,
-			$('h3', undefined, localize('alphacode.proposals.title', 'AI Edit Proposals'))
+		// Header with toggle
+		this.headerElement = append(container, $('.proposals-header'));
+		this.toggleBtn = append(this.headerElement, $('.proposals-toggle'));
+		this.viewAllLink = append(this.headerElement, $('a.view-all-link', undefined, 'view all'));
+
+		this._register(
+			addDisposableListener(this.toggleBtn, 'click', () => {
+				this.isExpanded = !this.isExpanded;
+				this.render();
+			})
 		);
 
-		// Global actions
+		// Proposals list
+		this.proposalsList = append(container, $('.proposals-list'));
+
+		// Global actions (at the bottom)
 		const globalActionsContainer = append(container, $('.proposals-global-actions'));
-		this.acceptAllBtn = append(
-			globalActionsContainer,
-			$('button.monaco-button.monaco-text-button', undefined, localize('alphacode.proposals.acceptAll', 'Accept All'))
-		) as HTMLButtonElement;
 		this.rejectAllBtn = append(
 			globalActionsContainer,
-			$('button.monaco-button.monaco-text-button.secondary', undefined, localize('alphacode.proposals.rejectAll', 'Reject All'))
+			$('button.monaco-button.monaco-text-button.secondary', undefined, localize('alphacode.proposals.rejectAll', 'Reject all'))
+		) as HTMLButtonElement;
+		this.acceptAllBtn = append(
+			globalActionsContainer,
+			$('button.monaco-button.monaco-text-button', undefined, localize('alphacode.proposals.acceptAll', 'Accept all'))
 		) as HTMLButtonElement;
 
 		this._register(
@@ -79,14 +90,11 @@ export class ProposalsView extends Disposable {
 			})
 		);
 
-		// Proposals list
-		this.proposalsList = append(container, $('.proposals-list'));
-
 		this.render();
 	}
 
 	private render(): void {
-		if (!this.proposalsList || !this.rootContainer) {
+		if (!this.proposalsList || !this.rootContainer || !this.toggleBtn || !this.viewAllLink) {
 			return;
 		}
 
@@ -94,10 +102,10 @@ export class ProposalsView extends Disposable {
 
 		const proposals = this.chatService.getPendingProposals();
 
-		// Masquer toute la vue si aucune proposition
+		// Hide the entire view if no proposals
 		if (proposals.length === 0) {
 			this.rootContainer.style.display = 'none';
-			// Désactiver les boutons globaux
+			// Disable global buttons
 			if (this.acceptAllBtn) {
 				this.acceptAllBtn.disabled = true;
 			}
@@ -107,9 +115,9 @@ export class ProposalsView extends Disposable {
 			return;
 		}
 
-		// Afficher la vue si des propositions existent
+		// Show the view if proposals exist
 		this.rootContainer.style.display = 'block';
-		// Activer les boutons globaux
+		// Enable global buttons
 		if (this.acceptAllBtn) {
 			this.acceptAllBtn.disabled = false;
 		}
@@ -117,8 +125,27 @@ export class ProposalsView extends Disposable {
 			this.rejectAllBtn.disabled = false;
 		}
 
-		for (const proposal of proposals) {
-			this.renderProposal(proposal);
+		// Update header text
+		const fileCount = proposals.length;
+		const hasChanges = proposals.some(p => p.changes.length > 0);
+		const headerText = hasChanges
+			? `${fileCount} file${fileCount > 1 ? 's' : ''} with changes`
+			: `${fileCount} file${fileCount > 1 ? 's' : ''}`;
+
+		clearNode(this.toggleBtn);
+		// allow-any-unicode-next-line
+		const arrow = this.isExpanded ? '\u25BC' : '\u25B6'; // ▼ : ▶
+		append(this.toggleBtn, $('span.arrow', undefined, arrow));
+		append(this.toggleBtn, $('span.text', undefined, headerText));
+
+		// Show/hide view all link and proposals list based on expanded state
+		this.viewAllLink.style.display = this.isExpanded ? 'inline' : 'none';
+		this.proposalsList.style.display = this.isExpanded ? 'block' : 'none';
+
+		if (this.isExpanded) {
+			for (const proposal of proposals) {
+				this.renderProposal(proposal);
+			}
 		}
 	}
 
@@ -130,175 +157,41 @@ export class ProposalsView extends Disposable {
 		const proposalCard = append(this.proposalsList, $('.proposal-card'));
 		proposalCard.setAttribute('data-proposal-id', proposal.id);
 
-		// Header
+		// Header with file name and change stats
 		const header = append(proposalCard, $('.proposal-header'));
 		const titleRow = append(header, $('.proposal-title-row'));
+
+		// File icon
 		append(
 			titleRow,
-			$('span.proposal-kind', undefined, proposal.kind === 'write' ? '📝 Create' : '✏️ Edit')
+			$('span.codicon.codicon-file', undefined)
 		);
+
+		// File name
 		append(
 			titleRow,
 			$('span.proposal-path', { title: proposal.filePath }, proposal.path)
 		);
 
-		// Summary
-		const summary = getChangeSummary(proposal.changes);
-		append(
-			header,
-			$('span.proposal-summary', undefined, summary)
-		);
+		// Change stats (+5 -12)
+		const additions = proposal.changes.filter(c => c.newText && !c.oldText).length;
+		const deletions = proposal.changes.filter(c => c.oldText && !c.newText).length;
 
-		// Actions
-		const actionsRow = append(header, $('.proposal-actions'));
-		
-		const acceptAllBtn = append(
-			actionsRow,
-			$('button.monaco-button.monaco-text-button.small', undefined, 'Accept All')
-		) as HTMLButtonElement;
-		
-		const rejectAllBtn = append(
-			actionsRow,
-			$('button.monaco-button.monaco-text-button.secondary.small', undefined, 'Reject All')
-		) as HTMLButtonElement;
+		const changeStats = [];
+		if (additions > 0) {
+			changeStats.push(`+${additions}`);
+		}
+		if (deletions > 0) {
+			changeStats.push(`-${deletions}`);
+		}
 
-		const viewDiffBtn = append(
-			actionsRow,
-			$('button.monaco-button.monaco-text-button.secondary.small', undefined, 'View Diff')
-		) as HTMLButtonElement;
-
-		this._register(
-			addDisposableListener(acceptAllBtn, 'click', async () => {
-				await this.applyDecision({
-					proposalId: proposal.id,
-					action: 'accept-all'
-				});
-			})
-		);
-
-		this._register(
-			addDisposableListener(rejectAllBtn, 'click', async () => {
-				await this.applyDecision({
-					proposalId: proposal.id,
-					action: 'reject-all'
-				});
-			})
-		);
-
-		this._register(
-			addDisposableListener(viewDiffBtn, 'click', () => {
-				// The diff is already opened by the service
-				// This button could focus on the diff editor
-			})
-		);
-
-		// Changes list (granular control)
-		if (proposal.changes.length > 0) {
-			const changesSection = append(proposalCard, $('.proposal-changes'));
-			const changesHeader = append(changesSection, $('.changes-header'));
+		if (changeStats.length > 0) {
 			append(
-				changesHeader,
-				$('span', undefined, localize('alphacode.proposals.changes', 'Changes ({0})', proposal.changes.length))
-			);
-
-			const toggleBtn = append(
-				changesHeader,
-				$('button.monaco-button.monaco-text-button.small', undefined, 'Show Details')
-			) as HTMLButtonElement;
-			const changesList = append(changesSection, $('.changes-list'));
-			changesList.style.display = 'none';
-			const applySelectedBtn = append(
-				changesSection,
-				$('button.monaco-button.monaco-text-button.small', undefined, 'Apply Selected Changes')
-			) as HTMLButtonElement;
-			applySelectedBtn.style.display = 'none';
-
-			let expanded = false;
-			const updateToggleState = () => {
-				changesList.style.display = expanded ? 'block' : 'none';
-				toggleBtn.textContent = expanded ? 'Hide Details' : 'Show Details';
-				applySelectedBtn.style.display = expanded ? 'block' : 'none';
-			};
-			updateToggleState();
-
-			this._register(
-				addDisposableListener(toggleBtn, 'click', () => {
-					expanded = !expanded;
-					updateToggleState();
-				})
-			);
-
-			// Render each change
-			proposal.changes.forEach((change, index) => {
-				const changeItem = append(changesList, $('.change-item'));
-				const changeHeader = append(changeItem, $('.change-header'));
-				const checkbox = append(
-					changeHeader,
-					$('input', { type: 'checkbox', checked: 'checked' })
-				) as HTMLInputElement;
-				checkbox.dataset.changeIndex = String(index);
-
-				append(
-					changeHeader,
-					$('span.line-number', undefined, `Line ${change.lineNumber}`)
-				);
-
-				// Show diff preview
-				const diffPreview = append(changeItem, $('.diff-preview'));
-				if (change.oldText) {
-					append(
-						diffPreview,
-						$('div.diff-old', undefined, `- ${change.oldText}`)
-					);
-				}
-				if (change.newText) {
-					append(
-						diffPreview,
-						$('div.diff-new', undefined, `+ ${change.newText}`)
-					);
-				}
-			});
-
-			this._register(
-				addDisposableListener(applySelectedBtn, 'click', async () => {
-					const checkboxes = changesList.querySelectorAll('input[type="checkbox"]');
-					const selectedIndexes: number[] = [];
-					
-					checkboxes.forEach((cb) => {
-						const input = cb as HTMLInputElement;
-						if (input.checked && input.dataset.changeIndex) {
-							selectedIndexes.push(parseInt(input.dataset.changeIndex, 10));
-						}
-					});
-
-					if (selectedIndexes.length > 0) {
-						await this.applyDecision({
-							proposalId: proposal.id,
-							action: 'accept-changes',
-							changeIndexes: selectedIndexes
-						});
-					}
-				})
+				titleRow,
+				$('span.change-stats', undefined, changeStats.join(' '))
 			);
 		}
-	}
 
-	private async applyDecision(decision: IProposalDecision): Promise<void> {
-		try {
-			// Optimisation: ajouter une animation de sortie
-			const proposalCard = this.proposalsList?.querySelector(`[data-proposal-id="${decision.proposalId}"]`) as HTMLElement;
-			if (proposalCard) {
-				proposalCard.classList.add('removing');
-
-				// Attendre la fin de l'animation avant de rendre à nouveau
-				await new Promise(resolve => setTimeout(resolve, 250));
-			}
-
-			await this.chatService.applyProposalDecision(decision);
-			this.render();
-		} catch (error) {
-			console.error('Failed to apply proposal decision', error);
-		}
 	}
 
 	override dispose(): void {
