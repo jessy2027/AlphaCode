@@ -206,8 +206,7 @@ import './contrib/speech/browser/speech.contribution.js';
 
 // Chat - Keep services active for AlphaCode dependency
 import './contrib/chat/browser/chat.contribution.js';
-// InlineChat disabled for AlphaCode
-// import './contrib/inlineChat/browser/inlineChat.contribution.js';
+import './contrib/inlineChat/browser/inlineChat.contribution.js';
 import './contrib/mcp/browser/mcp.contribution.js';
 
 // Interactive

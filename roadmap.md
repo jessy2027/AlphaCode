@@ -50,21 +50,23 @@
   - [ ] Rédiger les guides utilisateur et notes de version.
   - [ ] Mettre à jour la checklist de régression et la partager avec l'équipe QA.
 
-## Phase 3 – Contrôle des actions outils IA (Semaines 6-7)
-- **Objectif** Afficher la différence proposée par l'IA lorsqu'elle utilise un outil (ex. modification de fichier) et offrir la possibilité d'accepter ou refuser toutes les modifications (tous les fichiers modifiés) ou par modification dans un fichier (ligne bien précise) ou tout le fichier et une ouverture automatique des fichiers dans l'éditeur lors d'une modification dans un fichier avec un outil (IA)
-- **Livrables** Workflow de validation des diffs IA disponible dans toutes les conversations.
-- **Mesure de succès** Adoption par les bêta testeurs et réduction des erreurs introduites par l'IA.
-- **Implémenté**
-  - [x] Instrumenter la capture des diffs générés par les outils IA
-  - [x] Développer un composant UI de visualisation des diffs avec options d'acceptation/annulation
-  - [x] Intégrer des hooks d'approbation dans le pipeline d'exécution des outils
-  - [x] Ajouter une journalisation des décisions (accepté/refusé) pour audit
-  - [x] Bouton Stop pour arrêter la génération IA
-  - [x] Contrôle granulaire ligne par ligne
-  - [x] Ouverture automatique des diffs dans l'éditeur
-  - [x] Vue dédiée pour la gestion des proposals
-  - [x] Actions globales (Accept All / Reject All)
-  - [x] Extension au système de pair programming (copilote)
+### 2.6 Résilience conversationnelle et gestion du contexte (Semaine 5)
+- **Objectif** Assurer la continuité des conversations longues en préservant la pertinence des réponses de l'IA.
+- **Livrables** Mécanisme de résumé dynamique, gestion des métadonnées de conversation et outils de diagnostic.
+- **TODO**
+  - [ ] Implémenter un système de résumé automatique des échanges pour limiter la dérive du contexte.
+  - [ ] Ajouter une visualisation du contexte actif côté utilisateur (messages épinglés, rappel des objectifs).
+  - [ ] Détecter et signaler les pertes de contexte ou les incohérences de l'IA dans les journaux techniques.
+  - [ ] Fournir un service de restauration rapide du contexte après reconnexion ou rechargement.
+
+### 2.7 Feedback utilisateur et instrumentation (Semaines 5-6)
+- **Objectif** Mesurer la qualité perçue du chat et accélérer l'itération produit.
+- **Livrables** Tableau de bord feedback, métriques produit et canal de collecte en continu.
+- **TODO**
+  - [ ] Intégrer un système de notation rapide (👍/👎 + commentaire) sur chaque réponse IA.
+  - [ ] Relier les feedbacks aux conversations et aux versions du modèle pour faciliter l'analyse.
+  - [ ] Mettre en place des alertes en cas de baisse de satisfaction ou d'augmentation des refus de diff IA.
+  - [ ] Publier un rapport synthétique hebdomadaire incluant suggestions utilisateur et tendances clés.
 
 ### Fichiers créés/modifiés
 
@@ -99,6 +101,11 @@
 ## Phase 4 – Déploiement et suivi (Semaines 8-9)
 - **Objectif** Mettre en production progressive les nouveautés et surveiller leur impact.
 - **Livrables** Release notes complètes, tableaux de bord de suivi et backlog post-lancement.
+
+- **Suivi qualitatif**
+  - [ ] Organiser des sessions de co-analyse hebdomadaires avec l'équipe support pour identifier les frictions.
+  - [ ] Enrichir `PHASE3_TOOL_CONTROL.md` avec des retours terrain et scénarios d'usage critiques.
+  - [ ] Centraliser les insights du feedback chat pour alimenter la Phase 5 (expérience conversationnelle continue).
 
 ### ✅ Bouton stop pour le chat - IMPLÉMENTÉ
 - Le bouton d'envoi (↑) se transforme en bouton stop (⏸) pendant que l'IA génère une réponse

@@ -23,13 +23,17 @@ interface FontData {
 
 export const getFonts = async (): Promise<string[]> => {
 	try {
+		// Check if page is visible before querying fonts
+		if (mainWindow.document.visibilityState !== 'visible') {
+			return [];
+		}
 		// @ts-ignore
 		const fonts = await mainWindow.queryLocalFonts() as FontData[];
 		const fontsArray = [...fonts];
 		const families = fontsArray.map(font => font.family);
 		return families;
 	} catch (error) {
-		console.error(`Failed to query fonts: ${error}`);
+		// Silently return empty array if query fails (e.g., page not visible)
 		return [];
 	}
 };
