@@ -5,15 +5,6 @@
 - **Horizon** Semaine 1 à Semaine 9, avec point de synchronisation à chaque fin de phase.
 - **KPI clés** Taux de succès du ghost text, satisfaction utilisateur chat, taux d'acceptation des diffs IA, stabilité post-déploiement.
 
-## Phase 1 – Stabilisation de l'autocomplétion (Semaine 1)
-- **Objectif** Garantir l'affichage du ghost text lors de l'autocomplétion dans le terminal comme dans les éditeurs de fichiers.
-- **Livrables** Ghost text fonctionnel avec menu déroulant dans le terminal et les fichiers. Jeux de tests mis à jour et documentés.
-- **Mesure de succès** Retour positif du QA interne et absence de régressions dans les tests automatisés.
-- **TODO**
-  - [ ] Auditer la chaîne de rendu du ghost text pour les contextes terminal et éditeur, identifier les divergences de comportement.
-  - [ ] Corriger le flux d'événements d'affichage du menu déroulant afin que le ghost text reste visible lorsque la liste des suggestions est ouverte.
-  - [ ] Ajouter des tests automatisés (UI et unitaires) couvrant l'affichage simultané menu déroulant + ghost text.
-  - [ ] Vérifier les régressions potentielles sur les thèmes clairs/sombres et modes haute accessibilité.
 
 ## Phase 2 – Améliorations du chat AlphaCode (Semaines 2 à 5)
 
@@ -22,7 +13,7 @@
 - **Livrables** Interface d'attache fonctionnelle, stockage sécurisé et documentation d'usage.
 - **TODO**
   - [ ] Concevoir l'UI/UX d'ajout de pièces jointes et la gestion des types supportés.
-  - [ ] Implémenter l'upload sécurisé (limites de taille, antivirus, chiffrement en transit).
+  - [ ] Implémenter l'upload sécurisé et d'embeding (limites de taille, antivirus, chiffrement en transit).
   - [ ] Adapter l'API backend pour stocker et servir les fichiers, avec métadonnées.
   - [ ] Ajouter des validations et messages d'erreur clairs côté client.
 
@@ -59,7 +50,7 @@
   - [ ] Rédiger les guides utilisateur et notes de version.
   - [ ] Mettre à jour la checklist de régression et la partager avec l'équipe QA.
 
-## Phase 3 – Contrôle des actions outils IA (Semaines 6-7) 
+## Phase 3 – Contrôle des actions outils IA (Semaines 6-7)
 - **Objectif** Afficher la différence proposée par l'IA lorsqu'elle utilise un outil (ex. modification de fichier) et offrir la possibilité d'accepter ou refuser toutes les modifications (tous les fichiers modifiés) ou par modification dans un fichier (ligne bien précise) ou tout le fichier et une ouverture automatique des fichiers dans l'éditeur lors d'une modification dans un fichier avec un outil (IA)
 - **Livrables** Workflow de validation des diffs IA disponible dans toutes les conversations.
 - **Mesure de succès** Adoption par les bêta testeurs et réduction des erreurs introduites par l'IA.

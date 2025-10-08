@@ -128,6 +128,7 @@ export class ProposalsView extends Disposable {
 		}
 
 		const proposalCard = append(this.proposalsList, $('.proposal-card'));
+		proposalCard.setAttribute('data-proposal-id', proposal.id);
 
 		// Header
 		const header = append(proposalCard, $('.proposal-header'));
@@ -284,6 +285,15 @@ export class ProposalsView extends Disposable {
 
 	private async applyDecision(decision: IProposalDecision): Promise<void> {
 		try {
+			// Optimisation: ajouter une animation de sortie
+			const proposalCard = this.proposalsList?.querySelector(`[data-proposal-id="${decision.proposalId}"]`) as HTMLElement;
+			if (proposalCard) {
+				proposalCard.classList.add('removing');
+
+				// Attendre la fin de l'animation avant de rendre à nouveau
+				await new Promise(resolve => setTimeout(resolve, 250));
+			}
+
 			await this.chatService.applyProposalDecision(decision);
 			this.render();
 		} catch (error) {
