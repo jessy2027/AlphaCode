@@ -277,10 +277,7 @@ export class ConfigurationEditing {
 	}
 
 	private onInvalidConfigurationError(error: ConfigurationEditingError, operation: IConfigurationEditOperation,): void {
-		const openStandAloneConfigurationActionLabel = operation.workspaceStandAloneConfigurationKey === TASKS_CONFIGURATION_KEY ? nls.localize('openTasksConfiguration', "Open Tasks Configuration")
-			: operation.workspaceStandAloneConfigurationKey === LAUNCH_CONFIGURATION_KEY ? nls.localize('openLaunchConfiguration', "Open Launch Configuration")
-				: operation.workspaceStandAloneConfigurationKey === MCP_CONFIGURATION_KEY ? nls.localize('openMcpConfiguration', "Open MCP Configuration")
-					: null;
+		const openStandAloneConfigurationActionLabel = this.getStandAloneConfigurationActionLabel(operation.workspaceStandAloneConfigurationKey);
 		if (openStandAloneConfigurationActionLabel) {
 			this.notificationService.prompt(Severity.Error, error.message,
 				[{
@@ -299,9 +296,7 @@ export class ConfigurationEditing {
 	}
 
 	private onConfigurationFileDirtyError(error: ConfigurationEditingError, operation: IConfigurationEditOperation, scopes: IConfigurationUpdateOverrides | undefined): void {
-		const openStandAloneConfigurationActionLabel = operation.workspaceStandAloneConfigurationKey === TASKS_CONFIGURATION_KEY ? nls.localize('openTasksConfiguration', "Open Tasks Configuration")
-			: operation.workspaceStandAloneConfigurationKey === LAUNCH_CONFIGURATION_KEY ? nls.localize('openLaunchConfiguration', "Open Launch Configuration")
-				: null;
+		const openStandAloneConfigurationActionLabel = this.getStandAloneConfigurationActionLabel(operation.workspaceStandAloneConfigurationKey);
 		if (openStandAloneConfigurationActionLabel) {
 			this.notificationService.prompt(Severity.Error, error.message,
 				[{
@@ -379,14 +374,9 @@ export class ConfigurationEditing {
 
 			// User issues
 			case ConfigurationEditingErrorCode.ERROR_INVALID_CONFIGURATION: {
-				if (operation.workspaceStandAloneConfigurationKey === TASKS_CONFIGURATION_KEY) {
-					return nls.localize('errorInvalidTaskConfiguration', "Unable to write into the tasks configuration file. Please open it to correct errors/warnings in it and try again.");
-				}
-				if (operation.workspaceStandAloneConfigurationKey === LAUNCH_CONFIGURATION_KEY) {
-					return nls.localize('errorInvalidLaunchConfiguration', "Unable to write into the launch configuration file. Please open it to correct errors/warnings in it and try again.");
-				}
-				if (operation.workspaceStandAloneConfigurationKey === MCP_CONFIGURATION_KEY) {
-					return nls.localize('errorInvalidMCPConfiguration', "Unable to write into the MCP configuration file. Please open it to correct errors/warnings in it and try again.");
+				const standAloneMessage = this.getStandAloneConfigurationErrorMessage(operation.workspaceStandAloneConfigurationKey, 'invalid');
+				if (standAloneMessage) {
+					return standAloneMessage;
 				}
 				switch (target) {
 					case EditableConfigurationTarget.USER_LOCAL:
@@ -410,14 +400,9 @@ export class ConfigurationEditing {
 				}
 			}
 			case ConfigurationEditingErrorCode.ERROR_CONFIGURATION_FILE_DIRTY: {
-				if (operation.workspaceStandAloneConfigurationKey === TASKS_CONFIGURATION_KEY) {
-					return nls.localize('errorTasksConfigurationFileDirty', "Unable to write into tasks configuration file because the file has unsaved changes. Please save it first and then try again.");
-				}
-				if (operation.workspaceStandAloneConfigurationKey === LAUNCH_CONFIGURATION_KEY) {
-					return nls.localize('errorLaunchConfigurationFileDirty', "Unable to write into launch configuration file because the file has unsaved changes. Please save it first and then try again.");
-				}
-				if (operation.workspaceStandAloneConfigurationKey === MCP_CONFIGURATION_KEY) {
-					return nls.localize('errorMCPConfigurationFileDirty', "Unable to write into MCP configuration file because the file has unsaved changes. Please save it first and then try again.");
+				const standAloneMessage = this.getStandAloneConfigurationErrorMessage(operation.workspaceStandAloneConfigurationKey, 'dirty');
+				if (standAloneMessage) {
+					return standAloneMessage;
 				}
 				switch (target) {
 					case EditableConfigurationTarget.USER_LOCAL:
@@ -441,14 +426,9 @@ export class ConfigurationEditing {
 				}
 			}
 			case ConfigurationEditingErrorCode.ERROR_CONFIGURATION_FILE_MODIFIED_SINCE:
-				if (operation.workspaceStandAloneConfigurationKey === TASKS_CONFIGURATION_KEY) {
-					return nls.localize('errorTasksConfigurationFileModifiedSince', "Unable to write into tasks configuration file because the content of the file is newer.");
-				}
-				if (operation.workspaceStandAloneConfigurationKey === LAUNCH_CONFIGURATION_KEY) {
-					return nls.localize('errorLaunchConfigurationFileModifiedSince', "Unable to write into launch configuration file because the content of the file is newer.");
-				}
-				if (operation.workspaceStandAloneConfigurationKey === MCP_CONFIGURATION_KEY) {
-					return nls.localize('errorMCPConfigurationFileModifiedSince', "Unable to write into MCP configuration file because the content of the file is newer.");
+				const standAloneMessage = this.getStandAloneConfigurationErrorMessage(operation.workspaceStandAloneConfigurationKey, 'modifiedSince');
+				if (standAloneMessage) {
+					return standAloneMessage;
 				}
 				switch (target) {
 					case EditableConfigurationTarget.USER_LOCAL:
@@ -578,6 +558,50 @@ export class ConfigurationEditing {
 			throw this.toConfigurationEditingError(ConfigurationEditingErrorCode.ERROR_CONFIGURATION_FILE_DIRTY, target, operation);
 		}
 
+	}
+
+	private getStandAloneConfigurationActionLabel(key: string | undefined): string | null {
+		switch (key) {
+			case TASKS_CONFIGURATION_KEY:
+				return nls.localize('openTasksConfiguration', "Open Tasks Configuration");
+			case LAUNCH_CONFIGURATION_KEY:
+				return nls.localize('openLaunchConfiguration', "Open Launch Configuration");
+			case MCP_CONFIGURATION_KEY:
+				return nls.localize('openMcpConfiguration', "Open MCP Configuration");
+			default:
+				return null;
+		}
+	}
+
+	private getStandAloneConfigurationErrorMessage(key: string | undefined, type: 'invalid' | 'dirty' | 'modifiedSince'): string | null {
+		switch (key) {
+			case TASKS_CONFIGURATION_KEY:
+				if (type === 'invalid') {
+					return nls.localize('errorInvalidTaskConfiguration', "Unable to write into the tasks configuration file. Please open it to correct errors/warnings in it and try again.");
+				}
+				if (type === 'dirty') {
+					return nls.localize('errorTasksConfigurationFileDirty', "Unable to write into tasks configuration file because the file has unsaved changes. Please save it first and then try again.");
+				}
+				return nls.localize('errorTasksConfigurationFileModifiedSince', "Unable to write into tasks configuration file because the content of the file is newer.");
+			case LAUNCH_CONFIGURATION_KEY:
+				if (type === 'invalid') {
+					return nls.localize('errorInvalidLaunchConfiguration', "Unable to write into the launch configuration file. Please open it to correct errors/warnings in it and try again.");
+				}
+				if (type === 'dirty') {
+					return nls.localize('errorLaunchConfigurationFileDirty', "Unable to write into launch configuration file because the file has unsaved changes. Please save it first and then try again.");
+				}
+				return nls.localize('errorLaunchConfigurationFileModifiedSince', "Unable to write into launch configuration file because the content of the file is newer.");
+			case MCP_CONFIGURATION_KEY:
+				if (type === 'invalid') {
+					return nls.localize('errorInvalidMCPConfiguration', "Unable to write into the MCP configuration file. Please open it to correct errors/warnings in it and try again.");
+				}
+				if (type === 'dirty') {
+					return nls.localize('errorMCPConfigurationFileDirty', "Unable to write into MCP configuration file because the file has unsaved changes. Please save it first and then try again.");
+				}
+				return nls.localize('errorMCPConfigurationFileModifiedSince', "Unable to write into MCP configuration file because the content of the file is newer.");
+			default:
+				return null;
+		}
 	}
 
 	private getConfigurationEditOperation(target: EditableConfigurationTarget, config: IConfigurationValue, overrides: IConfigurationUpdateOverrides): IConfigurationEditOperation {
