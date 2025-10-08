@@ -1,106 +1,103 @@
 # Roadmap AlphaCode
 
 ## Vue d'ensemble
-- **Périmètre** : Optimisation UX différences, chat temps réel, multi-conversations, contrôle outils IA, déploiement sécurisé
-- **Horizon** : Semaines 1-9, synchronisation par phase
-- **KPI** : Satisfaction UX diffs, réactivité chat, taux acceptation IA, stabilité production
+- **Périmètre** : Assistant de différences intégré, chat multi-conversation, contrôle fin des outils IA, pipelines de déploiement sécurisés.
+- **Horizon** : Sprints 43 à 50 (octobre – décembre 2025), cadence bi-hebdomadaire.
+- **KPI** : Taux d'acceptation des propositions (>70 %), satisfaction chat (CSAT 4,5/5), MTTR rollback < 30 s, stabilité release (0 incident P0).
 
 ---
 
-## 🔴 Priorités Critiques (Semaine 1)
-
-### P1 - Amélioration système de différences
-- **Problème** : Fichiers proposés non enregistrés, requiert fermeture manuelle, ouvre fichiers dans un reperoitre bizard
-- **Solution** : Application immédiate des modifications au fichier actuel, rollback si refus
-- **Livrables**
-  - [ ] Appliquer modifications instantanément au fichier ouvert avant validation
-  - [ ] Implémenter mécanisme rollback complet si refus utilisateur
-  - [ ] Supprimer comportement d'ouverture bizard de fichiers
-  - [ ] Marquer fichier comme sauvegardé après acceptation (suprimer les diff visuelement)
-
-### P2 - Amélioration réactivité chat et outils
-- **Problème** : Absence de feedback visuel pendant génération outils
-- **Solution** : Chargement dynamique + exécution immédiate post-génération
-- **Livrables**
-  - [ ] Détecter élément "```tool" en temps réel pendant génération IA
-  - [ ] Afficher indicateur de chargement dynamique immédiatement : thinking... ; loading... etc
-  - [ ] Appliquer mise en page "Outils" dès fin d'écriture
-  - [ ] Exécuter automatiquement l'outil dès génération complète
+## ✅ Réalisations récentes (T3 2025)
+- [x] Nettoyage des modules hérités (chat, authentication, userDataSync) et script `cleanup_modules.ps1`.
+- [x] Consolidation du périmètre produit et priorisation des sprints Q4.
 
 ---
 
-## Phase 2 – Chat AlphaCode (Semaines 2 à 5)
+## 🔴 Priorités immédiates (Sprints 43-44 • 13-24 octobre 2025)
 
-### 2.1 Système d'attache de fichiers (S2-3)
+### P1 - Diff Assistant 2.0
+- **Objectif** : Appliquer les propositions d'IA directement dans l'éditeur avec un rollback fiable.
 - **Livrables**
-  - [ ] UI d'ajout de pièces jointes avec types supportés
-  - [ ] Upload sécurisé (taille, validation, chiffrement)
-  - [ ] API backend : stockage et métadonnées
-  - [ ] Validation et gestion erreurs client
+  - [ ] Injection directe des modifications sur le buffer actif avec prévisualisation ligne par ligne.
+  - [ ] Moteur de rollback transactionnel (annulation complète ou partielle).
+  - [ ] Correction du chemin d'écriture pour éviter l'ouverture de répertoires inattendus.
+  - [ ] Refonte de la vue de validation par chunks avec diff rouge/vert et boutons Accept/Reject synchronisés.
 
-### 2.2 Multi-conversations et reprise ✅ (S3-4)
+### P2 - Observabilité chat et outils IA
+- **Objectif** : Offrir un feedback clair pendant la génération et l'exécution des outils.
 - **Livrables**
-  - [ ] Vue gestion : liste, recherche, filtres
-  - [ ] Persistance locale + sync serveur optionnelle
-  - [ ] Dupliquer, archiver, restaurer conversations
-  - [ ] Rejeu de segments conversationnels
+  - [ ] Détection en streaming des blocs ```tool pour déclencher l'UI dédiée.
+  - [ ] Indicateur visuel dynamique (thinking/loading) sur chaque message.
+  - [ ] Rafraîchissement incrémental du chat pendant l'exécution d'un outil (streaming message-by-message).
+  - [ ] Application du layout "Outils" dès la fin de la génération.
+  - [ ] Exécution automatique de l'outil une fois la génération terminée et logs corrélés.
 
-### 2.3 Rollback conversationnel (S4)
-- **Livrables**
-  - [ ] Bouton rollback sur chaque message (supprimer modifications ultérieures)
-  - [ ] Modification message post-rollback possible
-  - [ ] Préservation cohérence contexte IA
-  - [ ] Logs audit complets
-
-### 2.4 QA et documentation (S5)
-- **Livrables**
-  - [ ] Tests exploratoires + automatisés (cas critiques)
-  - [ ] Guides utilisateur et release notes
-  - [ ] Checklist régression à jour
-
-### 2.5 Résilience contexte IA (S5)
-- **Livrables**
-  - [ ] Résumé automatique échanges (anti-dérive)
-  - [ ] Visualisation contexte actif (messages épinglés)
-  - [ ] Détection pertes de contexte (logs techniques)
-  - [ ] Restauration rapide après reconnexion
-
-### 2.6 Feedback et instrumentation (S5-6)
-- **Livrables**
-  - [ ] Notation rapide (👍/👎 + commentaire) par réponse
-  - [ ] Tracking feedback/conversation/version modèle
-  - [ ] Alertes baisse satisfaction
-  - [ ] Rapport synthétique hebdomadaire
+### P3 - Préparation QA ciblée
+- **Objectif** : Sécuriser la livraison des fonctionnalités critiques.
+  - [ ] Jeu de tests exploratoires pour l'assistant de différences.
+  - [ ] Scénarios d'intégration chat+outils (happy path + erreurs réseau).
+  - [ ] Documentation rapide pour support interne.
 
 ---
 
-## Phase 3 – Contrôle outils IA (Semaines 6-7)
+## Phase 2 – Expérience Chat (Sprints 45-46 • 27 octobre - 7 novembre 2025)
 
-### 3.1 Fichiers impactés
-**Nouveaux**
-- `diffUtils.ts`, `proposalsView.ts`, `proposalsView.css`
-- `PHASE3_TOOL_CONTROL.md`, `PHASE3_QUICKSTART.md`
+### 2.1 Gestion de pièces jointes
+- **Statut** : À démarrer
+- **Livrables**
+  - [ ] UI d'ajout et d'aperçu (formats texte, image, archive).
+  - [ ] Upload sécurisé (quota, validation MIME, chiffrement au repos).
+  - [ ] API backend pour stockage et métadonnées.
+  - [ ] Gestion des erreurs et retours utilisateur.
 
-**Modifiés**
-- `chatService.ts`, `chatServiceImpl.ts`, `vibeCodingView.ts`, `pairProgramming.ts`
+### 2.2 Multi-conversations et reprise
+- **Statut** : À démarrer
+- **Livrables**
+  - [ ] Vue de gestion (liste, recherche, filtres).
+  - [ ] Persistance locale avec option de synchronisation serveur.
+  - [ ] Actions dupliquer, archiver, restaurer.
+  - [ ] Rejeu de segments conversationnels.
 
-### 3.2 Fonctionnalités
-- Visualisation diffs ligne par ligne
-- Contrôle Accept/Reject (All/Fichier/Ligne)
-- Journalisation audit (200 entrées)
-- Bouton Stop génération IA
-- Events : `onDidCreateProposal`, `onDidChangeProposalStatus`
+### 2.3 Résilience contexte IA
+- **Statut** : À démarrer
+- **Livrables**
+  - [ ] Résumé automatique des échanges longs.
+  - [ ] Visualisation du contexte actif (messages épinglés).
+  - [ ] Détection et alerte sur perte de contexte.
+  - [ ] Restauration rapide après reconnexion.
 
 ---
 
-## Phase 4 – Déploiement production (Semaines 8-9)
+## Phase 3 – Contrôle des outils IA (Sprints 47-48 • 10-21 novembre 2025)
 
-### 4.1 Release
-- [ ] Release notes complètes
-- [ ] Tableaux de bord monitoring
-- [ ] Backlog post-lancement
+### 3.1 Surface produit
+- **Nouveaux fichiers** : `diffUtils.ts`, `proposalsView.ts`, `proposalsView.css`, `PHASE3_TOOL_CONTROL.md`, `PHASE3_QUICKSTART.md`.
+- **Fichiers modifiés** : `chatService.ts`, `chatServiceImpl.ts`, `vibeCodingView.ts`, `pairProgramming.ts`.
+
+### 3.2 Fonctionnalités attendues
+- [ ] Visualisation des diffs ligne par ligne avec filtres.
+- [ ] Contrôles Accept/Reject (global, fichier, ligne).
+- [ ] Journalisation audit (historique 200 entrées).
+- [ ] Bouton Stop génération IA et évènements `onDidCreateProposal`, `onDidChangeProposalStatus`.
+
+---
+
+## Phase 4 – Préparation release (Sprints 49-50 • 24 novembre - 5 décembre 2025)
+
+### 4.1 Release management
+- [ ] Release notes complètes (fonctionnalités, breaking changes, migrations).
+- [ ] Tableaux de bord de monitoring (temps réel + hebdomadaire).
+- [ ] Backlog post-lancement structuré (Hotfix, Améliorations, R&D).
 
 ### 4.2 Suivi qualitatif
-- [ ] Co-analyse hebdomadaire équipe support
-- [ ] Enrichissement documentation retours terrain
-- [ ] Centralisation insights pour Phase 5
+- [ ] Co-analyse hebdomadaire avec l'équipe support.
+- [ ] Enrichissement de la base de connaissances (retours terrain).
+- [ ] Centralisation des insights préparant la Phase 5 (2026).
+
+---
+
+## Backlog stratégique 2026
+- [ ] Intégration fine avec extensions partenaires (VS Marketplace).
+- [ ] Mode hors ligne avec cache des connaissances locales.
+- [ ] Personnalisation avancée des prompts (profils par projet).
+- [ ] Observabilité produit (corrélation logs front/back + IA).

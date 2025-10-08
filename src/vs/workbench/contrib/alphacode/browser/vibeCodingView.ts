@@ -63,6 +63,10 @@ export class VibeCodingView extends ViewPane {
 	private lastRenderedStreamingContent = "";
 	private streamingRenderHandle: number | undefined;
 	private isCreatingStreamingMessage = false;
+
+	// Track detected tool blocks during streaming
+	private streamingToolBlocks = new Map<string, HTMLElement>();
+	private lastToolBlocksCheck = "";
 	
 	private isConfigured = false;
 	private isStreaming = false;
@@ -926,6 +930,10 @@ export class VibeCodingView extends ViewPane {
 		this.currentStreamingMessageId = undefined;
 		this.updateSendStopButton();
 
+		// Clean up streaming tool blocks
+		this.streamingToolBlocks.clear();
+		this.lastToolBlocksCheck = "";
+
 		if (this.currentStreamingMessage) {
 			if (!this.currentStreamingBuffer.trim()) {
 				clearNode(this.currentStreamingMessage);
@@ -974,6 +982,11 @@ export class VibeCodingView extends ViewPane {
 			this.currentStreamingBuffer = "";
 			this.currentStreamingMessageId = undefined;
 			this.currentStreamingMessageElement = undefined;
+
+			// Clean up streaming tool blocks
+			this.streamingToolBlocks.clear();
+			this.lastToolBlocksCheck = "";
+
 			this.updateSendStopButton();
 			this.renderMessages();
 			return;
@@ -999,21 +1012,8 @@ export class VibeCodingView extends ViewPane {
 			this.scheduleStreamingRender();
 		}
 
-		// Clean content for display (remove tool blocks during streaming)
-		const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
-		const hasContent = cleanContent.trim().length > 0;
-
-		// Update the streaming message content
-		if (hasContent) {
-			clearNode(this.currentStreamingMessage);
-			this.markdownRenderer.render(cleanContent, this.currentStreamingMessage);
-			this.lastRenderedStreamingContent = cleanContent;
-			// Remove spinner once we have content
-			this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")?.remove();
-		} else {
-			// No content yet, show spinner
-			this.ensureStreamingSpinner();
-		}
+		// Render with tool detection
+		this.scheduleStreamingRender();
 
 		this.scrollIfNeeded();
 	}
@@ -1130,32 +1130,134 @@ export class VibeCodingView extends ViewPane {
 	}
 
 	private removeToolBlocksForStreaming(content: string): string {
-		// Remplacer les blocs tool par un message de chargement pendant l'exécution
-		// Le vrai contenu sera affiché une fois le tool terminé
-		return content.replace(/```tool\s*\n([\s\S]*?)\n```/g, (match, toolJson) => {
-			try {
-				const tool = JSON.parse(toolJson);
-				const toolName = tool.name || 'Tool';
-				// Message de chargement simple et discret
-				return `_Executing ${toolName}..._`;
-			} catch {
-				return '_Loading..._';
-			}
-		});
+		// Don't remove tool blocks - they will be rendered as placeholders
+		// This method is kept for compatibility but now returns content as-is
+		return content;
 	}
 
 	private renderStreamingBuffer(): void {
-		if (!this.currentStreamingMessage) return;
+		if (!this.currentStreamingMessage || !this.currentStreamingMessageElement) return;
 
-		// Nettoyer le contenu pour l'affichage en streaming
-		const cleanContent = this.removeToolBlocksForStreaming(this.currentStreamingBuffer);
-		if (cleanContent === this.lastRenderedStreamingContent) return;
+		const content = this.currentStreamingBuffer;
+		if (content === this.lastRenderedStreamingContent) return;
 
+		// Detect and render tool blocks inline with loading indicators
+		this.detectAndRenderToolBlocks(content);
+
+		// Render the content with tool blocks replaced by placeholders
+		const displayContent = this.replaceToolBlocksWithPlaceholders(content);
 		clearNode(this.currentStreamingMessage);
-		this.markdownRenderer.render(cleanContent, this.currentStreamingMessage);
-		this.lastRenderedStreamingContent = cleanContent;
+		this.markdownRenderer.render(displayContent, this.currentStreamingMessage);
+		this.lastRenderedStreamingContent = content;
 
 		this.currentStreamingMessage.querySelector(".alphacode-chat-loading-spinner")?.remove();
+	}
+
+	/**
+	 * Detect tool blocks in streaming content and create loading indicators
+	 */
+	private detectAndRenderToolBlocks(content: string): void {
+		if (content === this.lastToolBlocksCheck) return;
+		this.lastToolBlocksCheck = content;
+
+		// Match complete and partial tool blocks
+		const toolBlockRegex = /```tool\s*\n([\s\S]*?)(?:\n```|$)/g;
+		const newToolBlocks = new Map<string, any>();
+
+		let match;
+		while ((match = toolBlockRegex.exec(content)) !== null) {
+			const toolJson = match[1];
+
+			try {
+				// Try to parse the JSON
+				const toolData = JSON.parse(toolJson);
+				const toolKey = `${toolData.name}:${JSON.stringify(toolData.parameters || {})}`;
+
+				newToolBlocks.set(toolKey, {
+					name: toolData.name,
+					parameters: toolData.parameters,
+					complete: match[0].endsWith('```')
+				});
+
+				// Create loading indicator if not already created
+				if (!this.streamingToolBlocks.has(toolKey) && this.currentStreamingMessageElement) {
+					const toolIndicator = this.createToolLoadingIndicator(toolData.name, toolData.parameters);
+					this.streamingToolBlocks.set(toolKey, toolIndicator);
+
+					// Insert after the message content
+					const messageContent = this.currentStreamingMessageElement.querySelector('.alphacode-chat-message-content');
+					if (messageContent && messageContent.parentElement) {
+						messageContent.parentElement.insertBefore(toolIndicator, messageContent.nextSibling);
+					}
+				}
+			} catch (e) {
+				// JSON not complete yet, ignore
+			}
+		}
+
+		// Remove tool blocks that are no longer in content (shouldn't happen but safety)
+		for (const [key, element] of this.streamingToolBlocks.entries()) {
+			if (!newToolBlocks.has(key)) {
+				element.remove();
+				this.streamingToolBlocks.delete(key);
+			}
+		}
+	}
+
+	/**
+	 * Create a loading indicator for a tool being executed
+	 */
+	private createToolLoadingIndicator(toolName: string, parameters: any): HTMLElement {
+		const container = $(".alphacode-chat-message-content.tool-content.loading");
+		const toolCard = append(container, $("div.alphacode-tool-expandable"));
+		const toolHeader = append(toolCard, $("div.alphacode-tool-header"));
+
+		// Animated loading spinner
+		const spinner = append(toolHeader, $("span.alphacode-tool-spinner"));
+		spinner.textContent = "⏳";
+
+		const toolTitle = append(toolHeader, $("span.alphacode-tool-title"));
+		toolTitle.textContent = this.getToolLoadingMessage(toolName, parameters);
+
+		const statusBadge = append(toolHeader, $("span.alphacode-tool-status-badge.loading"));
+		statusBadge.textContent = "Running...";
+
+		return container;
+	}
+
+	/**
+	 * Get a user-friendly loading message for a tool
+	 */
+	private getToolLoadingMessage(toolName: string, parameters: any): string {
+		const readTools = ["read_file", "list_files", "grep", "find"];
+		const writeTools = ["write_file", "edit_file"];
+
+		if (readTools.some(t => toolName.toLowerCase().includes(t))) {
+			const filePath = parameters.file_path || parameters.path || parameters.DirectoryPath;
+			if (filePath) {
+				const filename = filePath.split(/[/\\]/).pop() || filePath;
+				return `Reading ${filename}...`;
+			}
+			return `Reading file...`;
+		}
+
+		if (writeTools.some(t => toolName.toLowerCase().includes(t))) {
+			const filePath = parameters.file_path || parameters.path;
+			if (filePath) {
+				const filename = filePath.split(/[/\\]/).pop() || filePath;
+				return `Editing ${filename}...`;
+			}
+			return `Editing file...`;
+		}
+
+		return `Executing ${toolName}...`;
+	}
+
+	/**
+	 * Replace tool blocks with placeholder text for markdown rendering
+	 */
+	private replaceToolBlocksWithPlaceholders(content: string): string {
+		return content.replace(/```tool\s*\n([\s\S]*?)(?:\n```|$)/g, '');
 	}
 
 	private stopStreamingRenderLoop(): void {
@@ -1234,6 +1336,10 @@ export class VibeCodingView extends ViewPane {
 			this.currentStreamingMessageElement = undefined;
 			this.currentStreamingBuffer = "";
 			this.currentStreamingMessageId = undefined;
+
+			// Clean up streaming tool blocks
+			this.streamingToolBlocks.clear();
+			this.lastToolBlocksCheck = "";
 
 			// Update button
 			this.updateSendStopButton();

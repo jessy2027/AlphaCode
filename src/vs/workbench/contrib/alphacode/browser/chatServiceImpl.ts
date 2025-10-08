@@ -122,7 +122,7 @@ export class AlphaCodeChatService
 		// Initialize utilities
 		this.promptBuilder = new PromptBuilder(securityService);
 		this.proposalManager = this._register(new ProposalManager(fileService, editorService));
-		this.proposalEditorService = this._register(new ProposalEditorService(textModelService));
+		this.proposalEditorService = this._register(new ProposalEditorService(textModelService, editorService));
 
 		// Forward proposal events
 		this._register(this.proposalManager.onDidCreateProposal(p => this._onDidCreateProposal.fire(p)));

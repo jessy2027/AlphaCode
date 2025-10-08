@@ -1231,13 +1231,20 @@ code.language-badge,
     transition: all 0.2s ease;
 }
 
-/* Tool status badge - Caché pour style minimaliste */
+/* Tool status badge - Visible pendant chargement */
 .alphacode-tool-status-badge {
     display: none;
 }
 
 .alphacode-tool-status-badge.loading {
-    display: none;
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
+    color: var(--vscode-focusBorder);
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
 .alphacode-tool-status-badge.success {
@@ -1245,18 +1252,39 @@ code.language-badge,
 }
 
 .alphacode-tool-status-badge.error {
-    display: none;
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    background: color-mix(in srgb, var(--vscode-errorForeground) 15%, transparent);
+    color: var(--vscode-errorForeground);
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
 /* Tool loading spinner */
 .alphacode-tool-spinner {
     display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid color-mix(in srgb, var(--vscode-focusBorder) 25%, transparent);
-    border-top-color: var(--vscode-focusBorder);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    font-size: 14px;
+    margin-right: 6px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Tool icon styling */
@@ -1274,6 +1302,11 @@ code.language-badge,
 /* Improved tool card styles */
 .alphacode-tool-card.loading {
     border-left-color: var(--vscode-focusBorder);
+}
+
+/* Tool content loading state */
+.alphacode-chat-message-content.tool-content.loading {
+    animation: fadeIn 0.3s ease-in;
 }
 
 .alphacode-tool-card.loading::after {

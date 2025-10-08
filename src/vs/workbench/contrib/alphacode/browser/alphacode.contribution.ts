@@ -42,6 +42,7 @@ import { IAlphaCodeSecurityService } from "../common/securityService.js";
 import { AlphaCodeSecurityService } from "./securityServiceImpl.js";
 import "../common/configuration.js";
 import "./alphacodeActions.js";
+import "./media/proposalDecorations.css";
 
 const alphaCodeIcon = registerIcon(
 	"alphacode-view-icon",

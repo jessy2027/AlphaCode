@@ -3,47 +3,49 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Inline diff decorations for AI proposals */
+/* Inline diff decorations for AI proposals - Git diff style */
 
+/* Added lines - green background like Git diff */
 .alphacode-proposal-line-added {
-	background-color: rgba(0, 255, 0, 0.1);
-	border-left: 3px solid rgba(0, 255, 0, 0.6);
+	background-color: rgba(88, 166, 88, 0.22);
+	border-left: 3px solid rgba(88, 166, 88, 0.8);
 }
 
+/* Removed lines - red background like Git diff */
 .alphacode-proposal-line-removed {
-	background-color: rgba(255, 0, 0, 0.1);
-	border-left: 3px solid rgba(255, 0, 0, 0.6);
-	text-decoration: line-through;
-	opacity: 0.7;
+	background-color: rgba(222, 93, 93, 0.22);
+	border-left: 3px solid rgba(222, 93, 93, 0.8);
+	opacity: 0.85;
 }
 
+/* Modified lines - blend of red and green */
 .alphacode-proposal-line-modified {
-	background-color: rgba(255, 165, 0, 0.1);
-	border-left: 3px solid rgba(255, 165, 0, 0.6);
+	background-color: rgba(156, 129, 70, 0.22);
+	border-left: 3px solid rgba(156, 129, 70, 0.8);
 }
 
 .alphacode-proposal-line-gutter {
-	background-color: rgba(255, 165, 0, 0.2);
+	background-color: rgba(255, 165, 0, 0.15);
 }
 
 .alphacode-proposal-glyph {
 	cursor: pointer;
 }
 
-/* Dark theme adjustments */
+/* Dark theme adjustments - more vibrant colors for dark background */
 .vs-dark .alphacode-proposal-line-added {
-	background-color: rgba(0, 255, 0, 0.15);
-	border-left-color: rgba(0, 255, 0, 0.7);
+	background-color: rgba(63, 185, 80, 0.2);
+	border-left-color: rgba(63, 185, 80, 0.85);
 }
 
 .vs-dark .alphacode-proposal-line-removed {
-	background-color: rgba(255, 0, 0, 0.15);
-	border-left-color: rgba(255, 0, 0, 0.7);
+	background-color: rgba(248, 81, 73, 0.2);
+	border-left-color: rgba(248, 81, 73, 0.85);
 }
 
 .vs-dark .alphacode-proposal-line-modified {
-	background-color: rgba(255, 165, 0, 0.15);
-	border-left-color: rgba(255, 165, 0, 0.7);
+	background-color: rgba(204, 156, 0, 0.2);
+	border-left-color: rgba(204, 156, 0, 0.85);
 }
 
 /* High contrast theme */
@@ -62,5 +64,21 @@
 .hc-black .alphacode-proposal-line-modified,
 .hc-light .alphacode-proposal-line-modified {
 	background-color: transparent;
-	border-left: 4px solid #ffa500;
+	border-left: 4px solid #ffcc00;
+}
+
+/* Widget animations and styling */
+.alphacode-block-actions {
+	animation: fadeInUp 0.15s ease-out;
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(5px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
