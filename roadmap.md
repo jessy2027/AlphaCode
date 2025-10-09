@@ -7,21 +7,19 @@
 
 ---
 
-## ✅ Réalisations récentes (T3 2025)
-- [x] Nettoyage des modules hérités (chat, authentication, userDataSync) et script `cleanup_modules.ps1`.
-- [x] Consolidation du périmètre produit et priorisation des sprints Q4.
-
----
-
 ## 🔴 Priorités immédiates (Sprints 43-44 • 13-24 octobre 2025)
 
-### P1 - Diff Assistant 2.0
+### P1 - Diff Assistant 2.0 ✅
 - **Objectif** : Appliquer les propositions d'IA directement dans l'éditeur avec un rollback fiable.
 - **Livrables**
-  - [ ] Injection directe des modifications sur le buffer actif avec prévisualisation ligne par ligne.
-  - [ ] Moteur de rollback transactionnel (annulation complète ou partielle).
-  - [ ] Correction du chemin d'écriture pour éviter l'ouverture de répertoires inattendus.
-  - [ ] Refonte de la vue de validation par chunks avec diff rouge/vert et boutons Accept/Reject synchronisés.
+  - [x] Injection directe des modifications sur le buffer actif avec prévisualisation ligne par ligne.
+  - [x] Moteur de rollback transactionnel (annulation complète ou partielle).
+  - [x] Correction du chemin d'écriture pour éviter l'ouverture de répertoires inattendus.
+  - [x] Refonte de la vue de validation par chunks avec diff rouge/vert et boutons Accept/Reject synchronisés.
+- **Fichiers créés/modifiés** :
+  - ✨ Nouveaux : `transactionManager.ts`, `proposalUndoElement.ts`, `DIFF_ASSISTANT_2.0.md`
+  - 🔧 Modifiés : `proposalManager.ts`, `proposalsView.ts`, `proposalsView.css`, `proposalEditorService.ts`
+  - 🧪 Tests : `transactionManager.test.ts`, `proposalWorkflow.test.ts`
 
 ### P2 - Observabilité chat et outils IA
 - **Objectif** : Offrir un feedback clair pendant la génération et l'exécution des outils.
@@ -29,7 +27,7 @@
   - [ ] Détection en streaming des blocs ```tool pour déclencher l'UI dédiée.
   - [ ] Indicateur visuel dynamique (thinking/loading) sur chaque message.
   - [ ] Rafraîchissement incrémental du chat pendant l'exécution d'un outil (streaming message-by-message).
-  - [ ] Application du layout "Outils" dès la fin de la génération.
+  - [ ] Application du layout "Outils" dès la fin de la génération de l'outils.
   - [ ] Exécution automatique de l'outil une fois la génération terminée et logs corrélés.
 
 ### P3 - Préparation QA ciblée

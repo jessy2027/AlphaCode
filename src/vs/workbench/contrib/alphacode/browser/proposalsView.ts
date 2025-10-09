@@ -192,6 +192,125 @@ export class ProposalsView extends Disposable {
 			);
 		}
 
+		// Chunks container
+		const chunksContainer = append(proposalCard, $('.proposal-chunks'));
+
+		// Render each chunk with diff preview
+		proposal.changes.forEach((change, index) => {
+			this.renderChunk(chunksContainer, proposal, change, index);
+		});
+
+		// Card actions (accept/reject all for this file)
+		const cardActions = append(proposalCard, $('.proposal-card-actions'));
+		const acceptAllBtn = append(
+			cardActions,
+			$('button.monaco-button.monaco-text-button.proposal-accept-all', undefined, localize('alphacode.proposals.acceptFile', 'Accept all'))
+		) as HTMLButtonElement;
+		const rejectAllBtn = append(
+			cardActions,
+			$('button.monaco-button.monaco-text-button.secondary.proposal-reject-all', undefined, localize('alphacode.proposals.rejectFile', 'Reject all'))
+		) as HTMLButtonElement;
+
+		this._register(
+			addDisposableListener(acceptAllBtn, 'click', async () => {
+				try {
+					await this.chatService.acceptProposal(proposal.id);
+					this.render();
+				} catch (error) {
+					console.error('Failed to accept proposal', error);
+				}
+			})
+		);
+
+		this._register(
+			addDisposableListener(rejectAllBtn, 'click', async () => {
+				try {
+					await this.chatService.rejectProposal(proposal.id);
+					this.render();
+				} catch (error) {
+					console.error('Failed to reject proposal', error);
+				}
+			})
+		);
+	}
+
+	private renderChunk(
+		container: HTMLElement,
+		proposal: IEditProposalWithChanges,
+		change: any,
+		chunkIndex: number
+	): void {
+		const chunkCard = append(container, $('.chunk-card'));
+		chunkCard.setAttribute('data-chunk-index', chunkIndex.toString());
+
+		// Chunk header
+		const chunkHeader = append(chunkCard, $('.chunk-header'));
+		append(
+			chunkHeader,
+			$('span.chunk-title', undefined, `Change ${chunkIndex + 1} @ line ${change.lineNumber}`)
+		);
+
+		// Chunk diff preview
+		const diffPreview = append(chunkCard, $('.chunk-diff-preview'));
+
+		// Old text (removed/modified)
+		if (change.oldText) {
+			const oldBlock = append(diffPreview, $('.diff-block.diff-removed'));
+			append(oldBlock, $('.diff-label', undefined, '− Removed'));
+			const oldPre = append(oldBlock, $('pre.diff-content'));
+			append(oldPre, $('code', undefined, change.oldText));
+		}
+
+		// New text (added/modified)
+		if (change.newText) {
+			const newBlock = append(diffPreview, $('.diff-block.diff-added'));
+			append(newBlock, $('.diff-label', undefined, '+ Added'));
+			const newPre = append(newBlock, $('pre.diff-content'));
+			append(newPre, $('code', undefined, change.newText));
+		}
+
+		// Chunk actions
+		const chunkActions = append(chunkCard, $('.chunk-actions'));
+		const acceptBtn = append(
+			chunkActions,
+			$('button.monaco-button.monaco-text-button.chunk-accept', undefined, localize('alphacode.proposals.acceptChunk', 'Accept'))
+		) as HTMLButtonElement;
+		const rejectBtn = append(
+			chunkActions,
+			$('button.monaco-button.monaco-text-button.secondary.chunk-reject', undefined, localize('alphacode.proposals.rejectChunk', 'Reject'))
+		) as HTMLButtonElement;
+
+		this._register(
+			addDisposableListener(acceptBtn, 'click', async () => {
+				try {
+					// Apply partial changes - accept this chunk only
+					await this.chatService.applyProposalDecision({
+						proposalId: proposal.id,
+						action: 'accept-changes',
+						changeIndexes: [chunkIndex]
+					});
+					this.render();
+				} catch (error) {
+					console.error('Failed to accept chunk', error);
+				}
+			})
+		);
+
+		this._register(
+			addDisposableListener(rejectBtn, 'click', async () => {
+				try {
+					// Apply partial changes - reject this chunk only
+					await this.chatService.applyProposalDecision({
+						proposalId: proposal.id,
+						action: 'reject-changes',
+						changeIndexes: [chunkIndex]
+					});
+					this.render();
+				} catch (error) {
+					console.error('Failed to reject chunk', error);
+				}
+			})
+		);
 	}
 
 	override dispose(): void {

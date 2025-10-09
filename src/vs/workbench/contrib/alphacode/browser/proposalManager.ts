@@ -5,13 +5,15 @@
 
 import { Emitter, Event } from "../../../../base/common/event.js";
 import { Disposable } from "../../../../base/common/lifecycle.js";
-import { VSBuffer } from "../../../../base/common/buffer.js";
 import { IEditProposalWithChanges } from "../common/chatService.js";
 import { IFileService } from "../../../../platform/files/common/files.js";
 import { IEditorService } from "../../../services/editor/common/editorService.js";
 import { URI } from "../../../../base/common/uri.js";
-import { applyChanges } from "./diffUtils.js";
 import type { IResourceDiffEditorInput } from "../../../common/editor.js";
+import { TransactionManager } from "./transactionManager.js";
+import { ITextModelService } from "../../../../editor/common/services/resolverService.js";
+import { IUndoRedoService } from "../../../../platform/undoRedo/common/undoRedo.js";
+import { IProposalTransaction } from "./proposalUndoElement.js";
 
 /**
  * Manages edit proposals (create, accept, reject, diff viewing)
@@ -24,22 +26,57 @@ export class ProposalManager extends Disposable {
 	readonly onDidChangeStatus: Event<IEditProposalWithChanges> = this._onDidChangeStatus.event;
 
 	private pendingProposals = new Map<string, IEditProposalWithChanges>();
-	private backupContents = new Map<string, string>();
+	private transactionManager: TransactionManager;
 
 	constructor(
 		private readonly fileService: IFileService,
-		private readonly editorService: IEditorService
+		private readonly editorService: IEditorService,
+		@ITextModelService textModelService: ITextModelService,
+		@IUndoRedoService undoRedoService: IUndoRedoService
 	) {
 		super();
+		this.transactionManager = this._register(new TransactionManager(textModelService, undoRedoService));
 	}
 
 	/**
 	 * Add a new proposal
 	 */
-	addProposal(proposal: IEditProposalWithChanges): void {
+	async addProposal(proposal: IEditProposalWithChanges): Promise<void> {
+		// Validate file path before adding proposal
+		const isValid = await this.validateFilePath(proposal.filePath);
+		if (!isValid) {
+			throw new Error(`Invalid file path: ${proposal.filePath} is not a file or does not exist`);
+		}
+
 		this.pendingProposals.set(proposal.id, proposal);
-		this.backupContents.set(proposal.filePath, proposal.originalContent);
 		this._onDidCreateProposal.fire(proposal);
+	}
+
+	/**
+	 * Validate that a path points to a file (not a directory)
+	 */
+	private async validateFilePath(filePath: string): Promise<boolean> {
+		try {
+			const uri = URI.file(filePath);
+
+			// Check that URI scheme is 'file'
+			if (uri.scheme !== 'file') {
+				console.error(`Invalid URI scheme: ${uri.scheme}, expected 'file'`);
+				return false;
+			}
+
+			// Check that path exists and is a file
+			const stat = await this.fileService.stat(uri);
+			if (!stat.isFile) {
+				console.error(`Path is not a file: ${filePath}`);
+				return false;
+			}
+
+			return true;
+		} catch (error) {
+			console.error(`Error validating file path ${filePath}:`, error);
+			return false;
+		}
 	}
 
 	/**
@@ -59,7 +96,7 @@ export class ProposalManager extends Disposable {
 	}
 
 	/**
-	 * Accept a proposal
+	 * Accept a proposal - applies changes to the active buffer using transactions
 	 */
 	async acceptProposal(id: string): Promise<string> {
 		const proposal = this.pendingProposals.get(id);
@@ -67,19 +104,19 @@ export class ProposalManager extends Disposable {
 			throw new Error(`Unknown proposal: ${id}`);
 		}
 
-		const uri = URI.file(proposal.filePath);
-		await this.fileService.writeFile(uri, VSBuffer.fromString(proposal.proposedContent));
+		// Apply all chunks
+		const allChunkIndexes = proposal.changes.map((_, idx) => idx);
+		const transaction = await this.transactionManager.applyProposal(proposal, allChunkIndexes);
 
 		proposal.status = 'accepted';
 		this._onDidChangeStatus.fire(proposal);
 		this.pendingProposals.delete(id);
-		this.backupContents.delete(proposal.filePath);
 
-		return `✓ Applied proposal ${id} to ${proposal.path}.`;
+		return `✓ Applied proposal ${id} to ${proposal.path}. Transaction ID: ${transaction.id}`;
 	}
 
 	/**
-	 * Reject a proposal
+	 * Reject a proposal - no changes are applied
 	 */
 	async rejectProposal(id: string): Promise<string> {
 		const proposal = this.pendingProposals.get(id);
@@ -87,19 +124,11 @@ export class ProposalManager extends Disposable {
 			throw new Error(`Unknown proposal: ${id}`);
 		}
 
-		const uri = URI.file(proposal.filePath);
-		const backup = this.backupContents.get(proposal.filePath);
-
-		if (backup !== undefined) {
-			await this.fileService.writeFile(uri, VSBuffer.fromString(backup));
-		}
-
 		proposal.status = 'rejected';
 		this._onDidChangeStatus.fire(proposal);
 		this.pendingProposals.delete(id);
-		this.backupContents.delete(proposal.filePath);
 
-		return `✗ Rejected proposal ${id} for ${proposal.path}. Changes have been rolled back.`;
+		return `✗ Rejected proposal ${id} for ${proposal.path}.`;
 	}
 
 	/**
@@ -154,34 +183,34 @@ export class ProposalManager extends Disposable {
 	}
 
 	/**
-	 * Apply partial changes from a proposal
+	 * Apply partial changes from a proposal (accept/reject specific chunks)
 	 */
 	async applyPartialChanges(
 		proposal: IEditProposalWithChanges,
 		changeIndexes: number[],
 		accept: boolean
 	): Promise<void> {
-		const uri = URI.file(proposal.filePath);
-
 		if (accept) {
-			const newContent = applyChanges(
-				proposal.originalContent,
-				proposal.changes,
-				changeIndexes
-			);
-			await this.fileService.writeFile(uri, VSBuffer.fromString(newContent));
-			proposal.status = 'partially-accepted';
-		} else {
-			const remainingChanges = proposal.changes.filter((_change: any, index: number) =>
-				!changeIndexes.includes(index)
-			);
+			// Apply only selected chunks using transaction manager
+			await this.transactionManager.applyProposal(proposal, changeIndexes);
 
-			if (remainingChanges.length === 0) {
+			// Remove applied chunks from proposal
+			proposal.changes = proposal.changes.filter((_, idx) => !changeIndexes.includes(idx));
+
+			if (proposal.changes.length === 0) {
+				proposal.status = 'accepted';
+				this.pendingProposals.delete(proposal.id);
+			} else {
+				proposal.status = 'partially-accepted';
+			}
+		} else {
+			// Reject specific chunks - just remove them from proposal
+			proposal.changes = proposal.changes.filter((_, idx) => !changeIndexes.includes(idx));
+
+			if (proposal.changes.length === 0) {
 				await this.rejectProposal(proposal.id);
 				return;
 			}
-
-			proposal.changes = remainingChanges;
 		}
 
 		this._onDidChangeStatus.fire(proposal);
@@ -223,5 +252,26 @@ export class ProposalManager extends Disposable {
 		}
 
 		return results;
+	}
+
+	/**
+	 * Rollback a transaction by ID
+	 */
+	async rollbackTransaction(transactionId: string): Promise<void> {
+		await this.transactionManager.rollback(transactionId);
+	}
+
+	/**
+	 * Rollback all transactions for a file
+	 */
+	async rollbackFile(filePath: string): Promise<void> {
+		await this.transactionManager.rollbackFile(filePath);
+	}
+
+	/**
+	 * Get transaction history for a file
+	 */
+	getFileTransactions(filePath: string): IProposalTransaction[] {
+		return this.transactionManager.getFileTransactions(filePath);
 	}
 }

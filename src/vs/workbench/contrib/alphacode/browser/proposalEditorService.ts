@@ -191,6 +191,32 @@ export class ProposalEditorService extends Disposable {
 	}
 
 	/**
+	 * Update proposal decorations (called when chunks are accepted/rejected)
+	 */
+	async updateProposal(proposal: IEditProposalWithChanges): Promise<void> {
+		const uri = URI.file(proposal.filePath);
+		const ref = await this.textModelService.createModelReference(uri);
+		const model = ref.object.textEditorModel;
+
+		if (model) {
+			// Clear old decorations
+			this.clearDecorations(model, proposal.filePath);
+
+			// If proposal still has changes, reapply decorations
+			if (proposal.changes.length > 0) {
+				this.applyDecorations(model, proposal);
+				this.attachHoverListeners(proposal);
+			} else {
+				// No more changes, clear everything
+				this.cleanupHoverListeners(proposal.filePath);
+				this.activeProposals.delete(proposal.filePath);
+			}
+		}
+
+		ref.dispose();
+	}
+
+	/**
 	 * Clear proposal for a file
 	 */
 	async clearProposal(filePath: string): Promise<void> {
@@ -204,6 +230,7 @@ export class ProposalEditorService extends Disposable {
 			this.clearDecorations(model, filePath);
 		}
 
+		this.cleanupHoverListeners(filePath);
 		ref.dispose();
 	}
 
@@ -397,7 +424,7 @@ export class ProposalEditorService extends Disposable {
 	/**
 	 * Handle accepting a block
 	 */
-	private handleAcceptBlock(proposalId: string, blockIndex: number): void {
+	private async handleAcceptBlock(proposalId: string, blockIndex: number): Promise<void> {
 		this._onDidAcceptBlock.fire({ proposalId, blockIndex });
 
 		// Remove the widget
@@ -407,12 +434,20 @@ export class ProposalEditorService extends Disposable {
 			widget.dispose();
 			this.activeWidgets.delete(widgetId);
 		}
+
+		// Update decorations for the proposal
+		const proposal = Array.from(this.activeProposals.values()).find(p => p.id === proposalId);
+		if (proposal) {
+			// Remove the accepted chunk from the proposal
+			proposal.changes = proposal.changes.filter((_, idx) => idx !== blockIndex);
+			await this.updateProposal(proposal);
+		}
 	}
 
 	/**
 	 * Handle rejecting a block
 	 */
-	private handleRejectBlock(proposalId: string, blockIndex: number): void {
+	private async handleRejectBlock(proposalId: string, blockIndex: number): Promise<void> {
 		this._onDidRejectBlock.fire({ proposalId, blockIndex });
 
 		// Remove the widget
@@ -421,6 +456,14 @@ export class ProposalEditorService extends Disposable {
 		if (widget) {
 			widget.dispose();
 			this.activeWidgets.delete(widgetId);
+		}
+
+		// Update decorations for the proposal
+		const proposal = Array.from(this.activeProposals.values()).find(p => p.id === proposalId);
+		if (proposal) {
+			// Remove the rejected chunk from the proposal
+			proposal.changes = proposal.changes.filter((_, idx) => idx !== blockIndex);
+			await this.updateProposal(proposal);
 		}
 	}
 

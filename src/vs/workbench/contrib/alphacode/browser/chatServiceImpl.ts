@@ -45,6 +45,7 @@ import { IFileService } from "../../../../platform/files/common/files.js";
 import { IWorkspaceContextService } from "../../../../platform/workspace/common/workspace.js";
 import { IEditorService } from "../../../../workbench/services/editor/common/editorService.js";
 import { ITextModelService } from "../../../../editor/common/services/resolverService.js";
+import { IUndoRedoService } from "../../../../platform/undoRedo/common/undoRedo.js";
 import { URI } from "../../../../base/common/uri.js";
 
 // Storage keys
@@ -115,13 +116,14 @@ export class AlphaCodeChatService
 		@IWorkspaceContextService workspaceContextService: IWorkspaceContextService,
 		@IEditorService private readonly editorService: IEditorService,
 		@ITextModelService textModelService: ITextModelService,
+	@IUndoRedoService undoRedoService: IUndoRedoService,
 		@IChatEditingService private readonly chatEditingService: IChatEditingService,
 	) {
 		super();
 
 		// Initialize utilities
 		this.promptBuilder = new PromptBuilder(securityService);
-		this.proposalManager = this._register(new ProposalManager(fileService, editorService));
+		this.proposalManager = this._register(new ProposalManager(fileService, editorService, textModelService, undoRedoService));
 		this.proposalEditorService = this._register(new ProposalEditorService(textModelService, editorService));
 
 		// Forward proposal events

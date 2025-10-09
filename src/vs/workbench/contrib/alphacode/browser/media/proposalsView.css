@@ -237,6 +237,140 @@ button.secondary:hover:not(:disabled) {
 	animation: errorPulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Chunks container */
+.proposal-chunks {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 8px 0;
+}
+
+/* Individual chunk card */
+.chunk-card {
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
+	padding: 8px;
+	transition: all 0.2s;
+}
+
+.chunk-card:hover {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.chunk-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	margin-bottom: 8px;
+}
+
+.chunk-title {
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--vscode-descriptionForeground);
+	font-family: var(--monaco-monospace-font);
+}
+
+/* Diff preview */
+.chunk-diff-preview {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.diff-block {
+	border-radius: 3px;
+	padding: 6px 8px;
+	font-size: 12px;
+}
+
+.diff-block.diff-removed {
+	background: rgba(222, 93, 93, 0.15);
+	border-left: 3px solid rgba(222, 93, 93, 0.8);
+}
+
+.diff-block.diff-added {
+	background: rgba(88, 166, 88, 0.15);
+	border-left: 3px solid rgba(88, 166, 88, 0.8);
+}
+
+.diff-label {
+	font-size: 11px;
+	font-weight: 600;
+	margin-bottom: 4px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.diff-removed .diff-label {
+	color: rgba(222, 93, 93, 1);
+}
+
+.diff-added .diff-label {
+	color: rgba(88, 166, 88, 1);
+}
+
+.diff-content {
+	margin: 0;
+	padding: 4px;
+	background: transparent;
+	font-family: var(--monaco-monospace-font);
+	font-size: 12px;
+	line-height: 1.4;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.diff-content code {
+	background: transparent;
+	padding: 0;
+}
+
+/* Dark theme adjustments */
+.vs-dark .diff-block.diff-removed {
+	background: rgba(248, 81, 73, 0.15);
+	border-left-color: rgba(248, 81, 73, 0.85);
+}
+
+.vs-dark .diff-block.diff-added {
+	background: rgba(63, 185, 80, 0.15);
+	border-left-color: rgba(63, 185, 80, 0.85);
+}
+
+/* Chunk actions */
+.chunk-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+}
+
+.chunk-actions button {
+	padding: 4px 12px;
+	font-size: 11px;
+	min-width: 70px;
+}
+
+/* Proposal card actions */
+.proposal-card-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--vscode-panel-border);
+	margin-top: 8px;
+}
+
+.proposal-card-actions button {
+	padding: 6px 14px;
+	font-size: 12px;
+	min-width: 85px;
+}
+
 /* Smooth scrollbar for proposals list */
 .proposals-list::-webkit-scrollbar {
 	width: 8px;
