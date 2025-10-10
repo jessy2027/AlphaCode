@@ -87,8 +87,16 @@ jobs:
     if: github.event.inputs.create_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for tag
-        run: sleep 10
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release.yml \
+            --ref "v${{ needs.bump-version.outputs.new_version }}" \
+            -f version="${{ needs.bump-version.outputs.new_version }}"
 
       - name: Summary
         run: |
