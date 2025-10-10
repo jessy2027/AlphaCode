@@ -1,10 +1,10 @@
 name: @@NAME@@
 version: '@@VERSION@@'
-summary: Code editing. Redefined.
+summary: AI-powered code editing.
 description: |
-  Visual Studio Code is a new choice of tool that combines the
-  simplicity of a code editor with what developers need for the core
-  edit-build-debug cycle.
+  AlphaCode is an AI-powered IDE that combines the simplicity of a code
+  editor with integrated AI capabilities to help developers write better
+  code faster.
 
 architectures:
   - build-on: amd64

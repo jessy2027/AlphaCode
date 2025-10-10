@@ -1,4 +1,4 @@
-name: "Copilot Setup Steps"
+name: "AlphaCode Setup Steps"
 
 # Automatically run the setup steps when they are changed to allow for easy validation, and
 # allow manual testing through the repository's "Actions" tab
@@ -6,26 +6,26 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - .github/workflows/copilot-setup-steps.yml
+      - .github/workflows/alphacode-setup-steps.yml
   pull_request:
     paths:
-      - .github/workflows/copilot-setup-steps.yml
+      - .github/workflows/alphacode-setup-steps.yml
 
 jobs:
-  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
-  copilot-setup-steps:
-    runs-on: vscode-large-runners
+  # The job MUST be called `alphacode-setup-steps` or it will not be picked up by AlphaCode.
+  alphacode-setup-steps:
+    runs-on: ubuntu-latest
 
     # Set the permissions to the lowest permissions possible needed for your steps.
-    # Copilot will be given its own token for its operations.
+    # AlphaCode will be given its own token for its operations.
     permissions:
-      # If you want to clone the repository as part of your setup steps, for example to install dependencies, you'll need the `contents: read` permission. If you don't clone the repository in your setup steps, Copilot will do this for you automatically after the steps complete.
+      # If you want to clone the repository as part of your setup steps, for example to install dependencies, you'll need the `contents: read` permission. If you don't clone the repository in your setup steps, AlphaCode will do this for you automatically after the steps complete.
       contents: read
 
     # You can define any steps you want, and they will run before the agent starts.
-    # If you do not check out your code, Copilot will do this for you.
+    # If you do not check out your code, AlphaCode will do this for you.
     steps:
-      - name: Checkout microsoft/vscode
+      - name: Checkout jessy2027/AlphaCodeIDE
         uses: actions/checkout@v5
 
       - name: Setup Node.js
