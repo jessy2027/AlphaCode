@@ -51,42 +51,40 @@ export class McpGalleryManifestService extends Disposable implements IMcpGallery
 		}
 
 		if (isProductGalleryUrl) {
-			resources.push({
-				id: `${serversUrl}/search`,
-				type: McpGalleryResourceType.McpServersSearchService
-			});
-			resources.push({
-				id: `${serversUrl}/by-name/{name}`,
-				type: McpGalleryResourceType.McpServerNamedResourceUri
-			});
-			resources.push({
-				id: this.productService.mcpGallery.itemWebUrl,
-				type: McpGalleryResourceType.McpServerWebUri
-			});
-			resources.push({
-				id: this.productService.mcpGallery.publisherUrl,
-				type: McpGalleryResourceType.PublisherUriTemplate
-			});
-			resources.push({
-				id: this.productService.mcpGallery.supportUrl,
-				type: McpGalleryResourceType.ContactSupportUri
-			});
-			resources.push({
-				id: this.productService.mcpGallery.supportUrl,
-				type: McpGalleryResourceType.ContactSupportUri
-			});
-			resources.push({
-				id: this.productService.mcpGallery.privacyPolicyUrl,
-				type: McpGalleryResourceType.PrivacyPolicyUri
-			});
-			resources.push({
-				id: this.productService.mcpGallery.termsOfServiceUrl,
-				type: McpGalleryResourceType.TermsOfServiceUri
-			});
-			resources.push({
-				id: this.productService.mcpGallery.reportUrl,
-				type: McpGalleryResourceType.ReportUri
-			});
+			resources.push(
+				{
+					id: `${serversUrl}/search`,
+					type: McpGalleryResourceType.McpServersSearchService
+				},
+				{
+					id: `${serversUrl}/by-name/{name}`,
+					type: McpGalleryResourceType.McpServerNamedResourceUri
+				},
+				{
+					id: this.productService.mcpGallery.itemWebUrl,
+					type: McpGalleryResourceType.McpServerWebUri
+				},
+				{
+					id: this.productService.mcpGallery.publisherUrl,
+					type: McpGalleryResourceType.PublisherUriTemplate
+				},
+				{
+					id: this.productService.mcpGallery.supportUrl,
+					type: McpGalleryResourceType.ContactSupportUri
+				},
+				{
+					id: this.productService.mcpGallery.privacyPolicyUrl,
+					type: McpGalleryResourceType.PrivacyPolicyUri
+				},
+				{
+					id: this.productService.mcpGallery.termsOfServiceUrl,
+					type: McpGalleryResourceType.TermsOfServiceUri
+				},
+				{
+					id: this.productService.mcpGallery.reportUrl,
+					type: McpGalleryResourceType.ReportUri
+				}
+			);
 		}
 
 		return {

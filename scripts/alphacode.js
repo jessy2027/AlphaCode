@@ -5,8 +5,8 @@
 
 // @ts-check
 
-const cp = require('child_process');
-const path = require('path');
+const cp = require('node:child_process');
+const path = require('node:path');
 
 const args = process.argv.slice(2);
 const isWindows = process.platform === 'win32';

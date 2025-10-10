@@ -67,79 +67,75 @@ export class GitHubUpdateService extends AbstractUpdateService {
 		}
 
 		this.setState(State.CheckingForUpdates(explicit));
+		void this.performCheckForUpdates(explicit);
+	}
 
-		this.requestService.request({ url: this.url, headers: { 'User-Agent': 'AlphaCodeIDE' } }, CancellationToken.None)
-			.then(asJson<IGitHubRelease>)
-			.then(async (release: IGitHubRelease | null) => {
-				if (!release) {
-					this.setState(State.Idle(this.getUpdateType()));
-					return null;
-				}
+	private async performCheckForUpdates(explicit: boolean): Promise<void> {
+		try {
+			const response = await this.requestService.request({ url: this.url!, headers: { 'User-Agent': 'AlphaCodeIDE' } }, CancellationToken.None);
+			const release = await asJson<IGitHubRelease | null>(response);
 
-				// Extract version from tag (e.g., "v1.96.0" -> "1.96.0")
-				const productVersion = release.tag_name.replace(/^v/, '');
+			if (!release) {
+				this.setState(State.Idle(this.getUpdateType()));
+				return;
+			}
 
-				// Try to find release.json asset for metadata
-				const releaseJsonAsset = release.assets.find(asset => asset.name === 'release.json');
+			const productVersion = release.tag_name.replace(/^v/, '');
+			const releaseJsonAsset = release.assets.find(asset => asset.name === 'release.json');
+			const platform = this.getPlatformIdentifier();
+			this.logService.info(`update#doCheckForUpdates: current platform is ${platform}`);
+
+			const asset = this.findPlatformAsset(release.assets, platform);
+
+			if (!asset) {
+				this.logService.info(`update#doCheckForUpdates: no asset found for platform ${platform}`);
+				this.setState(State.Idle(this.getUpdateType()));
+			} else {
 				let metadata: IReleaseMetadata | null = null;
-
 				if (releaseJsonAsset) {
-					try {
-						const metadataResponse = await this.requestService.request({
-							url: releaseJsonAsset.browser_download_url,
-							headers: { 'User-Agent': 'AlphaCodeIDE' }
-						}, CancellationToken.None);
-						metadata = await asJson<IReleaseMetadata>(metadataResponse);
-					} catch (err) {
-						this.logService.warn('update#doCheckForUpdates: failed to fetch release.json', err);
-					}
+					metadata = await this.fetchReleaseMetadata(releaseJsonAsset);
 				}
 
-				// Determine current platform
-				const platform = this.getPlatformIdentifier();
-				this.logService.info(`update#doCheckForUpdates: current platform is ${platform}`);
-
-				// Find matching asset for current platform
-				const asset = this.findPlatformAsset(release.assets, platform);
-
-				if (!asset) {
-					this.logService.info(`update#doCheckForUpdates: no asset found for platform ${platform}`);
-					this.setState(State.Idle(this.getUpdateType()));
-					return null;
-				}
-
-				// Get metadata for this platform if available
 				const platformMetadata = metadata?.platforms?.[platform];
-				const version = metadata?.version || release.tag_name;
-				const timestamp = metadata?.timestamp || new Date(release.published_at).getTime();
+				const version = metadata?.version ?? release.tag_name;
+				const timestamp = metadata?.timestamp ?? new Date(release.published_at).getTime();
 
-				// Check if this is actually a newer version
 				if (this.productService.commit && version === this.productService.commit) {
 					this.logService.info('update#doCheckForUpdates: already on latest version');
 					this.setState(State.Idle(this.getUpdateType()));
-					return null;
+				} else {
+					const update: IUpdate = {
+						version,
+						productVersion,
+						timestamp,
+						url: asset.browser_download_url,
+						sha256hash: platformMetadata?.sha256
+					};
+
+					this.logService.info('update#doCheckForUpdates: update available', update);
+					this.setState(State.AvailableForDownload(update));
 				}
+			}
+		} catch (err) {
+			this.telemetryService.publicLog2<{ messageHash: string }, UpdateErrorClassification>('update:error', { messageHash: String(hash(String(err))) });
+			this.logService.error('update#doCheckForUpdates: failed to check for updates', err);
 
-				const update: IUpdate = {
-					version,
-					productVersion,
-					timestamp,
-					url: asset.browser_download_url,
-					sha256hash: platformMetadata?.sha256
-				};
+			const message: string | undefined = explicit ? (err instanceof Error ? err.message : String(err)) : undefined;
+			this.setState(State.Idle(this.getUpdateType(), message));
+		}
+	}
 
-				this.logService.info('update#doCheckForUpdates: update available', update);
-				this.setState(State.AvailableForDownload(update));
-				return null;
-			})
-			.then(undefined, err => {
-				this.telemetryService.publicLog2<{ messageHash: string }, UpdateErrorClassification>('update:error', { messageHash: String(hash(String(err))) });
-				this.logService.error('update#doCheckForUpdates: failed to check for updates', err);
-
-				// Only show message when explicitly checking for updates
-				const message: string | undefined = explicit ? (err.message || err) : undefined;
-				this.setState(State.Idle(this.getUpdateType(), message));
-			});
+	private async fetchReleaseMetadata(asset: IGitHubRelease['assets'][number]): Promise<IReleaseMetadata | null> {
+		try {
+			const metadataResponse = await this.requestService.request({
+				url: asset.browser_download_url,
+				headers: { 'User-Agent': 'AlphaCodeIDE' }
+			}, CancellationToken.None);
+			return await asJson<IReleaseMetadata>(metadataResponse);
+		} catch (err) {
+			this.logService.warn('update#doCheckForUpdates: failed to fetch release.json', err);
+			return null;
+		}
 	}
 
 	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {

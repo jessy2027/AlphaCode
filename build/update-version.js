@@ -5,10 +5,10 @@
 
 // @ts-check
 
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
-const { promisify } = require('util');
+const fs = require('node:fs');
+const path = require('node:path');
+const { exec } = require('node:child_process');
+const { promisify } = require('node:util');
 
 const execAsync = promisify(exec);
 
@@ -82,15 +82,16 @@ async function updateVersion() {
 
 // Run if called directly
 if (require.main === module) {
-	updateVersion()
-		.then(() => {
+	(async () => {
+		try {
+			await updateVersion();
 			console.log('[update-version] Done!');
 			process.exit(0);
-		})
-		.catch(err => {
+		} catch (err) {
 			console.error('[update-version] Error:', err);
 			process.exit(1);
-		});
+		}
+	})();
 }
 
 module.exports = { updateVersion };

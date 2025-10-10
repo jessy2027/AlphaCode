@@ -425,7 +425,7 @@ export class ConfigurationEditing {
 						return '';
 				}
 			}
-			case ConfigurationEditingErrorCode.ERROR_CONFIGURATION_FILE_MODIFIED_SINCE:
+			case ConfigurationEditingErrorCode.ERROR_CONFIGURATION_FILE_MODIFIED_SINCE: {
 				const standAloneMessage = this.getStandAloneConfigurationErrorMessage(operation.workspaceStandAloneConfigurationKey, 'modifiedSince');
 				if (standAloneMessage) {
 					return standAloneMessage;
@@ -439,7 +439,10 @@ export class ConfigurationEditing {
 						return nls.localize('errorConfigurationFileModifiedSinceWorkspace', "Unable to write into workspace settings because the content of the file is newer.");
 					case EditableConfigurationTarget.WORKSPACE_FOLDER:
 						return nls.localize('errorConfigurationFileModifiedSinceFolder', "Unable to write into folder settings because the content of the file is newer.");
+					default:
+						return '';
 				}
+			}
 			case ConfigurationEditingErrorCode.ERROR_INTERNAL: return nls.localize('errorUnknown', "Unable to write to {0} because of an internal error.", this.stringifyTarget(target));
 		}
 	}

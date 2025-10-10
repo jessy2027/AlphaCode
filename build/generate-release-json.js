@@ -5,9 +5,9 @@
 
 // @ts-check
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 
 /**
  * Calculate SHA256 hash of a file
@@ -54,7 +54,10 @@ async function generateReleaseJson(options) {
 		{ platform: 'linux-arm64', filename: `alphacode-ide_${options.version}_arm64.deb`, pattern: /alphacode-ide.*arm64\.deb$/i }
 	];
 
-	const platforms = {};
+	/**
+	 * @type {Map<string, { url: string; sha256: string; size: number }>}
+	 */
+	const platforms = new Map();
 	const checksums = [];
 
 	// Process each artifact
@@ -74,11 +77,11 @@ async function generateReleaseJson(options) {
 		const fileSize = fs.statSync(filePath).size;
 
 		// Add to platforms object
-		platforms[artifact.platform] = {
+		platforms.set(artifact.platform, {
 			url: `${baseUrl}/${artifact.filename}`,
-			sha256: sha256,
+			sha256,
 			size: fileSize
-		};
+		});
 
 		// Add to checksums list
 		checksums.push({
@@ -96,7 +99,7 @@ async function generateReleaseJson(options) {
 		version: options.commit,
 		productVersion: options.version,
 		timestamp: Date.now(),
-		platforms: platforms
+		platforms: Object.fromEntries(platforms)
 	};
 
 	// Write release.json
@@ -117,15 +120,18 @@ async function generateReleaseJson(options) {
 	fs.writeFileSync(checksumsPath, checksumsContent, 'utf8');
 	console.log(`[generate-release-json] ✓ CHECKSUMS.txt written to ${checksumsPath}`);
 
-	console.log(`[generate-release-json] Done! Found ${Object.keys(platforms).length} platform(s)`);
+	console.log(`[generate-release-json] Done! Found ${platforms.size} platform(s)`);
 
 	return releaseMetadata;
 }
 
 // CLI usage
-if (require.main === module) {
-	const args = process.argv.slice(2);
 
+
+/**
+ * @param {string[]} args
+ */
+async function runCli(args) {
 	if (args.length < 5) {
 		console.error('Usage: node generate-release-json.js <version> <commit> <repoUrl> <buildDir> <outputPath>');
 		console.error('Example: node generate-release-json.js 1.96.0 abc123 https://github.com/jessy2027/AlphaCodeIDE .build release.json');
@@ -134,15 +140,27 @@ if (require.main === module) {
 
 	const [version, commit, repoUrl, buildDir, outputPath] = args;
 
-	generateReleaseJson({ version, commit, repoUrl, buildDir, outputPath })
-		.then(() => {
-			console.log('[generate-release-json] Success!');
-			process.exit(0);
-		})
-		.catch(err => {
+	try {
+		await generateReleaseJson({ version, commit, repoUrl, buildDir, outputPath });
+		console.log('[generate-release-json] Success!');
+		process.exit(0);
+	} catch (err) {
+		console.error('[generate-release-json] Error:', err);
+		process.exit(1);
+	}
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+	const args = process.argv.slice(2);
+
+	(async () => {
+		try {
+			await runCli(args);
+		} catch (err) {
 			console.error('[generate-release-json] Error:', err);
 			process.exit(1);
-		});
+		}
+	})();
 }
 
 module.exports = { generateReleaseJson, calculateSha256 };

@@ -984,7 +984,7 @@ export class CodeApplication extends Disposable {
 
 		// Update
 		// AlphaCodeIDE: Use GitHub-based update service for all platforms
-		if (this.productService.updateUrl && this.productService.updateUrl.includes('github.com')) {
+		if (this.productService.updateUrl?.includes('github.com')) {
 			services.set(IUpdateService, new SyncDescriptor(GitHubUpdateService));
 		} else {
 			// Fallback to platform-specific update services
