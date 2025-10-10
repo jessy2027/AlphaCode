@@ -76,6 +76,7 @@ import { DarwinUpdateService } from '../../platform/update/electron-main/updateS
 import { LinuxUpdateService } from '../../platform/update/electron-main/updateService.linux.js';
 import { SnapUpdateService } from '../../platform/update/electron-main/updateService.snap.js';
 import { Win32UpdateService } from '../../platform/update/electron-main/updateService.win32.js';
+import { GitHubUpdateService } from '../../platform/update/electron-main/updateService.github.js';
 import { IOpenURLOptions, IURLService } from '../../platform/url/common/url.js';
 import { URLHandlerChannelClient, URLHandlerRouter } from '../../platform/url/common/urlIpc.js';
 import { NativeURLService } from '../../platform/url/common/urlService.js';
@@ -982,22 +983,28 @@ export class CodeApplication extends Disposable {
 		const services = new ServiceCollection();
 
 		// Update
-		switch (process.platform) {
-			case 'win32':
-				services.set(IUpdateService, new SyncDescriptor(Win32UpdateService));
-				break;
+		// AlphaCodeIDE: Use GitHub-based update service for all platforms
+		if (this.productService.updateUrl && this.productService.updateUrl.includes('github.com')) {
+			services.set(IUpdateService, new SyncDescriptor(GitHubUpdateService));
+		} else {
+			// Fallback to platform-specific update services
+			switch (process.platform) {
+				case 'win32':
+					services.set(IUpdateService, new SyncDescriptor(Win32UpdateService));
+					break;
 
-			case 'linux':
-				if (isLinuxSnap) {
-					services.set(IUpdateService, new SyncDescriptor(SnapUpdateService, [process.env['SNAP'], process.env['SNAP_REVISION']]));
-				} else {
-					services.set(IUpdateService, new SyncDescriptor(LinuxUpdateService));
-				}
-				break;
+				case 'linux':
+					if (isLinuxSnap) {
+						services.set(IUpdateService, new SyncDescriptor(SnapUpdateService, [process.env['SNAP'], process.env['SNAP_REVISION']]));
+					} else {
+						services.set(IUpdateService, new SyncDescriptor(LinuxUpdateService));
+					}
+					break;
 
-			case 'darwin':
-				services.set(IUpdateService, new SyncDescriptor(DarwinUpdateService));
-				break;
+				case 'darwin':
+					services.set(IUpdateService, new SyncDescriptor(DarwinUpdateService));
+					break;
+			}
 		}
 
 		// Windows

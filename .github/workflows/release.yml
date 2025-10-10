@@ -1,0 +1,229 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.96.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  NODE_OPTIONS: --max-old-space-size=16384
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      commit: ${{ steps.get_version.outputs.commit }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          COMMIT=$(git rev-parse HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+          echo "Commit: $COMMIT"
+
+  build-windows:
+    name: Build Windows
+    needs: prepare
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update version
+        run: node build/update-version.js
+
+      - name: Compile
+        run: npm run compile-build
+
+      - name: Build Windows package
+        run: npm run gulp "vscode-win32-${{ matrix.arch }}"
+
+      - name: Create Windows installer
+        run: |
+          npm run gulp "vscode-win32-${{ matrix.arch }}-inno-updater"
+          npm run gulp "vscode-win32-${{ matrix.arch }}-user-setup"
+        shell: pwsh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: |
+            .build/win32-${{ matrix.arch }}/AlphaCodeIDE-Setup-win32-${{ matrix.arch }}.exe
+          retention-days: 7
+
+  build-linux:
+    name: Build Linux
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update version
+        run: node build/update-version.js
+
+      - name: Compile
+        run: npm run compile-build
+
+      - name: Build Linux package
+        run: npm run gulp "vscode-linux-${{ matrix.arch }}"
+
+      - name: Build DEB package
+        run: npm run gulp "vscode-linux-${{ matrix.arch }}-build-deb"
+
+      - name: Build RPM package
+        run: npm run gulp "vscode-linux-${{ matrix.arch }}-build-rpm"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            .build/linux/deb/*/alphacode-ide_*_${{ matrix.arch == 'x64' && 'amd64' || 'arm64' }}.deb
+            .build/linux/rpm/*/alphacode-ide-*.rpm
+          retention-days: 7
+
+  build-macos:
+    name: Build macOS
+    needs: prepare
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update version
+        run: node build/update-version.js
+
+      - name: Compile
+        run: npm run compile-build
+
+      - name: Build macOS package
+        run: npm run gulp "vscode-darwin-${{ matrix.arch }}"
+
+      - name: Create archive
+        run: npm run gulp "vscode-darwin-${{ matrix.arch }}-archive"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: |
+            .build/darwin/${{ matrix.arch }}/AlphaCodeIDE-darwin-${{ matrix.arch }}.zip
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub Release
+    needs: [prepare, build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize artifacts
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f \( -name "*.exe" -o -name "*.deb" -o -name "*.rpm" -o -name "*.zip" -o -name "*.dmg" \) -exec cp {} release-assets/ \;
+          ls -lah release-assets/
+
+      - name: Generate release.json
+        run: |
+          node build/generate-release-json.js \
+            "${{ needs.prepare.outputs.version }}" \
+            "${{ needs.prepare.outputs.commit }}" \
+            "https://github.com/${{ github.repository }}" \
+            "release-assets" \
+            "release-assets/release.json"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: AlphaCodeIDE v${{ needs.prepare.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Summary
+        run: |
+          echo "## 🎉 Release v${{ needs.prepare.outputs.version }} Created!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Assets:" >> $GITHUB_STEP_SUMMARY
+          ls -1 release-assets/ | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Links:" >> $GITHUB_STEP_SUMMARY
+          echo "- [Release Page](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.prepare.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Commit: ${{ needs.prepare.outputs.commit }}](https://github.com/${{ github.repository }}/commit/${{ needs.prepare.outputs.commit }})" >> $GITHUB_STEP_SUMMARY
