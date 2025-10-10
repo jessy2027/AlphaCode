@@ -9,7 +9,10 @@
       "Bash(git checkout:*)",
       "Bash(python:*)",
       "Bash(taskkill:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(Get-FileHash \"c:\\Users\\jessy\\AlphaCode\\src\\vs\\workbench\\contrib\\alphacode\\browser\\streamHandler.ts\" -Algorithm MD5)",
+      "Bash(Select-Object -ExpandProperty Hash)",
+      "Bash(md5sum:*)"
     ],
     "deny": [],
     "ask": []
