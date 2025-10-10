@@ -10,8 +10,8 @@ import { ILifecycleMainService } from '../../lifecycle/electron-main/lifecycleMa
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
-import { AvailableForDownload, IUpdate, State, StateType, UpdateType } from '../common/update.js';
-import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } from './abstractUpdateService.js';
+import { AvailableForDownload, IUpdate, State, UpdateType } from '../common/update.js';
+import { AbstractUpdateService, UpdateErrorClassification } from './abstractUpdateService.js';
 import { hash } from '../../../base/common/hash.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 
@@ -69,7 +69,7 @@ export class GitHubUpdateService extends AbstractUpdateService {
 		this.setState(State.CheckingForUpdates(explicit));
 
 		this.requestService.request({ url: this.url, headers: { 'User-Agent': 'AlphaCodeIDE' } }, CancellationToken.None)
-			.then<IUpdate | null>(asJson)
+			.then(asJson<IGitHubRelease>)
 			.then(async (release: IGitHubRelease | null) => {
 				if (!release) {
 					this.setState(State.Idle(this.getUpdateType()));
