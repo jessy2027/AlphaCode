@@ -68,21 +68,25 @@ function checkFunctionForAwaitBeforeReader(
 		// Safely traverse known node types only
 		switch (node.type) {
 			case 'BlockStatement':
-				node.body.forEach(stmt => collectPositions(stmt));
+				for (const stmt of node.body) {
+					collectPositions(stmt);
+				}
 				break;
 			case 'ExpressionStatement':
 				collectPositions(node.expression);
 				break;
 			case 'VariableDeclaration':
-				node.declarations.forEach(decl => {
+				for (const decl of node.declarations) {
 					if (decl.init) { collectPositions(decl.init); }
-				});
+				}
 				break;
 			case 'AwaitExpression':
 				if (node.argument) { collectPositions(node.argument); }
 				break;
 			case 'CallExpression':
-				node.arguments.forEach(arg => collectPositions(arg));
+				for (const arg of node.arguments) {
+					collectPositions(arg);
+				}
 				break;
 			case 'IfStatement':
 				collectPositions(node.test);

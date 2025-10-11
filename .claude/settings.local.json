@@ -12,7 +12,9 @@
       "Bash(cat:*)",
       "Bash(Get-FileHash \"c:\\Users\\jessy\\AlphaCode\\src\\vs\\workbench\\contrib\\alphacode\\browser\\streamHandler.ts\" -Algorithm MD5)",
       "Bash(Select-Object -ExpandProperty Hash)",
-      "Bash(md5sum:*)"
+      "Bash(md5sum:*)",
+      "Bash(.scriptsbuild-windows.ps1 -SkipCompile)",
+      "Bash(powershell.exe:*)"
     ],
     "deny": [],
     "ask": []

@@ -218,6 +218,7 @@ export class VibeCodingView extends ViewPane {
 				await this.chatService.clearCurrentSession();
 				this.renderMessages();
 			},
+			openerService: this.openerService,
 		});
 
 		this.messagesContainer = renderChatMessageList({
