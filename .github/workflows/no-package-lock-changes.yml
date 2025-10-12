@@ -25,7 +25,7 @@ jobs:
         id: get_permissions
         if: ${{ steps.lockfile_check.outputs.lockfiles_modified == 'true' }}
         with:
-          route: GET /repos/jessy2027/AlphaCodeIDE/collaborators/{username}/permission
+          route: GET /repos/jessy2027/AlphaCode/collaborators/{username}/permission
           username: ${{ github.event.pull_request.user.login }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

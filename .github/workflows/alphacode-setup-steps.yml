@@ -25,7 +25,7 @@ jobs:
     # You can define any steps you want, and they will run before the agent starts.
     # If you do not check out your code, AlphaCode will do this for you.
     steps:
-      - name: Checkout jessy2027/AlphaCodeIDE
+      - name: Checkout jessy2027/AlphaCode
         uses: actions/checkout@v5
 
       - name: Setup Node.js

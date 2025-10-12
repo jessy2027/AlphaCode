@@ -1,10 +1,10 @@
 # AlphaCode - AI-Powered IDE
-[![Feature Requests](https://img.shields.io/github/issues/jessy2027/AlphaCodeIDE/feature-request.svg)](https://github.com/jessy2027/AlphaCodeIDE/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-[![Bugs](https://img.shields.io/github/issues/jessy2027/AlphaCodeIDE/bug.svg)](https://github.com/jessy2027/AlphaCodeIDE/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Feature Requests](https://img.shields.io/github/issues/jessy2027/AlphaCode/feature-request.svg)](https://github.com/jessy2027/AlphaCode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
+[![Bugs](https://img.shields.io/github/issues/jessy2027/AlphaCode/bug.svg)](https://github.com/jessy2027/AlphaCode/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)
 
 ## The Repository
 
-This repository is where we develop AlphaCodeIDE, a fork of Visual Studio Code with integrated AI capabilities. We work on code and issues here together with the community. This source code is available to everyone under the standard [MIT license](https://github.com/jessy2027/AlphaCodeIDE/blob/main/LICENSE.txt).
+This repository is where we develop AlphaCodeIDE, a fork of Visual Studio Code with integrated AI capabilities. We work on code and issues here together with the community. This source code is available to everyone under the standard [MIT license](https://github.com/jessy2027/AlphaCode/blob/main/LICENSE.txt).
 
 ## AlphaCode
 
@@ -16,12 +16,21 @@ AlphaCode is a fork of Visual Studio Code that adds integrated AI capabilities i
 
 AlphaCode provides comprehensive code editing, navigation, and understanding support along with lightweight debugging, a rich extensibility model, and AI-powered features that help you write better code faster.
 
+## Documentation
+
+For comprehensive documentation, see the [docs](docs/) directory:
+
+* **[Development Guide](CLAUDE.md)** - Architecture, commands, and coding guidelines
+* **[Release Process](docs/RELEASE_PROCESS.md)** - How to create and manage releases
+* **[Build Instructions](scripts/BUILD.md)** - Platform-specific build guides
+* **[Changelog](CHANGELOG.md)** - Version history and release notes
+
 ## Contributing
 
 There are many ways in which you can participate in this project, for example:
 
-* [Submit bugs and feature requests](https://github.com/jessy2027/AlphaCodeIDE/issues), and help us verify as they are checked in
-* Review [source code changes](https://github.com/jessy2027/AlphaCodeIDE/pulls)
+* [Submit bugs and feature requests](https://github.com/jessy2027/AlphaCode/issues), and help us verify as they are checked in
+* Review [source code changes](https://github.com/jessy2027/AlphaCode/pulls)
 * Help improve documentation
 
 If you are interested in fixing issues and contributing directly to the code base,
@@ -35,8 +44,8 @@ please see the document [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
 ## Feedback
 
 * [Request a new feature](CONTRIBUTING.md)
-* Upvote [popular feature requests](https://github.com/jessy2027/AlphaCodeIDE/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-* [File an issue](https://github.com/jessy2027/AlphaCodeIDE/issues)
+* Upvote [popular feature requests](https://github.com/jessy2027/AlphaCode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
+* [File an issue](https://github.com/jessy2027/AlphaCode/issues)
 
 ## Bundled Extensions
 

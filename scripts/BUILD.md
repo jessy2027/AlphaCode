@@ -258,7 +258,7 @@ chmod +x scripts/*.sh
 
 - [Documentation AlphaCodeIDE](../README.md)
 - [Guide de contribution](../CONTRIBUTING.md)
-- [Issues GitHub](https://github.com/jessy2027/AlphaCodeIDE/issues)
+- [Issues GitHub](https://github.com/jessy2027/AlphaCode/issues)
 
 ---
 
