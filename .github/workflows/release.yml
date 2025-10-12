@@ -200,7 +200,8 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [prepare, build-windows, build-linux, build-macos]
+    
+    needs: [prepare, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
