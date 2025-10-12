@@ -231,6 +231,26 @@ jobs:
             "release-assets" \
             "release-assets/release.json"
 
+      - name: Extract changelog for version
+        id: changelog
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+
+          # Extract the section for this version from CHANGELOG.md
+          if [ -f "CHANGELOG.md" ]; then
+            CHANGELOG_SECTION=$(sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
+            if [ -n "$CHANGELOG_SECTION" ]; then
+              echo "Found changelog section for version $VERSION"
+              echo "$CHANGELOG_SECTION" > release-notes.md
+            else
+              echo "No changelog section found for version $VERSION, using auto-generated notes"
+              echo "" > release-notes.md
+            fi
+          else
+            echo "CHANGELOG.md not found, using auto-generated notes"
+            echo "" > release-notes.md
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -238,6 +258,7 @@ jobs:
           name: AlphaCodeIDE v${{ needs.prepare.outputs.version }}
           draft: false
           prerelease: false
+          body_path: release-notes.md
           generate_release_notes: true
           files: |
             release-assets/*

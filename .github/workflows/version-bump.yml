@@ -75,6 +75,10 @@ jobs:
           echo "- **New Version**: v${{ steps.bump.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Tag**: v${{ steps.bump.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Update CHANGELOG.md with release notes for v${{ steps.bump.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "2. Review the changes before the release is created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ github.event.inputs.create_release }}" = "true" ]; then
             echo "✅ Release workflow will be triggered automatically" >> $GITHUB_STEP_SUMMARY
           else
