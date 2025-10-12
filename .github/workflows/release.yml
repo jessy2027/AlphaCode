@@ -81,6 +81,22 @@ jobs:
           npm run gulp "vscode-win32-${{ matrix.arch }}-user-setup"
         shell: pwsh
 
+      - name: Rename installer
+        run: |
+          $sourcePath = ".build/win32-${{ matrix.arch }}/user-setup/AlphaCodeIDESetup.exe"
+          $targetDir = ".build/win32-${{ matrix.arch }}"
+          $targetPath = "$targetDir/AlphaCodeIDE-Setup-win32-${{ matrix.arch }}.exe"
+
+          if (Test-Path $sourcePath) {
+            Copy-Item $sourcePath $targetPath
+            Write-Host "Installer renamed: $targetPath"
+            Write-Host "File size: $((Get-Item $targetPath).Length / 1MB) MB"
+          } else {
+            Write-Error "Source installer not found: $sourcePath"
+            exit 1
+          }
+        shell: pwsh
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
