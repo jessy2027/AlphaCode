@@ -8,16 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Upcoming features will be listed here
+- **First-time setup wizard** with modern UI for initial configuration
+  - Welcome screen with AlphaCode branding
+  - Keybindings selection (VS Code or Vim)
+  - Optional `surf` terminal command installation
+  - Editor theme selection with live preview
+  - Multi-step wizard with progress indicators
+- Setup wizard service for managing first-run experience
+- Setup preferences storage and persistence
 
 ### Changed
-- Upcoming changes will be listed here
+- Enhanced first-run experience with guided setup flow
 
 ### Fixed
-- Upcoming bug fixes will be listed here
 
 ### Removed
-- Upcoming removals will be listed here
 
 ---
 
