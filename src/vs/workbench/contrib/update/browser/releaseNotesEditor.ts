@@ -96,8 +96,14 @@ export class ReleaseNotesManager extends Disposable {
 				return URI.parse(`https://raw.githubusercontent.com/${repoMatch[1]}/main`);
 			}
 		}
-		// Fallback to hardcoded URL if product configuration is not available
-		return URI.parse('https://raw.githubusercontent.com/jessy2027/AlphaCode/main');
+		// Use reportIssueUrl as fallback to extract repository info
+		if (this._productService.reportIssueUrl) {
+			const repoMatch = this._productService.reportIssueUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+			if (repoMatch) {
+				return URI.parse(`https://raw.githubusercontent.com/${repoMatch[1]}/main`);
+			}
+		}
+		throw new Error('Unable to determine repository URL from product configuration');
 	}
 
 	public async show(version: string, useCurrentFile: boolean): Promise<boolean> {
@@ -169,8 +175,8 @@ export class ReleaseNotesManager extends Disposable {
 
 		if (!match) {
 			// If exact version not found, return a generic message with link to all releases
-			// Use downloadUrl from product.json if available
-			const releasesUrl = this._productService.downloadUrl || 'https://github.com/jessy2027/AlphaCode/releases';
+			// Use downloadUrl from product.json
+			const releasesUrl = this._productService.downloadUrl || this._productService.releaseNotesUrl?.replace('/tag/v{0}', '') || '';
 			return `# ${this._productService.nameLong} ${version}\n\nRelease notes for this version are not yet available.\n\nPlease visit the [releases page](${releasesUrl}) for more information.`;
 		}
 
@@ -205,8 +211,14 @@ export class ReleaseNotesManager extends Disposable {
 				return `https://raw.githubusercontent.com/${repoMatch[1]}/main/CHANGELOG.md`;
 			}
 		}
-		// Fallback to hardcoded URL if product configuration is not available
-		return 'https://raw.githubusercontent.com/jessy2027/AlphaCode/main/CHANGELOG.md';
+		// Try reportIssueUrl as fallback
+		if (this._productService.reportIssueUrl) {
+			const repoMatch = this._productService.reportIssueUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+			if (repoMatch) {
+				return `https://raw.githubusercontent.com/${repoMatch[1]}/main/CHANGELOG.md`;
+			}
+		}
+		throw new Error('Unable to determine CHANGELOG.md URL from product configuration');
 	}
 
 	private async loadReleaseNotes(version: string, useCurrentFile: boolean): Promise<string> {

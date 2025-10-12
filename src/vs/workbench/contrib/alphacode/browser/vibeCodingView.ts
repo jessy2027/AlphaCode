@@ -20,6 +20,7 @@ import { localize } from "../../../../nls.js";
 import { ICommandService } from "../../../../platform/commands/common/commands.js";
 import { MarkdownRenderer } from "./markdownRenderer.js";
 import { IConfigurationService } from "../../../../platform/configuration/common/configuration.js";
+import { IProductService } from "../../../../platform/product/common/productService.js";
 import { IContextKeyService } from "../../../../platform/contextkey/common/contextkey.js";
 import { IContextMenuService } from "../../../../platform/contextview/browser/contextView.js";
 import { IHoverService } from "../../../../platform/hover/browser/hover.js";
@@ -91,6 +92,7 @@ export class VibeCodingView extends ViewPane {
 		@IAlphaCodeChatService private readonly chatService: IAlphaCodeChatService,
 		@IAlphaCodeAIService private readonly aiService: IAlphaCodeAIService,
 		@IEditorService private readonly editorService: IEditorService,
+		@IProductService private readonly productService: IProductService,
 	) {
 		super(
 			options,
@@ -219,6 +221,7 @@ export class VibeCodingView extends ViewPane {
 				this.renderMessages();
 			},
 			openerService: this.openerService,
+			productService: this.productService,
 		});
 
 		this.messagesContainer = renderChatMessageList({

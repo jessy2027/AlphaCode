@@ -7,6 +7,7 @@ import { $, append, addDisposableListener } from "../../../../../base/browser/do
 import type { IDisposable } from "../../../../../base/common/lifecycle.js";
 import { localize } from "../../../../../nls.js";
 import { IOpenerService } from "../../../../../platform/opener/common/opener.js";
+import { IProductService } from "../../../../../platform/product/common/productService.js";
 import { URI } from "../../../../../base/common/uri.js";
 
 export interface ChatHeaderOptions {
@@ -14,6 +15,7 @@ export interface ChatHeaderOptions {
   register: <T extends IDisposable>(disposable: T) => T;
   onClear: () => void;
   openerService: IOpenerService;
+  productService: IProductService;
 }
 
 export interface ChatHeaderHandles {
@@ -53,7 +55,11 @@ export function renderChatHeader(options: ChatHeaderOptions): ChatHeaderHandles 
 
   options.register(
     addDisposableListener(reportBugButton, "click", async () => {
-      const issueUrl = URI.parse("https://github.com/jessy2027/AlphaCodeIDE/issues/new");
+      // Use reportIssueUrl from product.json
+      if (!options.productService.reportIssueUrl) {
+        throw new Error('reportIssueUrl not configured in product.json');
+      }
+      const issueUrl = URI.parse(options.productService.reportIssueUrl);
       await options.openerService.open(issueUrl, { openExternal: true });
     }),
   );
