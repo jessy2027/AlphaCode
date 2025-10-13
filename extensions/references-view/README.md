@@ -17,7 +17,7 @@ This extension is just an alternative UI for reference search and extensions imp
 
 ## Issues
 
-This extension ships with AlphaCode. Please file issues here: https://github.com/jessy2027/AlphaCodeIDE/issues
+This extension ships with AlphaCode. Please file issues here: https://github.com/jessy2027/AlphaCode/issues
 
 # Contributing
 

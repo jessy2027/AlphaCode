@@ -284,7 +284,7 @@ AlphaCode/
 
 ## Resources
 
-- Repository: https://github.com/jessy2027/AlphaCodeIDE
-- Issues: https://github.com/jessy2027/AlphaCodeIDE/issues
+- Repository: https://github.com/jessy2027/AlphaCode
+- Issues: https://github.com/jessy2027/AlphaCode/issues
 - VS Code Contributing Guide: https://github.com/microsoft/vscode/wiki/How-to-Contribute
 - VS Code Architecture: https://github.com/microsoft/vscode/wiki/Source-Code-Organization

@@ -40,9 +40,12 @@ import { IAlphaCodePairProgrammingService } from "../common/pairProgramming.js";
 import { AlphaCodePairProgrammingService } from "./pairProgrammingServiceImpl.js";
 import { IAlphaCodeSecurityService } from "../common/securityService.js";
 import { AlphaCodeSecurityService } from "./securityServiceImpl.js";
+import { ISetupWizardService } from "./setup/setupWizardService.js";
+import { SetupWizardService } from "./setup/setupWizardService.js";
 import "../common/configuration.js";
 import "./alphacodeActions.js";
 import "./media/proposalDecorations.css";
+import "./setup/setupWizard.contribution.js";
 
 const alphaCodeIcon = registerIcon(
 	"alphacode-view-icon",
@@ -108,5 +111,10 @@ registerSingleton(
 registerSingleton(
 	IAlphaCodeSecurityService,
 	AlphaCodeSecurityService,
+	InstantiationType.Delayed,
+);
+registerSingleton(
+	ISetupWizardService,
+	SetupWizardService,
 	InstantiationType.Delayed,
 );

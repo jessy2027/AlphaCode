@@ -87,7 +87,23 @@ export class ReleaseNotesManager extends Disposable {
 				return dirname(currentFileUri);
 			}
 		}
-		return URI.parse('https://code.visualstudio.com/raw');
+		// AlphaCodeIDE: Use GitHub raw content base URL from product configuration
+		// Extract repository URL from downloadUrl in product.json
+		if (this._productService.downloadUrl) {
+			// Convert https://github.com/owner/repo/releases to https://raw.githubusercontent.com/owner/repo/main
+			const repoMatch = this._productService.downloadUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+			if (repoMatch) {
+				return URI.parse(`https://raw.githubusercontent.com/${repoMatch[1]}/main`);
+			}
+		}
+		// Use reportIssueUrl as fallback to extract repository info
+		if (this._productService.reportIssueUrl) {
+			const repoMatch = this._productService.reportIssueUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+			if (repoMatch) {
+				return URI.parse(`https://raw.githubusercontent.com/${repoMatch[1]}/main`);
+			}
+		}
+		throw new Error('Unable to determine repository URL from product configuration');
 	}
 
 	public async show(version: string, useCurrentFile: boolean): Promise<boolean> {
@@ -146,15 +162,67 @@ export class ReleaseNotesManager extends Disposable {
 		return true;
 	}
 
-	private async loadReleaseNotes(version: string, useCurrentFile: boolean): Promise<string> {
-		const match = /^(\d+\.\d+)\./.exec(version);
+	/**
+	 * Extract the section for a specific version from CHANGELOG.md
+	 */
+	private extractVersionSection(changelogText: string, version: string): string {
+		// Remove 'v' prefix if present in version
+		const cleanVersion = version.replace(/^v/, '');
+
+		// Try to find the version section in the format: ## [version] - date
+		const versionRegex = new RegExp(`## \\[${cleanVersion.replace(/\./g, '\\.')}\\].*?\\n`, 'i');
+		const match = changelogText.match(versionRegex);
+
 		if (!match) {
-			throw new Error('not found');
+			// If exact version not found, return a generic message with link to all releases
+			// Use downloadUrl from product.json
+			const releasesUrl = this._productService.downloadUrl || this._productService.releaseNotesUrl?.replace('/tag/v{0}', '') || '';
+			return `# ${this._productService.nameLong} ${version}\n\nRelease notes for this version are not yet available.\n\nPlease visit the [releases page](${releasesUrl}) for more information.`;
 		}
 
-		const versionLabel = match[1].replace(/\./g, '_');
-		const baseUrl = 'https://code.visualstudio.com/raw';
-		const url = `${baseUrl}/v${versionLabel}.md`;
+		const startIndex = changelogText.indexOf(match[0]);
+		// Find the next version section or end of file
+		const nextVersionIndex = changelogText.indexOf('\n## [', startIndex + match[0].length);
+		const endIndex = nextVersionIndex === -1 ? changelogText.length : nextVersionIndex;
+
+		// Extract the section and clean it up
+		let section = changelogText.slice(startIndex, endIndex).trim();
+
+		// Remove the horizontal separator if present
+		section = section.replace(/^---\s*$/gm, '').trim();
+
+		// Add a title if not present
+		if (!section.startsWith('# ')) {
+			section = `# ${this._productService.nameLong} ${version}\n\n` + section;
+		}
+
+		return section;
+	}
+
+	/**
+	 * Get the CHANGELOG.md URL from product configuration
+	 */
+	private getChangelogUrl(): string {
+		// AlphaCodeIDE: Build CHANGELOG.md URL from downloadUrl in product.json
+		if (this._productService.downloadUrl) {
+			// Convert https://github.com/owner/repo/releases to https://raw.githubusercontent.com/owner/repo/main/CHANGELOG.md
+			const repoMatch = this._productService.downloadUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+			if (repoMatch) {
+				return `https://raw.githubusercontent.com/${repoMatch[1]}/main/CHANGELOG.md`;
+			}
+		}
+		// Try reportIssueUrl as fallback
+		if (this._productService.reportIssueUrl) {
+			const repoMatch = this._productService.reportIssueUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+			if (repoMatch) {
+				return `https://raw.githubusercontent.com/${repoMatch[1]}/main/CHANGELOG.md`;
+			}
+		}
+		throw new Error('Unable to determine CHANGELOG.md URL from product configuration');
+	}
+
+	private async loadReleaseNotes(version: string, useCurrentFile: boolean): Promise<string> {
+		const changelogUrl = this.getChangelogUrl();
 		const unassigned = nls.localize('unassigned', "unassigned");
 
 		const escapeMdHtml = (text: string): string => {
@@ -212,7 +280,12 @@ export class ReleaseNotesManager extends Disposable {
 					const file = this._codeEditorService.getActiveCodeEditor()?.getModel()?.getValue();
 					text = file ? file.substring(file.indexOf('#')) : undefined;
 				} else {
-					text = await asTextOrError(await this._requestService.request({ url }, CancellationToken.None));
+					// AlphaCodeIDE: Fetch CHANGELOG.md from GitHub
+					const changelogText = await asTextOrError(await this._requestService.request({ url: changelogUrl }, CancellationToken.None));
+					if (!changelogText) {
+						throw new Error('Failed to fetch changelog from GitHub');
+					}
+					text = this.extractVersionSection(changelogText, version);
 				}
 			} catch {
 				throw new Error('Failed to fetch release notes');
@@ -255,8 +328,9 @@ export class ReleaseNotesManager extends Disposable {
 
 	private async addGAParameters(uri: URI, origin: string, experiment = '1'): Promise<URI> {
 		if (supportsTelemetry(this._productService, this._environmentService) && getTelemetryLevel(this._configurationService) === TelemetryLevel.USAGE) {
-			if (uri.scheme === 'https' && uri.authority === 'code.visualstudio.com') {
-				return uri.with({ query: `${uri.query ? uri.query + '&' : ''}utm_source=VsCode&utm_medium=${encodeURIComponent(origin)}&utm_content=${encodeURIComponent(experiment)}` });
+			// AlphaCodeIDE: Update telemetry parameters for AlphaCodeIDE
+			if (uri.scheme === 'https' && (uri.authority === 'code.visualstudio.com' || uri.authority === 'github.com')) {
+				return uri.with({ query: `${uri.query ? uri.query + '&' : ''}utm_source=AlphaCodeIDE&utm_medium=${encodeURIComponent(origin)}&utm_content=${encodeURIComponent(experiment)}` });
 			}
 		}
 		return uri;
@@ -276,7 +350,7 @@ export class ReleaseNotesManager extends Disposable {
 			<head>
 				<base href="${asWebviewUri(fileContent.base).toString(true)}/" >
 				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; media-src https:; style-src 'nonce-${nonce}' https://code.visualstudio.com; script-src 'nonce-${nonce}';">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; media-src https:; style-src 'nonce-${nonce}' https://code.visualstudio.com https://raw.githubusercontent.com; script-src 'nonce-${nonce}';">
 				<style nonce="${nonce}">
 					${DEFAULT_MARKDOWN_STYLES}
 					${css}

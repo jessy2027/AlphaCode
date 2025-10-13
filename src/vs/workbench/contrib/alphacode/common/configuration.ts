@@ -146,6 +146,19 @@ const alphaCodeConfiguration: IConfigurationNode = {
 			description: localize('alphacode.omegaCompletion.requestTimeout', 'Timeout in milliseconds for Omega completion requests.'),
 			scope: ConfigurationScope.APPLICATION,
 		},
+		'alphacode.setup.keybindings': {
+			type: 'string',
+			enum: ['vscode', 'vim'],
+			default: 'vscode',
+			description: localize('alphacode.setup.keybindings', 'Keybindings preset selected during setup'),
+			scope: ConfigurationScope.APPLICATION,
+		},
+		'alphacode.setup.installAlphaCommand': {
+			type: 'boolean',
+			default: true,
+			description: localize('alphacode.setup.installAlphaCommand', 'Install alpha terminal command during setup'),
+			scope: ConfigurationScope.APPLICATION,
+		},
 	},
 };
 

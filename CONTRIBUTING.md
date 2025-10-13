@@ -6,11 +6,11 @@ There are several ways in which you can contribute, beyond writing code. The goa
 
 ## Asking Questions
 
-Have a question? Please open a [discussion](https://github.com/jessy2027/AlphaCodeIDE/discussions) or file an issue.
+Have a question? Please open a [discussion](https://github.com/jessy2027/AlphaCode/discussions) or file an issue.
 
 ## Providing Feedback
 
-Your comments and feedback are welcome! Please use [GitHub Issues](https://github.com/jessy2027/AlphaCodeIDE/issues) to share your thoughts.
+Your comments and feedback are welcome! Please use [GitHub Issues](https://github.com/jessy2027/AlphaCode/issues) to share your thoughts.
 
 ## Reporting Issues
 
@@ -22,9 +22,9 @@ The AlphaCode project is primarily contained in this repository. If you find an 
 
 ### Look For an Existing Issue
 
-Before you create a new issue, please do a search in [open issues](https://github.com/jessy2027/AlphaCodeIDE/issues) to see if the issue or feature request has already been filed.
+Before you create a new issue, please do a search in [open issues](https://github.com/jessy2027/AlphaCode/issues) to see if the issue or feature request has already been filed.
 
-Be sure to scan through the [most popular](https://github.com/jessy2027/AlphaCodeIDE/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc) feature requests.
+Be sure to scan through the [most popular](https://github.com/jessy2027/AlphaCode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc) feature requests.
 
 If you find your issue already exists, make relevant comments and add your [reaction](https://github.com/blog/2119-add-reactions-to-pull-requests-issues-and-comments). Use a reaction in place of a "+1" comment:
 

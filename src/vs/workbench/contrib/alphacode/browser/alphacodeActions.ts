@@ -22,6 +22,8 @@ import { IViewsService } from "../../../services/views/common/viewsService.js";
 import { VIBE_CODING_VIEW_ID } from "../common/alphacode.js";
 import { KeyMod, KeyCode } from "../../../../base/common/keyCodes.js";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingsRegistry.js";
+import { ISetupWizardService } from "./setup/setupWizardService.js";
+import { ICommandService } from "../../../../platform/commands/common/commands.js";
 
 // Generate Code Command
 class GenerateCodeAction extends Action2 {
@@ -355,6 +357,37 @@ class OpenAlphaCodeAction extends Action2 {
 	}
 }
 
+// Reset Setup Wizard Command
+class ResetSetupWizardAction extends Action2 {
+	constructor() {
+		super({
+			id: "alphacode.resetSetupWizard",
+			title: localize2("alphacode.resetSetupWizard", "Reset Setup Wizard"),
+			category: Categories.View,
+			f1: true,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const setupWizardService = accessor.get(ISetupWizardService);
+		const notificationService = accessor.get(INotificationService);
+		const commandService = accessor.get(ICommandService);
+
+		setupWizardService.resetSetup();
+
+		notificationService.notify({
+			severity: Severity.Info,
+			message: localize(
+				"alphacode.setupReset",
+				"Setup wizard has been reset. Please reload the window to see the setup wizard again.",
+			),
+		});
+
+		// Optionally reload the window
+		await commandService.executeCommand("workbench.action.reloadWindow");
+	}
+}
+
 // Register all actions
 registerAction2(OpenAlphaCodeAction);
 registerAction2(GenerateCodeAction);
@@ -362,3 +395,4 @@ registerAction2(RefactorCodeAction);
 registerAction2(ExplainCodeAction);
 registerAction2(IndexWorkspaceAction);
 registerAction2(GenerateDocumentationAction);
+registerAction2(ResetSetupWizardAction);
