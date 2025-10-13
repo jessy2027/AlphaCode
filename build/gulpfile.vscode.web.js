@@ -45,6 +45,9 @@ const vscodeWebResourceIncludes = [
 	// Extensions
 	'out-build/vs/workbench/contrib/extensions/browser/media/{theme-icon.png,language-icon.svg}',
 
+	// AlphaCode Setup
+	'out-build/vs/workbench/contrib/alphacode/browser/setup/media/*.{svg,png}',
+
 	// Webview
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.{js,html}',
 

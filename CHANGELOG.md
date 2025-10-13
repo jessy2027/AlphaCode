@@ -1,11 +1,41 @@
 # Changelog
 
-All notable changes to AlphaCodeIDE will be documented in this file.
+All notable changes to AlphaCodeIDE will be
+
+---
+
+## [Unreleased]
+
+### Added
+-
+
+### Changed
+-
+
+### Fixed
+-
+
+### Removed
+-
+
+---
+
+documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.96.11] - 2025-10-13
+
+### Fixed
+- **AlphaCode media assets not loading in production builds**
+  - Added AlphaCode setup media files to build process (`gulpfile.vscode.js` and `gulpfile.vscode.web.js`)
+  - Fixed `alphacode-logo.png` failing to load after GitHub compilation (ERR_FILE_NOT_FOUND)
+  - Setup wizard logo now displays correctly in compiled releases
+
+---
+
+## [1.96.10] - 2025-10-13
 
 ### Added
 - **First-time setup wizard** with modern UI for initial configuration
