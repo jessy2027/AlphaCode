@@ -131,6 +131,8 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 				if (updateType === UpdateType.Archive) {
 					this.setState(State.AvailableForDownload(update));
+					// Automatically start downloading the update
+					this.doDownloadUpdate(State.AvailableForDownload(update));
 					return Promise.resolve(null);
 				}
 
@@ -177,19 +179,63 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 
 	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		if (state.update.url) {
-			this.nativeHostMainService.openExternal(undefined, state.update.url);
+		if (!state.update.url) {
+			this.logService.error('Update URL is missing');
+			this.setState(State.Idle(getUpdateType(), 'Update URL is missing'));
+			return;
 		}
-		this.setState(State.Idle(getUpdateType()));
+
+		this.setState(State.Downloading);
+
+		try {
+			await this.cleanup(state.update.version);
+
+			const updatePackagePath = await this.getUpdatePackagePath(state.update.version);
+			const exists = await pfs.Promises.exists(updatePackagePath);
+
+			if (exists) {
+				this.logService.info('Update package already exists:', updatePackagePath);
+				this.availableUpdate = { packagePath: updatePackagePath };
+				this.setState(State.Ready(state.update));
+				return;
+			}
+
+			const downloadPath = `${updatePackagePath}.tmp`;
+
+			this.logService.info('Downloading update from:', state.update.url);
+			this.logService.info('Download path:', downloadPath);
+
+			const context = await this.requestService.request({ url: state.update.url }, CancellationToken.None);
+			await this.fileService.writeFile(URI.file(downloadPath), context.stream);
+
+			if (state.update.sha256hash) {
+				this.logService.info('Verifying checksum...');
+				await checksum(downloadPath, state.update.sha256hash);
+			}
+
+			await pfs.Promises.rename(downloadPath, updatePackagePath, false);
+
+			this.availableUpdate = { packagePath: updatePackagePath };
+			this.setState(State.Downloaded(state.update));
+
+			this.logService.info('Update downloaded successfully:', updatePackagePath);
+
+			// Automatically apply the update
+			await this.doApplyUpdate();
+		} catch (err) {
+			this.logService.error('Failed to download update:', err);
+			this.setState(State.Idle(getUpdateType(), err instanceof Error ? err.message : String(err)));
+		}
 	}
 
 	private async getUpdatePackagePath(version: string): Promise<string> {
 		const cachePath = await this.cachePath;
-		return path.join(cachePath, `CodeSetup-${this.productService.quality}-${version}.exe`);
+		const extension = getUpdateType() === UpdateType.Archive ? '.zip' : '.exe';
+		return path.join(cachePath, `CodeSetup-${this.productService.quality}-${version}${extension}`);
 	}
 
 	private async cleanup(exceptVersion: string | null = null): Promise<void> {
-		const filter = exceptVersion ? (one: string) => !(new RegExp(`${this.productService.quality}-${exceptVersion}\\.exe$`).test(one)) : () => true;
+		const filter = exceptVersion ? (one: string) => !(new RegExp(`${this.productService.quality}-${exceptVersion}\\.(exe|zip)$`).test(one)) : () => true;
 
 		const cachePath = await this.cachePath;
 		const versions = await pfs.Promises.readdir(cachePath);
@@ -217,28 +263,125 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const update = this.state.update;
 		this.setState(State.Updating(update));
 
-		const cachePath = await this.cachePath;
+		if (getUpdateType() === UpdateType.Archive) {
+			// For Archive: extract and replace files, then wait for user to restart
+			try {
+				await this.extractAndReplaceArchive();
+				this.setState(State.Ready(update));
+				this.logService.info('Update applied successfully. Ready to restart.');
+				// Don't restart automatically - let the user decide when to restart
+			} catch (err) {
+				this.logService.error('Failed to apply update:', err);
+				this.availableUpdate = undefined;
+				this.setState(State.Idle(getUpdateType(), err instanceof Error ? err.message : String(err)));
+			}
+		} else {
+			// For Setup: launch installer
+			const cachePath = await this.cachePath;
 
-		this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
+			this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
 
-		await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
-		const child = spawn(this.availableUpdate.packagePath, ['/verysilent', '/log', `/update="${this.availableUpdate.updateFilePath}"`, '/nocloseapplications', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
-			detached: true,
-			stdio: ['ignore', 'ignore', 'ignore'],
-			windowsVerbatimArguments: true
+			await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
+			const child = spawn(this.availableUpdate.packagePath, ['/verysilent', '/log', `/update="${this.availableUpdate.updateFilePath}"`, '/nocloseapplications', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
+				detached: true,
+				stdio: ['ignore', 'ignore', 'ignore'],
+				windowsVerbatimArguments: true
+			});
+
+			child.once('exit', () => {
+				this.availableUpdate = undefined;
+				this.setState(State.Idle(getUpdateType()));
+			});
+
+			const readyMutexName = `${this.productService.win32MutexName}-ready`;
+			const mutex = await import('@vscode/windows-mutex');
+
+			// poll for mutex-ready
+			pollUntil(() => mutex.isActive(readyMutexName))
+				.then(() => this.setState(State.Ready(update)));
+		}
+	}
+
+	private async extractAndReplaceArchive(): Promise<void> {
+		if (!this.availableUpdate) {
+			throw new Error('No update available');
+		}
+
+		const yauzl = await import('yauzl');
+		const appDir = path.dirname(path.dirname(process.execPath)); // Go up from 'resources/app' to app root
+		const extractPath = path.join(await this.cachePath, 'extracted');
+
+		this.logService.info('Extracting update to:', extractPath);
+
+		// Create extract directory
+		await fs.promises.mkdir(extractPath, { recursive: true });
+
+		// Extract zip using yauzl
+		await new Promise<void>((resolve, reject) => {
+			yauzl.open(this.availableUpdate!.packagePath, { lazyEntries: true }, (err, zipfile) => {
+				if (err || !zipfile) {
+					reject(err || new Error('Failed to open zip file'));
+					return;
+				}
+
+				zipfile.readEntry();
+				zipfile.on('entry', (entry) => {
+					const entryPath = path.join(extractPath, entry.fileName);
+
+					if (/\/$/.test(entry.fileName)) {
+						// Directory entry
+						fs.promises.mkdir(entryPath, { recursive: true }).then(() => {
+							zipfile.readEntry();
+						}).catch(reject);
+					} else {
+						// File entry
+						zipfile.openReadStream(entry, (err, readStream) => {
+							if (err || !readStream) {
+								reject(err || new Error('Failed to read entry'));
+								return;
+							}
+
+							fs.promises.mkdir(path.dirname(entryPath), { recursive: true }).then(() => {
+								const writeStream = fs.createWriteStream(entryPath);
+								readStream.pipe(writeStream);
+								writeStream.on('finish', () => {
+									zipfile.readEntry();
+								});
+								writeStream.on('error', reject);
+							}).catch(reject);
+						});
+					}
+				});
+
+				zipfile.on('end', () => {
+					resolve();
+				});
+
+				zipfile.on('error', reject);
+			});
 		});
 
-		child.once('exit', () => {
-			this.availableUpdate = undefined;
-			this.setState(State.Idle(getUpdateType()));
-		});
+		this.logService.info('Replacing application files...');
+		// Copy extracted files to application directory
+		await this.copyRecursive(extractPath, appDir);
 
-		const readyMutexName = `${this.productService.win32MutexName}-ready`;
-		const mutex = await import('@vscode/windows-mutex');
+		this.logService.info('Update files replaced successfully');
+	}
 
-		// poll for mutex-ready
-		pollUntil(() => mutex.isActive(readyMutexName))
-			.then(() => this.setState(State.Ready(update)));
+	private async copyRecursive(src: string, dest: string): Promise<void> {
+		const entries = await fs.promises.readdir(src, { withFileTypes: true });
+
+		for (const entry of entries) {
+			const srcPath = path.join(src, entry.name);
+			const destPath = path.join(dest, entry.name);
+
+			if (entry.isDirectory()) {
+				await fs.promises.mkdir(destPath, { recursive: true });
+				await this.copyRecursive(srcPath, destPath);
+			} else {
+				await fs.promises.copyFile(srcPath, destPath);
+			}
+		}
 	}
 
 	protected override doQuitAndInstall(): void {
@@ -250,7 +393,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		if (this.availableUpdate.updateFilePath) {
 			fs.unlinkSync(this.availableUpdate.updateFilePath);
+		} else if (getUpdateType() === UpdateType.Archive) {
+			// For Archive installations, restart the application
+			this.logService.info('Restarting application to apply update...');
+			this.lifecycleMainService.relaunch();
 		} else {
+			// For Setup installations, launch the installer
 			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
 				detached: true,
 				stdio: ['ignore', 'ignore', 'ignore']
