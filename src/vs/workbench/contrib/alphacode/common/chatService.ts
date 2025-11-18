@@ -59,8 +59,8 @@ export interface IToolResult {
 }
 
 export interface IChatTool {
-	name: string;
-	description: string;
+        name: string;
+        description: string;
 	parameters: {
 		type: 'object';
 		properties: Record<
@@ -73,7 +73,16 @@ export interface IChatTool {
 		>;
 		required?: string[];
 	};
-	execute(parameters: any): Promise<string>;
+        execute(parameters: any): Promise<string>;
+}
+
+export interface IChatToolState {
+        name: string;
+        description: string;
+        enabled: boolean;
+        lastRunAt?: number;
+        lastResultSummary?: string;
+        lastError?: string;
 }
 
 export interface IEditProposalChange {
@@ -113,10 +122,15 @@ export interface IAlphaCodeChatService {
 	 */
 	readonly onDidCreateSession: Event<IChatSession>;
 
-	/**
-	 * Event fired when streaming chunks arrive
-	 */
-	readonly onDidStreamChunk: Event<IStreamChunk>;
+        /**
+         * Event fired when streaming chunks arrive
+         */
+        readonly onDidStreamChunk: Event<IStreamChunk>;
+
+        /**
+         * Event fired when a tool state changes (enabled/disabled or execution metadata)
+         */
+        readonly onDidChangeToolState: Event<IChatToolState[]>;
 
 	/**
 	 * Event fired when a new edit proposal is created
@@ -168,10 +182,20 @@ export interface IAlphaCodeChatService {
 	 */
 	exportSession(sessionId: string): string;
 
-	/**
-	 * Get available tools
-	 */
-	getAvailableTools(): IChatTool[];
+        /**
+         * Get available tools
+         */
+        getAvailableTools(): IChatTool[];
+
+        /**
+         * Get the current state (enablement + metadata) for all tools
+         */
+        getToolStates(): IChatToolState[];
+
+        /**
+         * Enable or disable a tool
+         */
+        setToolEnabled(toolName: string, enabled: boolean): Promise<void>;
 
 	/**
 	 * Execute a tool call

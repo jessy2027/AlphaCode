@@ -41,7 +41,7 @@ import {
 	SIDE_BAR_FOREGROUND,
 } from "../../../common/theme.js";
 import { IAlphaCodeChatService } from "../common/chatService.js";
-import type { IChatMessage, IChatSession } from "../common/chatService.js";
+import type { IChatMessage, IChatSession, IChatToolState } from "../common/chatService.js";
 import { IAlphaCodeAIService } from "../common/aiService.js";
 import { IEditorService } from "../../../services/editor/common/editorService.js";
 import { ProposalsView } from "./proposalsView.js";
@@ -69,10 +69,21 @@ export class VibeCodingView extends ViewPane {
 	private streamingToolBlocks = new Map<string, HTMLElement>();
 	private lastToolBlocksCheck = "";
 	
-	private isConfigured = false;
-	private isStreaming = false;
-	private autoScrollPinned = true;
-	private lastScrollTop = 0;
+private isConfigured = false;
+private isStreaming = false;
+private autoScrollPinned = true;
+private lastScrollTop = 0;
+private statusProviderElement: HTMLElement | undefined;
+private statusSessionElement: HTMLElement | undefined;
+private statusStreamingElement: HTMLElement | undefined;
+private statusToolsElement: HTMLElement | undefined;
+private toolbeltListElement: HTMLElement | undefined;
+private toolbeltDisposables: IDisposable[] = [];
+private providerLabelElement: HTMLElement | undefined;
+private settingsProviderSelect: HTMLSelectElement | undefined;
+private settingsModelInput: HTMLInputElement | undefined;
+private settingsStreamToggle: HTMLButtonElement | undefined;
+private connectionStatusElement: HTMLElement | undefined;
 	
 	private readonly markdownRenderer: MarkdownRenderer;
 	private readonly proposalsView: ProposalsView;
@@ -111,22 +122,40 @@ export class VibeCodingView extends ViewPane {
 		this.isConfigured = !!this.aiService.getProviderConfig();
 		this.proposalsView = this.instantiationService.createInstance(ProposalsView);
 		
-		this._register(this.proposalsView);
-		this._register(
-			this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk))
-		);
-		this._register(
-			this.chatService.onDidAddMessage(() => {
-				if (!this.isStreaming) {
-					this.renderMessages();
-				}
-			})
-		);
-		this._register(
-			this.aiService.onDidChangeConfiguration(() => {
-				this.handleConfigurationChange();
-			})
-		);
+this._register(this.proposalsView);
+this._register(
+this.chatService.onDidStreamChunk((chunk) => this.onStreamChunk(chunk))
+);
+this._register(
+this.chatService.onDidAddMessage(() => {
+if (!this.isStreaming) {
+this.renderMessages();
+}
+this.updateStatusStrip();
+})
+);
+this._register(
+this.aiService.onDidChangeConfiguration(() => {
+this.handleConfigurationChange();
+})
+);
+this._register(
+this.chatService.onDidChangeToolState(() => {
+this.refreshToolbelt();
+this.updateStatusStrip();
+})
+);
+this._register(
+this.configurationService.onDidChangeConfiguration((event) => {
+if (event.affectsConfiguration('alphacode.chat.streamResponses')) {
+this.updateSettingsPanel();
+this.updateStatusStrip();
+}
+})
+);
+this._register({
+dispose: () => this.disposeToolbeltListeners(),
+});
 	}
 
 	protected override renderBody(container: HTMLElement): void {
@@ -148,23 +177,27 @@ export class VibeCodingView extends ViewPane {
 		this.layoutWelcome();
 	}
 
-	private handleConfigurationChange(): void {
-		const wasConfigured = this.isConfigured;
-		this.isConfigured = !!this.aiService.getProviderConfig();
-		
-		if (!this.containerElement) return;
+private handleConfigurationChange(): void {
+const wasConfigured = this.isConfigured;
+this.isConfigured = !!this.aiService.getProviderConfig();
 
-		if (!wasConfigured && this.isConfigured) {
-			clearNode(this.containerElement);
-			this.renderChat(this.containerElement);
-		} else if (wasConfigured && !this.isConfigured) {
-			clearNode(this.containerElement);
-			this.renderWelcome(this.containerElement);
-		}
-	}
+if (!this.containerElement) return;
 
-	private renderWelcome(container: HTMLElement): void {
-		this.welcomeContainer = append(container, $(".alphacode-vibe-welcome"));
+if (!wasConfigured && this.isConfigured) {
+clearNode(this.containerElement);
+this.renderChat(this.containerElement);
+} else if (wasConfigured && !this.isConfigured) {
+clearNode(this.containerElement);
+this.renderWelcome(this.containerElement);
+} else if (this.isConfigured) {
+this.updateProviderBadge();
+this.updateSettingsPanel();
+this.updateStatusStrip();
+}
+}
+
+private renderWelcome(container: HTMLElement): void {
+this.welcomeContainer = append(container, $(".alphacode-vibe-welcome"));
 
 		append(
 			this.welcomeContainer,
@@ -207,13 +240,251 @@ export class VibeCodingView extends ViewPane {
 			localize("alphacode.vibe.welcome.step.live", "Invite collaborators to start live pair programming sessions.")
 		];
 		
-		steps.forEach(step => append(checklist, $("li", undefined, step)));
-	}
+steps.forEach(step => append(checklist, $("li", undefined, step)));
+}
 
-	private renderChat(container: HTMLElement): void {
-		this.chatContainer = append(container, $(".alphacode-chat-container"));
+private renderStatusStrip(parent: HTMLElement): void {
+const strip = append(parent, $(".alphacode-chat-status-strip"));
+this.statusProviderElement = append(strip, $("span.alphacode-chat-status-pill"));
+this.statusSessionElement = append(strip, $("span.alphacode-chat-status-pill"));
+this.statusToolsElement = append(strip, $("span.alphacode-chat-status-pill"));
+this.statusStreamingElement = append(strip, $("span.alphacode-chat-status-pill.streaming"));
+}
 
-		renderChatHeader({
+private updateStatusStrip(): void {
+if (!this.statusProviderElement || !this.statusSessionElement || !this.statusStreamingElement || !this.statusToolsElement) {
+return;
+}
+
+const providerConfig = this.aiService.getProviderConfig();
+const providerLabel = providerConfig
+? providerConfig.model || providerConfig.type
+: localize("alphacode.chat.status.provider.unset", "No provider configured");
+this.statusProviderElement.textContent = localize("alphacode.chat.status.provider", "Model: {0}", providerLabel);
+
+const session = this.chatService.getCurrentSession();
+const visibleMessages = session ? session.messages.filter(message => !message.hidden).length : 0;
+this.statusSessionElement.textContent = localize("alphacode.chat.status.messages", "{0} messages", visibleMessages);
+
+const toolStates = this.chatService.getToolStates();
+const enabledCount = toolStates.filter(state => state.enabled).length;
+this.statusToolsElement.textContent = localize("alphacode.chat.status.tools", "Tools: {0}/{1}", enabledCount, toolStates.length);
+
+const streamEnabled = !!this.configurationService.getValue<boolean>('alphacode.chat.streamResponses');
+const streamLabel = this.isStreaming
+? localize("alphacode.chat.status.streaming", "Streaming…")
+: streamEnabled
+? localize("alphacode.chat.status.ready", "Streaming ready")
+: localize("alphacode.chat.status.manual", "Manual replies");
+this.statusStreamingElement.textContent = streamLabel;
+this.statusStreamingElement.classList.toggle("active", this.isStreaming);
+}
+
+private renderToolbelt(parent: HTMLElement): void {
+const wrapper = append(parent, $(".alphacode-toolbelt"));
+const header = append(wrapper, $("div.alphacode-toolbelt-header"));
+append(header, $("span", undefined, localize("alphacode.chat.tools.header", "Workspace tools")));
+append(wrapper, $("p.alphacode-toolbelt-hint", undefined, localize("alphacode.chat.tools.hint", "Enable or disable tools to guide AlphaCode during reasoning.")));
+this.toolbeltListElement = append(wrapper, $("div.alphacode-toolbelt-list"));
+this.refreshToolbelt();
+}
+
+private disposeToolbeltListeners(): void {
+for (const disposable of this.toolbeltDisposables) {
+disposable.dispose();
+}
+this.toolbeltDisposables = [];
+}
+
+private refreshToolbelt(): void {
+if (!this.toolbeltListElement) {
+return;
+}
+
+this.disposeToolbeltListeners();
+clearNode(this.toolbeltListElement);
+
+const toolStates = this.chatService.getToolStates();
+if (toolStates.length === 0) {
+append(this.toolbeltListElement, $("span.alphacode-toolbelt-empty", undefined, localize("alphacode.chat.tools.empty", "No tools available for this workspace.")));
+return;
+}
+
+for (const state of toolStates) {
+const card = append(this.toolbeltListElement, $("div.alphacode-tool-card"));
+card.classList.toggle("disabled", !state.enabled);
+card.classList.toggle("error", !!state.lastError);
+
+const cardHeader = append(card, $("div.alphacode-tool-card-header"));
+append(cardHeader, $("span.alphacode-tool-name", undefined, state.name));
+const toggleButton = append(cardHeader, $("button.alphacode-tool-toggle", undefined, state.enabled
+? localize("alphacode.chat.tools.enabled", "Enabled")
+: localize("alphacode.chat.tools.disabled", "Disabled"))) as HTMLButtonElement;
+toggleButton.classList.toggle("off", !state.enabled);
+
+const toggleListener = addDisposableListener(toggleButton, "click", async () => {
+toggleButton.disabled = true;
+try {
+await this.chatService.setToolEnabled(state.name, !state.enabled);
+} catch (error) {
+console.error('[AlphaCode] Failed to toggle tool', error);
+} finally {
+toggleButton.disabled = false;
+}
+});
+this.toolbeltDisposables.push(toggleListener);
+this._register(toggleListener);
+
+append(card, $("p.alphacode-tool-description", undefined, state.description));
+const lastRunLabel = state.lastRunAt
+? localize("alphacode.chat.tools.lastRun", "Last run {0}", this.formatRelativeTime(state.lastRunAt))
+: localize("alphacode.chat.tools.neverRun", "Never executed yet");
+append(card, $("span.alphacode-tool-meta", undefined, lastRunLabel));
+
+if (state.lastResultSummary && !state.lastError) {
+const summary = state.lastResultSummary.length > 160
+? `${state.lastResultSummary.slice(0, 157)}…`
+: state.lastResultSummary;
+append(card, $("span.alphacode-tool-summary", undefined, summary));
+}
+
+if (state.lastError) {
+append(card, $("span.alphacode-tool-meta error", undefined, state.lastError));
+}
+}
+}
+
+private renderSettingsPanel(parent: HTMLElement): void {
+const panel = append(parent, $("div.alphacode-chat-settings-panel"));
+append(panel, $("div.alphacode-chat-settings-title", undefined, localize("alphacode.chat.settings.title", "AI Settings")));
+const form = append(panel, $("div.alphacode-chat-settings-grid"));
+
+const providerRow = append(form, $("div.alphacode-chat-settings-row"));
+append(providerRow, $("label", undefined, localize("alphacode.chat.settings.provider", "Provider")));
+const providerSelect = append(providerRow, $("select")) as HTMLSelectElement;
+const providerOptions = [
+{ value: "openai", label: "OpenAI" },
+{ value: "anthropic", label: "Anthropic" },
+{ value: "azure", label: "Azure OpenAI" },
+{ value: "local", label: localize("alphacode.chat.settings.provider.local", "Local") },
+];
+for (const option of providerOptions) {
+append(providerSelect, $("option", { value: option.value }, option.label));
+}
+this.settingsProviderSelect = providerSelect;
+this._register(addDisposableListener(providerSelect, "change", async () => {
+await this.configurationService.updateValue('alphacode.ai.provider', providerSelect.value);
+}));
+
+const modelRow = append(form, $("div.alphacode-chat-settings-row"));
+append(modelRow, $("label", undefined, localize("alphacode.chat.settings.model", "Model")));
+const modelInput = append(modelRow, $("input", { type: "text", placeholder: localize("alphacode.chat.settings.model.placeholder", "e.g. gpt-4.1, claude-3.5"), })) as HTMLInputElement;
+this.settingsModelInput = modelInput;
+this._register(addDisposableListener(modelInput, "blur", async () => {
+await this.configurationService.updateValue('alphacode.ai.model', modelInput.value.trim());
+}));
+this._register(addDisposableListener(modelInput, "keydown", (event: KeyboardEvent) => {
+if (event.key === "Enter") {
+event.preventDefault();
+modelInput.blur();
+}
+}));
+
+const streamingRow = append(form, $("div.alphacode-chat-settings-row"));
+append(streamingRow, $("label", undefined, localize("alphacode.chat.settings.streaming", "Streaming")));
+const streamToggle = append(streamingRow, $("button.alphacode-chat-stream-toggle")) as HTMLButtonElement;
+this.settingsStreamToggle = streamToggle;
+this._register(addDisposableListener(streamToggle, "click", async () => {
+const current = !!this.configurationService.getValue<boolean>('alphacode.chat.streamResponses');
+await this.configurationService.updateValue('alphacode.chat.streamResponses', !current);
+}));
+
+this.connectionStatusElement = append(panel, $("div.alphacode-chat-settings-status", undefined, localize("alphacode.chat.settings.status.idle", "Connection not tested")));
+const actions = append(panel, $("div.alphacode-chat-settings-actions"));
+const testButton = append(actions, $("button.monaco-text-button", undefined, localize("alphacode.chat.settings.test", "Test connection"))) as HTMLButtonElement;
+this._register(addDisposableListener(testButton, "click", () => this.runConnectionTest(testButton)));
+const openSettings = append(actions, $("button.monaco-text-button.secondary", undefined, localize("alphacode.chat.settings.open", "Open full settings"))) as HTMLButtonElement;
+this._register(addDisposableListener(openSettings, "click", async () => {
+await this.commandService.executeCommand('workbench.action.openSettings', '@alphacode ai');
+}));
+
+this.updateSettingsPanel();
+}
+
+private updateSettingsPanel(): void {
+if (this.settingsProviderSelect) {
+const provider = this.configurationService.getValue<string>('alphacode.ai.provider') ?? 'openai';
+this.settingsProviderSelect.value = provider;
+}
+
+if (this.settingsModelInput && document.activeElement !== this.settingsModelInput) {
+const model = this.configurationService.getValue<string>('alphacode.ai.model') ?? '';
+this.settingsModelInput.value = model;
+}
+
+if (this.settingsStreamToggle) {
+const streamEnabled = !!this.configurationService.getValue<boolean>('alphacode.chat.streamResponses');
+this.settingsStreamToggle.textContent = streamEnabled
+? localize("alphacode.chat.settings.streaming.on", "Streaming on")
+: localize("alphacode.chat.settings.streaming.off", "Streaming off");
+this.settingsStreamToggle.classList.toggle("off", !streamEnabled);
+}
+}
+
+private updateProviderBadge(): void {
+if (!this.providerLabelElement) {
+return;
+}
+const config = this.aiService.getProviderConfig();
+const label = config?.model || config?.type || localize("alphacode.chat.provider.placeholder", "AlphaCode AI");
+this.providerLabelElement.textContent = label;
+}
+
+private async runConnectionTest(button: HTMLButtonElement): Promise<void> {
+if (!this.connectionStatusElement) {
+return;
+}
+this.connectionStatusElement.textContent = localize("alphacode.chat.settings.status.testing", "Testing connection…");
+button.disabled = true;
+try {
+const success = await this.aiService.testConnection();
+this.connectionStatusElement.textContent = success
+? localize("alphacode.chat.settings.status.success", "Connection successful")
+: localize("alphacode.chat.settings.status.error", "Unable to reach provider");
+} catch (error) {
+console.error('[AlphaCode] Connection test failed', error);
+this.connectionStatusElement.textContent = localize("alphacode.chat.settings.status.error", "Unable to reach provider");
+} finally {
+button.disabled = false;
+}
+}
+
+private formatRelativeTime(timestamp?: number): string {
+if (!timestamp) {
+return localize("alphacode.chat.relative.never", "never");
+}
+
+const diffMs = Date.now() - timestamp;
+const minutes = Math.floor(diffMs / 60000);
+if (minutes < 1) {
+return localize("alphacode.chat.relative.justNow", "just now");
+}
+if (minutes < 60) {
+return localize("alphacode.chat.relative.minutes", "{0}m ago", minutes);
+}
+const hours = Math.floor(minutes / 60);
+if (hours < 24) {
+return localize("alphacode.chat.relative.hours", "{0}h ago", hours);
+}
+const days = Math.floor(hours / 24);
+return localize("alphacode.chat.relative.days", "{0}d ago", days);
+}
+
+private renderChat(container: HTMLElement): void {
+this.disposeToolbeltListeners();
+this.chatContainer = append(container, $(".alphacode-chat-container"));
+
+renderChatHeader({
 			parent: this.chatContainer,
 			register: (disposable) => this._register(disposable),
 			onClear: async () => {
@@ -222,32 +493,43 @@ export class VibeCodingView extends ViewPane {
 			},
 			openerService: this.openerService,
 			productService: this.productService,
-		});
+});
 
-		this.messagesContainer = renderChatMessageList({
-			parent: this.chatContainer,
-			register: (disposable) => this._register(disposable),
-			onScroll: (scrollTop) => this.handleScroll(scrollTop),
-		});
-		this.renderMessages();
+const metaContainer = append(this.chatContainer, $(".alphacode-chat-meta"));
+this.renderStatusStrip(metaContainer);
+const metaRow = append(metaContainer, $(".alphacode-chat-meta-secondary"));
+this.renderToolbelt(metaRow);
+this.renderSettingsPanel(metaRow);
+
+this.messagesContainer = renderChatMessageList({
+parent: this.chatContainer,
+register: (disposable) => this._register(disposable),
+onScroll: (scrollTop) => this.handleScroll(scrollTop),
+});
+this.renderMessages();
 
 		const proposalsContainer = append(this.chatContainer, $(".alphacode-proposals-container"));
 		this.proposalsView.renderIn(proposalsContainer);
 
 		const providerConfig = this.aiService.getProviderConfig();
 		const modelName = providerConfig?.model || "AlphaCode AI";
-		const inputArea = renderChatInputArea({
-			parent: this.chatContainer,
-			register: <T extends IDisposable>(disposable: T) => this._register(disposable) as T,
-			onToggleSend: () => this.isStreaming ? this.stopStreaming() : this.sendMessage(),
-			onEnterSend: () => this.sendMessage(),
-			providerLabel: modelName,
-		});
-		
-		this.inputTextArea = inputArea.input;
-		this.sendStopButton = inputArea.sendStopButton;
-		this.updateSendStopButton();
-	}
+const inputArea = renderChatInputArea({
+parent: this.chatContainer,
+register: <T extends IDisposable>(disposable: T) => this._register(disposable) as T,
+onToggleSend: () => this.isStreaming ? this.stopStreaming() : this.sendMessage(),
+onEnterSend: () => this.sendMessage(),
+providerLabel: modelName,
+});
+
+this.inputTextArea = inputArea.input;
+this.sendStopButton = inputArea.sendStopButton;
+this.providerLabelElement = inputArea.providerLabelElement;
+this.updateSendStopButton();
+this.updateProviderBadge();
+this.updateSettingsPanel();
+this.refreshToolbelt();
+this.updateStatusStrip();
+}
 
 	private scrollDebounceTimeout: number | undefined;
 
@@ -270,8 +552,8 @@ export class VibeCodingView extends ViewPane {
 		}, 50) as unknown as number;
 	}
 
-	private renderMessages(): void {
-		if (!this.messagesContainer) return;
+private renderMessages(): void {
+if (!this.messagesContainer) return;
 
 		const preserveScroll = !this.autoScrollPinned;
 		const distanceFromBottom = preserveScroll ? this.getDistanceFromBottom() : 0;
@@ -307,8 +589,9 @@ export class VibeCodingView extends ViewPane {
 			this.ensureStreamingMessage(this.currentStreamingMessageId);
 		}
 
-		this.scrollIfNeeded(false, preserveScroll, distanceFromBottom);
-	}
+this.scrollIfNeeded(false, preserveScroll, distanceFromBottom);
+this.updateStatusStrip();
+}
 
 	private ensureSession(): IChatSession {
 		return this.chatService.getCurrentSession() || this.chatService.createSession();
@@ -977,24 +1260,25 @@ export class VibeCodingView extends ViewPane {
 		}
 	}
 
-	private onStreamChunk(chunk: { content: string; done: boolean; messageId?: string }): void {
-		// Stop render loop when streaming is complete
-		if (chunk.done) {
-			this.stopStreamingRenderLoop();
-			this.isStreaming = false;
-			this.isCreatingStreamingMessage = false;
-			this.currentStreamingBuffer = "";
-			this.currentStreamingMessageId = undefined;
-			this.currentStreamingMessageElement = undefined;
+private onStreamChunk(chunk: { content: string; done: boolean; messageId?: string }): void {
+// Stop render loop when streaming is complete
+if (chunk.done) {
+this.stopStreamingRenderLoop();
+this.isStreaming = false;
+this.isCreatingStreamingMessage = false;
+this.currentStreamingBuffer = "";
+this.currentStreamingMessageId = undefined;
+this.currentStreamingMessageElement = undefined;
 
-			// Clean up streaming tool blocks
-			this.streamingToolBlocks.clear();
-			this.lastToolBlocksCheck = "";
+// Clean up streaming tool blocks
+this.streamingToolBlocks.clear();
+this.lastToolBlocksCheck = "";
 
-			this.updateSendStopButton();
-			this.renderMessages();
-			return;
-		}
+this.updateSendStopButton();
+this.updateStatusStrip();
+this.renderMessages();
+return;
+}
 
 		// Ensure we have a streaming message to write to
 		this.ensureStreamingMessage(chunk.messageId);

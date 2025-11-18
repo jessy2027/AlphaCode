@@ -18,6 +18,7 @@ export interface ChatInputAreaOptions {
 export interface ChatInputAreaHandles {
   input: HTMLTextAreaElement;
   sendStopButton: HTMLButtonElement;
+  providerLabelElement: HTMLElement;
 }
 
 export function renderChatInputArea(options: ChatInputAreaOptions): ChatInputAreaHandles {
@@ -32,7 +33,7 @@ export function renderChatInputArea(options: ChatInputAreaOptions): ChatInputAre
   append(left, $("button.alphacode-chat-icon-button", { title: localize("alphacode.chat.attach", "Attach files") }, "+"));
 
   const center = append(toolbar, $(".alphacode-chat-toolbar-center"));
-  append(center, $("span", undefined, options.providerLabel));
+  const providerLabelElement = append(center, $("span.alphacode-chat-provider-label", undefined, options.providerLabel));
 
   const right = append(toolbar, $(".alphacode-chat-toolbar-right"));
   const micButton = append(
@@ -63,5 +64,6 @@ export function renderChatInputArea(options: ChatInputAreaOptions): ChatInputAre
   return {
     input,
     sendStopButton,
+    providerLabelElement,
   };
 }
