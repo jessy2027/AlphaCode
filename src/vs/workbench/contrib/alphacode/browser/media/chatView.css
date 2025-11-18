@@ -18,6 +18,213 @@
     contain: layout style;
 }
 
+.alphacode-chat-meta {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.alphacode-chat-status-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px;
+    color: color-mix(in srgb, var(--vscode-foreground) 75%, transparent);
+}
+
+.alphacode-chat-status-pill {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vscode-editor-background) 85%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-editor-foreground) 15%, transparent);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.alphacode-chat-status-pill.streaming.active {
+    border-color: color-mix(in srgb, var(--vscode-focusBorder) 60%, transparent);
+    color: var(--vscode-focusBorder);
+}
+
+.alphacode-chat-meta-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.alphacode-toolbelt,
+.alphacode-chat-settings-panel {
+    background: color-mix(in srgb, var(--vscode-editorWidget-background) 75%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 60%, transparent);
+    border-radius: 10px;
+    padding: 12px;
+    flex: 1;
+    min-width: 240px;
+}
+
+.alphacode-toolbelt {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alphacode-toolbelt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+}
+
+.alphacode-toolbelt-hint {
+    margin: 0;
+    font-size: 11px;
+    color: color-mix(in srgb, var(--vscode-foreground) 65%, transparent);
+}
+
+.alphacode-toolbelt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.alphacode-toolbelt-empty {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.alphacode-tool-card {
+    border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 40%, transparent);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: color-mix(in srgb, var(--vscode-editor-background) 60%, transparent);
+}
+
+.alphacode-tool-card.disabled {
+    opacity: 0.65;
+}
+
+.alphacode-tool-card.error {
+    border-color: color-mix(in srgb, var(--vscode-errorForeground) 40%, transparent);
+}
+
+.alphacode-tool-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.alphacode-tool-name {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.alphacode-tool-toggle {
+    border: 1px solid color-mix(in srgb, var(--vscode-foreground) 25%, transparent);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    background: color-mix(in srgb, var(--vscode-button-secondaryBackground) 70%, transparent);
+    color: var(--vscode-button-secondaryForeground);
+    transition: all 0.2s ease;
+}
+
+.alphacode-tool-toggle.off {
+    background: transparent;
+    color: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
+}
+
+.alphacode-tool-description {
+    margin: 0;
+    font-size: 12px;
+    color: color-mix(in srgb, var(--vscode-foreground) 70%, transparent);
+}
+
+.alphacode-tool-meta {
+    font-size: 11px;
+    color: color-mix(in srgb, var(--vscode-foreground) 65%, transparent);
+}
+
+.alphacode-tool-meta.error {
+    color: var(--vscode-errorForeground);
+}
+
+.alphacode-tool-summary {
+    font-family: var(--monaco-monospace-font);
+    font-size: 11px;
+    padding: 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--vscode-editor-background) 80%, transparent);
+}
+
+.alphacode-chat-settings-title {
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.alphacode-chat-settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alphacode-chat-settings-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.alphacode-chat-settings-row label {
+    font-weight: 500;
+}
+
+.alphacode-chat-settings-row select,
+.alphacode-chat-settings-row input {
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--vscode-input-border) 60%, transparent);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    padding: 0 8px;
+}
+
+.alphacode-chat-stream-toggle {
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
+    background: color-mix(in srgb, var(--vscode-focusBorder) 20%, transparent);
+    color: var(--vscode-focusBorder);
+    padding: 4px 12px;
+    cursor: pointer;
+}
+
+.alphacode-chat-stream-toggle.off {
+    background: transparent;
+    color: color-mix(in srgb, var(--vscode-foreground) 60%, transparent);
+}
+
+.alphacode-chat-settings-status {
+    font-size: 11px;
+    color: color-mix(in srgb, var(--vscode-foreground) 70%, transparent);
+}
+
+.alphacode-chat-settings-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .alphacode-chat-messages {
     flex: 1;
     overflow-y: auto;
@@ -267,6 +474,15 @@
     gap: 6px;
     font-size: 12px;
     opacity: 0.8;
+}
+
+.alphacode-chat-provider-label {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vscode-badge-background) 65%, transparent);
+    color: var(--vscode-badge-foreground);
+    font-weight: 600;
+    text-transform: uppercase;
 }
 
 .alphacode-chat-toolbar-right {

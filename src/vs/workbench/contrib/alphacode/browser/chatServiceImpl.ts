@@ -17,16 +17,17 @@ import { IAlphaCodeAIService } from "../common/aiService.js";
 import { IChatEditingService } from "../../chat/common/chatEditingService.js";
 import type { IAIMessage } from "../common/aiProvider.js";
 import {
-	IAlphaCodeChatService,
-	IChatContext,
-	IChatMessage,
-	IChatSession,
-	IStreamChunk,
-	IChatTool,
-	IToolCall,
-	IToolResult,
-	IEditProposalWithChanges,
-	IProposalDecision,
+IAlphaCodeChatService,
+IChatContext,
+IChatMessage,
+IChatSession,
+IStreamChunk,
+IChatTool,
+IToolCall,
+IToolResult,
+IEditProposalWithChanges,
+IProposalDecision,
+IChatToolState,
 } from "../common/chatService.js";
 import {
 	IAlphaCodeContextService,
@@ -52,6 +53,7 @@ import { URI } from "../../../../base/common/uri.js";
 const STORAGE_KEY_SESSIONS = "alphacode.chat.sessions";
 const STORAGE_KEY_CURRENT_SESSION = "alphacode.chat.currentSession";
 const STORAGE_KEY_TOOL_DECISIONS = "alphacode.chat.tool.decisions";
+const STORAGE_KEY_TOOL_STATES = "alphacode.chat.toolStates";
 
 // Context limits
 const MAX_WORKSPACE_FILE_REFERENCES = 20;
@@ -82,20 +84,24 @@ export class AlphaCodeChatService
 	private readonly _onDidStreamChunk = this._register(new Emitter<IStreamChunk>());
 	readonly onDidStreamChunk: Event<IStreamChunk> = this._onDidStreamChunk.event;
 
-	private readonly _onDidCreateProposal = this._register(new Emitter<IEditProposalWithChanges>());
-	readonly onDidCreateProposal: Event<IEditProposalWithChanges> = this._onDidCreateProposal.event;
+private readonly _onDidCreateProposal = this._register(new Emitter<IEditProposalWithChanges>());
+readonly onDidCreateProposal: Event<IEditProposalWithChanges> = this._onDidCreateProposal.event;
 
-	private readonly _onDidChangeProposalStatus = this._register(new Emitter<IEditProposalWithChanges>());
-	readonly onDidChangeProposalStatus: Event<IEditProposalWithChanges> = this._onDidChangeProposalStatus.event;
+private readonly _onDidChangeProposalStatus = this._register(new Emitter<IEditProposalWithChanges>());
+readonly onDidChangeProposalStatus: Event<IEditProposalWithChanges> = this._onDidChangeProposalStatus.event;
+
+private readonly _onDidChangeToolState = this._register(new Emitter<IChatToolState[]>());
+readonly onDidChangeToolState: Event<IChatToolState[]> = this._onDidChangeToolState.event;
 
 	// Core state
 	private sessions: Map<string, IChatSession> = new Map();
 	private currentSessionId: string | undefined;
 	private pendingProposals: Map<string, IEditProposalWithChanges> = new Map();
 	private backupContents: Map<string, string> = new Map();
-	private auditLog: IToolEditDecisionRecord[] = [];
-	private proposalSequence = 0;
-	private currentStreamAbortController: AbortController | undefined;
+private auditLog: IToolEditDecisionRecord[] = [];
+private proposalSequence = 0;
+private currentStreamAbortController: AbortController | undefined;
+private toolStates: Map<string, IChatToolState> = new Map();
 
 
 	// Tools and utilities
@@ -131,11 +137,13 @@ export class AlphaCodeChatService
 		this._register(this.proposalManager.onDidChangeStatus(p => this._onDidChangeProposalStatus.fire(p)));
 
 		// Initialize tools
-		this.toolsRegistry = new ChatToolsRegistry(
-			fileService,
-			workspaceContextService,
-			this.handleToolEditProposal.bind(this),
-		);
+this.toolsRegistry = new ChatToolsRegistry(
+fileService,
+workspaceContextService,
+this.handleToolEditProposal.bind(this),
+);
+
+this.initializeToolStates();
 
 		// Initialize stream handler
 		this.streamHandler = new StreamHandler(
@@ -445,28 +453,68 @@ export class AlphaCodeChatService
 	// Tools Management
 	// ============================================================================
 
-	getAvailableTools(): IChatTool[] {
-		return this.toolsRegistry.getAllTools();
-	}
+getAvailableTools(): IChatTool[] {
+const enabled = new Set(
+this.getToolStates()
+.filter(state => state.enabled)
+.map(state => state.name),
+);
+return this.toolsRegistry.getAllTools().filter(tool => enabled.has(tool.name));
+}
+
+getToolStates(): IChatToolState[] {
+this.syncToolStatesWithRegistry();
+return Array.from(this.toolStates.values()).sort((a, b) => {
+if (a.enabled !== b.enabled) {
+return a.enabled ? -1 : 1;
+}
+return a.name.localeCompare(b.name);
+});
+}
+
+async setToolEnabled(toolName: string, enabled: boolean): Promise<void> {
+const state = this.ensureToolState(toolName);
+if (!state) {
+return;
+}
+
+state.enabled = enabled;
+if (enabled) {
+state.lastError = undefined;
+}
+this.persistToolStates();
+this._onDidChangeToolState.fire(this.getToolStates());
+}
 
 	private buildAIMessages(session: IChatSession, context?: IChatContext): IAIMessage[] {
 		const allTools = this.getAvailableTools();
 		return this.promptBuilder.buildAIMessages(session, allTools, context);
 	}
 
-	async executeToolCall(toolCall: IToolCall): Promise<IToolResult> {
-		try {
-			// Handle registry tools
-			const result = await this.toolsRegistry.executeTool(toolCall.name, toolCall.parameters);
-			return { toolCallId: toolCall.id, result };
-		} catch (error) {
-			return {
-				toolCallId: toolCall.id,
-				result: "",
-				error: error instanceof Error ? error.message : localize('alphacode.chat.unknownToolError', 'Unknown error executing tool'),
-			};
-		}
-	}
+async executeToolCall(toolCall: IToolCall): Promise<IToolResult> {
+const state = this.ensureToolState(toolCall.name);
+if (state && !state.enabled) {
+const error = localize('alphacode.chat.toolDisabled', 'Tool "{0}" is disabled. Re-enable it from the tool manager to use it again.', toolCall.name);
+this.updateToolRunState(toolCall.name, { error });
+return { toolCallId: toolCall.id, result: '', error };
+}
+
+try {
+const result = await this.toolsRegistry.executeTool(toolCall.name, toolCall.parameters);
+this.updateToolRunState(toolCall.name, {
+summary: this.messageFormatter.buildToolSummary(result).summary,
+});
+return { toolCallId: toolCall.id, result };
+} catch (error) {
+const message = error instanceof Error ? error.message : localize('alphacode.chat.unknownToolError', 'Unknown error executing tool');
+this.updateToolRunState(toolCall.name, { error: message });
+return {
+toolCallId: toolCall.id,
+result: '',
+error: message,
+};
+}
+}
 
 	private async executeToolCallDuringStreaming(session: IChatSession, toolCall: IToolCall): Promise<void> {
 		// Utiliser le timestamp de détection pour maintenir l'ordre chronologique
@@ -490,11 +538,11 @@ export class AlphaCodeChatService
 		await this.ensureChatEditingView();
 	}
 
-	private createToolMessage(
-		toolCall: IToolCall,
-		toolResult: IToolResult,
-		timestamp: number,
-	): { content: string; metadata: Record<string, any> } {
+private createToolMessage(
+toolCall: IToolCall,
+toolResult: IToolResult,
+timestamp: number,
+): { content: string; metadata: Record<string, any> } {
 		const toolDefinition = this.toolsRegistry.getTool(toolCall.name);
 		const normalizedContent = this.messageFormatter.normalizeToolContent(
 			toolResult.error ?? toolResult.result,
@@ -930,4 +978,77 @@ export class AlphaCodeChatService
 			await session.show();
 		}
 	}
+}
+
+private initializeToolStates(): void {
+const stored = this.storageService.get(
+STORAGE_KEY_TOOL_STATES,
+StorageScope.APPLICATION,
+);
+
+if (stored) {
+try {
+const parsed: IChatToolState[] = JSON.parse(stored);
+this.toolStates = new Map(parsed.map(state => [state.name, state]));
+} catch (error) {
+console.error('[AlphaCode] Failed to parse stored tool states', error);
+this.toolStates = new Map();
+}
+}
+
+this.syncToolStatesWithRegistry();
+this.persistToolStates();
+}
+
+private syncToolStatesWithRegistry(): void {
+let changed = false;
+for (const tool of this.toolsRegistry.getAllTools()) {
+if (!this.toolStates.has(tool.name)) {
+this.toolStates.set(tool.name, {
+name: tool.name,
+description: tool.description,
+enabled: true,
+});
+changed = true;
+} else {
+const existing = this.toolStates.get(tool.name)!;
+if (existing.description !== tool.description) {
+existing.description = tool.description;
+changed = true;
+}
+}
+}
+
+if (changed) {
+this.persistToolStates();
+}
+}
+
+private persistToolStates(): void {
+const serialized = JSON.stringify(Array.from(this.toolStates.values()));
+this.storageService.store(
+STORAGE_KEY_TOOL_STATES,
+serialized,
+StorageScope.APPLICATION,
+StorageTarget.MACHINE,
+);
+}
+
+private ensureToolState(toolName: string): IChatToolState | undefined {
+this.syncToolStatesWithRegistry();
+return this.toolStates.get(toolName);
+}
+
+private updateToolRunState(toolName: string, update: { summary?: string; error?: string }): void {
+const state = this.ensureToolState(toolName);
+if (!state) {
+return;
+}
+
+state.lastRunAt = Date.now();
+state.lastResultSummary = update.summary;
+state.lastError = update.error;
+
+this.persistToolStates();
+this._onDidChangeToolState.fire(this.getToolStates());
 }
